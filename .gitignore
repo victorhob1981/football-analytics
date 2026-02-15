@@ -1,0 +1,95 @@
+# =========================
+# ENV / SENSITIVE
+# =========================
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.crt
+secrets/
+credentials/
+config/local.yml
+config/*.local.yml
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# =========================
+# AIRFLOW
+# =========================
+airflow.db
+airflow-webserver.pid
+logs/
+infra/airflow/logs/
+infra/airflow/*.log
+
+# =========================
+# DBT
+# =========================
+dbt/target/
+dbt/logs/
+dbt_packages/
+profiles.yml
+
+# =========================
+# GREAT EXPECTATIONS
+# =========================
+quality/great_expectations/uncommitted/
+quality/great_expectations/.ge_store_backend_id
+
+# =========================
+# NODE / FRONTEND
+# =========================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.env
+
+# =========================
+# DOCKER
+# =========================
+*.tar
+*.log
+docker-compose.override.yml
+
+# =========================
+# DATABASE / LOCAL FILES
+# =========================
+*.sqlite
+*.db
+*.sqlite3
+data/
+tmp/
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
