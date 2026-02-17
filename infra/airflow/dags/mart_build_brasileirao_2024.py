@@ -21,7 +21,7 @@ def _assert_mart_objects(conn):
     if not schema_exists:
         raise ValueError("Schema mart nao existe. Aplique warehouse/ddl/010_mart_schema.sql.")
 
-    required_tables = {"team_match_goals_monthly", "league_summary", "standings_evolution"}
+    required_tables = {"team_match_goals_monthly", "league_summary", "standings_evolution", "team_performance_monthly"}
     found_tables = {
         row[0]
         for row in conn.execute(
@@ -114,6 +114,7 @@ def build_mart():
     team_monthly_sql = text(_read_sql("mart_team_monthly_upsert.sql"))
     league_summary_sql = text(_read_sql("mart_league_summary_upsert.sql"))
     standings_sql = text(_read_sql("mart_standings_evolution_upsert.sql"))
+    team_performance_sql = text(_read_sql("mart_team_performance_upsert.sql"))
 
     with engine.begin() as conn:
         _assert_mart_objects(conn)
@@ -121,13 +122,16 @@ def build_mart():
         team_stats = conn.execute(team_monthly_sql, sql_params).mappings().one()
         league_stats = conn.execute(league_summary_sql, sql_params).mappings().one()
         conn.execute(standings_sql, sql_params)
+        team_performance_stats = conn.execute(team_performance_sql, sql_params).mappings().one()
 
     print(
         "MART build concluido | "
         f"league_id={league_id} | season={season} | "
         f"team_match_goals_monthly: inseridas={team_stats['inserted']}, atualizadas={team_stats['updated']} | "
         f"league_summary: inseridas={league_stats['inserted']}, atualizadas={league_stats['updated']} | "
-        "standings_evolution: executado"
+        "standings_evolution: executado | "
+        f"team_performance_monthly: inseridas={team_performance_stats['inserted']}, "
+        f"atualizadas={team_performance_stats['updated']}"
     )
 
 
