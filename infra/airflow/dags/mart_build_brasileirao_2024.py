@@ -1,12 +1,16 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.operators.python import get_current_context
 from datetime import datetime
+import os
 from sqlalchemy import create_engine, text
 
 
-PG_DSN = "postgresql+psycopg2://football:football@postgres/football_dw"
-LEAGUE_ID = 71
-SEASON = 2024
+def _get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Variavel de ambiente obrigatoria ausente: {name}")
+    return value
 
 
 def _assert_mart_objects(conn):
@@ -36,9 +40,50 @@ def _assert_mart_objects(conn):
             "Aplique warehouse/ddl/011_mart_tables.sql."
         )
 
+    required_team_cols = {"points", "goal_diff"}
+    found_team_cols = {
+        row[0]
+        for row in conn.execute(
+            text(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'mart' AND table_name = 'team_match_goals_monthly'
+                """
+            )
+        )
+    }
+    missing_team_cols = sorted(required_team_cols - found_team_cols)
+    if missing_team_cols:
+        raise ValueError(
+            f"Colunas mart.team_match_goals_monthly ausentes: {missing_team_cols}. "
+            "Aplique warehouse/ddl/011_mart_tables.sql atualizado."
+        )
+
+
+def _safe_int(value, default_value: int, field_name: str) -> int:
+    if value is None:
+        return default_value
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Parametro invalido para {field_name}: {value}") from exc
+
+
+def _read_run_params() -> tuple[int, int]:
+    context = get_current_context()
+    params = context.get("params") or {}
+    dag_run = context.get("dag_run")
+    conf = dag_run.conf if dag_run and dag_run.conf else {}
+
+    league_id = _safe_int(conf.get("league_id", params.get("league_id", 71)), 71, "league_id")
+    season = _safe_int(conf.get("season", params.get("season", 2024)), 2024, "season")
+    return league_id, season
+
 
 def build_mart():
-    engine = create_engine(PG_DSN)
+    engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
+    league_id, season = _read_run_params()
 
     team_monthly_sql = text(
         """
@@ -100,18 +145,20 @@ def build_mart():
                 COUNT(*)::INT AS matches,
                 SUM(wins)::INT AS wins,
                 SUM(draws)::INT AS draws,
-                SUM(losses)::INT AS losses
+                SUM(losses)::INT AS losses,
+                (SUM(wins) * 3 + SUM(draws))::INT AS points,
+                (SUM(goals_for) - SUM(goals_against))::INT AS goal_diff
             FROM team_rows
             GROUP BY season, year, month, team_id, team_name
         ),
         upserted AS (
             INSERT INTO mart.team_match_goals_monthly (
                 season, year, month, team_id, team_name,
-                goals_for, goals_against, matches, wins, draws, losses, updated_at
+                goals_for, goals_against, matches, wins, draws, losses, points, goal_diff, updated_at
             )
             SELECT
                 season, year, month, team_id, team_name,
-                goals_for, goals_against, matches, wins, draws, losses, now()
+                goals_for, goals_against, matches, wins, draws, losses, points, goal_diff, now()
             FROM aggregated
             ON CONFLICT (season, year, month, team_name) DO UPDATE
             SET
@@ -122,6 +169,8 @@ def build_mart():
                 wins = EXCLUDED.wins,
                 draws = EXCLUDED.draws,
                 losses = EXCLUDED.losses,
+                points = EXCLUDED.points,
+                goal_diff = EXCLUDED.goal_diff,
                 updated_at = now()
             WHERE mart.team_match_goals_monthly.team_id IS DISTINCT FROM EXCLUDED.team_id
                OR mart.team_match_goals_monthly.goals_for IS DISTINCT FROM EXCLUDED.goals_for
@@ -130,6 +179,8 @@ def build_mart():
                OR mart.team_match_goals_monthly.wins IS DISTINCT FROM EXCLUDED.wins
                OR mart.team_match_goals_monthly.draws IS DISTINCT FROM EXCLUDED.draws
                OR mart.team_match_goals_monthly.losses IS DISTINCT FROM EXCLUDED.losses
+               OR mart.team_match_goals_monthly.points IS DISTINCT FROM EXCLUDED.points
+               OR mart.team_match_goals_monthly.goal_diff IS DISTINCT FROM EXCLUDED.goal_diff
             RETURNING (xmax = 0) AS inserted
         )
         SELECT
@@ -196,12 +247,12 @@ def build_mart():
     with engine.begin() as conn:
         _assert_mart_objects(conn)
 
-        team_stats = conn.execute(team_monthly_sql, {"league_id": LEAGUE_ID, "season": SEASON}).mappings().one()
-        league_stats = conn.execute(league_summary_sql, {"league_id": LEAGUE_ID, "season": SEASON}).mappings().one()
+        team_stats = conn.execute(team_monthly_sql, {"league_id": league_id, "season": season}).mappings().one()
+        league_stats = conn.execute(league_summary_sql, {"league_id": league_id, "season": season}).mappings().one()
 
     print(
         "MART build concluido | "
-        f"league_id={LEAGUE_ID} | season={SEASON} | "
+        f"league_id={league_id} | season={season} | "
         f"team_match_goals_monthly: inseridas={team_stats['inserted']}, atualizadas={team_stats['updated']} | "
         f"league_summary: inseridas={league_stats['inserted']}, atualizadas={league_stats['updated']}"
     )
@@ -212,6 +263,7 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,
+    params={"league_id": 71, "season": 2024},
     tags=["mart", "gold", "warehouse"],
 ) as dag:
     PythonOperator(
