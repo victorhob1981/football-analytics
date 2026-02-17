@@ -1,163 +1,140 @@
 # football-analytics
 
-## Pipeline (local)
-Stack: Airflow + MinIO + Postgres via `docker compose`.
+Plataforma de dados para analise de futebol com fluxo oficial:
+`ingestao -> silver/raw -> dbt_run -> great_expectations_checks -> data_quality_checks`.
 
-## DDLs
-- `warehouse/ddl/001_raw_fixtures.sql`
-- `warehouse/ddl/010_mart_schema.sql`
-- `warehouse/ddl/011_mart_tables.sql`
+## Stack
+- Airflow (orquestracao): `infra/airflow/dags/`
+- MinIO (lake bronze/silver): buckets `football-bronze`, `football-silver`
+- Postgres (warehouse): schemas `raw`, `mart` (dbt target), `gold` (legacy historico)
+- dbt (transformacao): `dbt/`
+- Great Expectations + SQL assertions (quality gates): `quality/great_expectations/` + `infra/airflow/dags/data_quality_checks.py`
+- Metabase (BI): `bi/metabase/`
+- CI: `.github/workflows/ci.yml`
 
-## Execucao ponta-a-ponta
-1. Crie o arquivo de ambiente:
+## Subir stack local
+1. Criar `.env`:
 ```powershell
 Copy-Item .env.example .env
 ```
-2. Preencha os segredos no `.env` (`POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `MINIO_SECRET_KEY`, `AIRFLOW__WEBSERVER__SECRET_KEY`, `APIFOOTBALL_API_KEY`).
-3. Suba os servicos:
-```bash
+2. Preencher credenciais e variaveis obrigatorias.
+3. Subir servicos:
+```powershell
 docker compose up -d
 ```
-4. Airflow UI: `http://localhost:8080` (`admin` / `admin`).
-5. Aplique o DDL da camada raw (PowerShell):
+4. Validar servicos:
 ```powershell
-Get-Content 'warehouse/ddl/001_raw_fixtures.sql' | docker compose exec -T postgres psql -U football -d football_dw
+docker compose ps
 ```
-6. Rode os DAGs nesta ordem:
-- `ingest_brasileirao_2024_backfill`
-- `bronze_to_silver_fixtures_backfill`
-- `silver_to_postgres_fixtures`
 
-Opcional: use o orquestrador `pipeline_brasileirao` para rodar tudo em sequencia (inclui o mart).
+URLs:
+- Airflow: `http://localhost:8080` (`admin` / `admin`)
+- MinIO Console: `http://localhost:9001`
+- Metabase: `http://localhost:3000`
 
-### Orquestrador unico (pipeline_brasileirao)
-1. Rodar com defaults (`league_id=71`, `season=2024`):
-```bash
-docker compose exec -T airflow-webserver airflow dags test pipeline_brasileirao 2026-02-16
-```
-2. Rodar com params (PowerShell):
+## Migracoes de schema (caminho unico)
+Schema evolui apenas por `dbmate` em `db/migrations/`.
+
+Comandos:
 ```powershell
-$conf='{\"league_id\":71,\"season\":2024}'
-docker compose exec -T airflow-webserver airflow dags test pipeline_brasileirao 2026-02-16 -c $conf
+make db-up
+make db-status
 ```
-3. Se uma etapa falhar, as proximas nao executam (dependencia `all_success` no DAG orquestrador).
 
-## Validacao no Airflow UI
-- Abra `silver_to_postgres_fixtures` -> task `load_silver_to_postgres` -> Log.
-- Verifique linha final com contadores:
-  - `lidas`
-  - `validas`
-  - `inseridas`
-  - `atualizadas`
-  - `ignoradas`
-  - `invalidas_sem_fixture_id`
-  - `duplicadas_no_lote`
-
-Re-run seguro: execute novamente `silver_to_postgres_fixtures`; o esperado e `inseridas=0`, `atualizadas=0` e `ignoradas=validas` quando nao houve mudanca de dados.
-
-## MART (gold) no Postgres
-1. Aplicar DDLs (PowerShell):
+Ou direto:
 ```powershell
-Get-Content 'warehouse/ddl/010_mart_schema.sql' | docker compose exec -T postgres psql -U football -d football_dw
-Get-Content 'warehouse/ddl/011_mart_tables.sql' | docker compose exec -T postgres psql -U football -d football_dw
-```
-2. Rodar DAG do mart (defaults: `league_id=71`, `season=2024`):
-```bash
-docker compose exec -T airflow-webserver airflow dags test mart_build_brasileirao_2024 2026-02-16
-```
-3. Rodar DAG do mart com params (override por conf):
-```bash
-docker compose exec -T airflow-webserver airflow dags test mart_build_brasileirao_2024 2026-02-16 --conf "{\"league_id\":71,\"season\":2024}"
-```
-4. Re-run idempotente: rode o mesmo comando novamente e confira no log `inseridas=0` e `atualizadas=0` quando nao houver mudanca na `raw.fixtures`.
-
-## Validacao no Postgres (psql)
-Abra shell:
-```bash
-docker compose exec -it postgres psql -U football -d football_dw
+docker compose run --rm dbmate --migrations-dir /db/migrations up
 ```
 
-1) Total por mes (2024):
-```sql
-SELECT year, month, COUNT(*) AS fixtures
-FROM raw.fixtures
-GROUP BY year, month
-ORDER BY year, month;
+## Rodar pipeline no Airflow
+DAG principal: `pipeline_brasileirao`.
+
+Execucao de teste:
+```powershell
+$conf='{"league_id":71,"season":2024}'
+docker compose exec -T airflow-webserver airflow dags test pipeline_brasileirao 2026-02-17 -c $conf
 ```
 
-2) Top times por gols marcados:
-```sql
-SELECT team_name, SUM(goals) AS total_goals
-FROM (
-  SELECT home_team_name AS team_name, COALESCE(home_goals, 0) AS goals FROM raw.fixtures
-  UNION ALL
-  SELECT away_team_name AS team_name, COALESCE(away_goals, 0) AS goals FROM raw.fixtures
-) t
-GROUP BY team_name
-ORDER BY total_goals DESC
-LIMIT 10;
+Fluxo interno da DAG:
+1. Ingestao: `ingest_brasileirao_2024_backfill`, `ingest_statistics_bronze`, `ingest_match_events_bronze`
+2. Bronze -> Silver -> Raw:
+- `bronze_to_silver_fixtures_backfill` -> `silver_to_postgres_fixtures`
+- `bronze_to_silver_statistics` -> `silver_to_postgres_statistics`
+- `bronze_to_silver_match_events` -> `silver_to_postgres_match_events`
+3. Transformacao: `dbt_run`
+4. Quality gates: `great_expectations_checks` -> `data_quality_checks`
+
+## Rodar dbt (local)
+Dentro do container Airflow (mesmo ambiente usado pelas DAGs):
+
+```powershell
+docker compose exec -T airflow-webserver dbt deps --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+docker compose exec -T airflow-webserver dbt run --select marts.core --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+docker compose exec -T airflow-webserver dbt run --select marts.analytics --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+docker compose exec -T airflow-webserver dbt test --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
 ```
 
-3) Sanidade de unicidade:
-```sql
-SELECT COUNT(*) AS total_rows,
-       COUNT(DISTINCT fixture_id) AS distinct_fixture_id
-FROM raw.fixtures;
+## Rodar documentacao dbt
+Atalho:
+```powershell
+make dbt-docs
 ```
 
-4) MART mensal por time (com points/goal_diff):
-```sql
-SELECT season, year, month, team_name, matches, wins, draws, losses, points, goal_diff
-FROM mart.team_match_goals_monthly
-ORDER BY year, month, team_name
-LIMIT 20;
+Arquivos gerados:
+- `dbt/target/index.html`
+- `dbt/target/manifest.json`
+- `dbt/target/catalog.json`
+
+Abrir localmente:
+```powershell
+python -m http.server 8088 --directory dbt/target
+```
+Depois acesse `http://localhost:8088`.
+
+No CI, docs sao geradas e publicadas como artifact `dbt-docs`.
+
+## Rodar quality gates isoladamente
+Great Expectations:
+```powershell
+docker compose exec -T airflow-webserver airflow dags test great_expectations_checks 2026-02-17
 ```
 
-5) Top 10 por points em um mes:
-```sql
-SELECT season, year, month, team_name, points, goal_diff, wins, draws, losses
-FROM mart.team_match_goals_monthly
-WHERE year = '2024' AND month = '12'
-ORDER BY points DESC, goal_diff DESC, team_name
-LIMIT 10;
+SQL checks:
+```powershell
+docker compose exec -T airflow-webserver airflow dags test data_quality_checks 2026-02-17
 ```
 
-6) Sanity check de contagens no mart:
-```sql
-SELECT COUNT(*) AS rows_team_monthly,
-       COUNT(DISTINCT season || '-' || year || '-' || month || '-' || team_name) AS rows_team_monthly_distinct
-FROM mart.team_match_goals_monthly;
+## Lint, testes e CI local
+```powershell
+python -m pip install -r requirements-dev.txt
+make lint
+make test
 ```
 
-7) MART resumo da liga:
-```sql
-SELECT league_id, league_name, season, total_matches, total_goals, avg_goals_per_match, first_match_date, last_match_date
-FROM mart.league_summary;
-```
+Escopo atual de CI (`.github/workflows/ci.yml`):
+- lint (`ruff`)
+- unit tests (`pytest`)
+- dbt validations (`dbt deps`, `dbt compile`, `dbt docs generate`)
 
-8) Validacao ponta-a-ponta apos `pipeline_brasileirao`:
-```sql
-SELECT COUNT(*) AS raw_fixtures, COUNT(DISTINCT fixture_id) AS raw_distinct_fixture_id
-FROM raw.fixtures;
+## Metabase e dashboards versionados
+Acesso:
+- `http://localhost:3000`
 
-SELECT COUNT(*) AS mart_team_rows
-FROM mart.team_match_goals_monthly
-WHERE season = 2024;
-```
-
-## Docs
-- `docs/ARCHITECTURE.md` — current + target architecture
-- `docs/ROADMAP.md` — phased plan of work (what’s next)
-- `AGENTS.md` — instructions for coding agents (source of truth for contributions)
-
-## Visualizacao (Metabase)
-- Acesso: `http://localhost:3000`
-- O servico do Metabase sobe via `docker compose` junto com os demais containers.
-
-### Conectar o Metabase ao Data Warehouse
-Na tela de configuracao de banco (PostgreSQL), use:
+Conexao do Metabase ao DW:
 - Host: `football-postgres`
 - Port: `5432`
-- User: valor de `POSTGRES_USER` no `.env` (default local: `football`)
-- Password: valor de `POSTGRES_PASSWORD` no `.env` (default local: `football`)
-- Database: valor de `POSTGRES_DB` no `.env` (default local: `football_dw`)
+- User: `POSTGRES_USER`
+- Password: `POSTGRES_PASSWORD`
+- Database: `POSTGRES_DB`
+
+Versionamento de dashboards:
+- Guia: `bi/metabase/README.md`
+- Export: `bi/metabase/scripts/export_metabase.py`
+- Import/restore: `bi/metabase/scripts/import_metabase.py`
+- Artefatos versionados: `bi/metabase/exports/`
+
+## Referencias
+- Contratos de dados: `docs/contracts/data_contracts.md`
+- Arquitetura: `docs/ARCHITECTURE.md`
+- Roadmap: `docs/ROADMAP.md`
+- DDL legado (somente referencia): `warehouse/ddl/`

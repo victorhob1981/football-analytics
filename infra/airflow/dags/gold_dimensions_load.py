@@ -242,7 +242,7 @@ def load_gold_dimensions():
 
 # Deprecated: legacy SQL-based gold dimensions loader. Prefer `dbt_run` DAG.
 with DAG(
-    dag_id="gold_dimensions_load",
+    dag_id="deprecated_gold_dimensions_load",
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,

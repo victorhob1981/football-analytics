@@ -258,7 +258,7 @@ def load_gold_facts():
 
 # Deprecated: legacy SQL-based gold facts loader. Prefer `dbt_run` DAG.
 with DAG(
-    dag_id="gold_facts_load",
+    dag_id="deprecated_gold_facts_load",
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,

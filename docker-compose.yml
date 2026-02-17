@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   postgres:
@@ -18,6 +16,19 @@ services:
         aliases:
           - football-postgres
 
+  dbmate:
+    image: ghcr.io/amacneil/dbmate:2
+    container_name: football_dbmate
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      DBMATE_MIGRATIONS_DIR: /db/migrations
+    volumes:
+      - ./db/migrations:/db/migrations
+    command: --wait --migrations-dir /db/migrations up
+    restart: "no"
+
   minio:
     image: minio/minio:latest
     container_name: football_minio
@@ -32,10 +43,16 @@ services:
       - minio_data:/data
 
   airflow-init:
-    image: apache/airflow:2.9.3
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    image: football-airflow:local
     container_name: football_airflow_init
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      dbmate:
+        condition: service_completed_successfully
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
@@ -43,7 +60,6 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW__CORE__ENABLE_XCOM_PICKLING: "true"
-      PIP_ADDITIONAL_REQUIREMENTS: "boto3 requests pandas pyarrow psycopg2-binary sqlalchemy"
       APIFOOTBALL_API_KEY: ${APIFOOTBALL_API_KEY}
       APIFOOTBALL_BASE_URL: ${APIFOOTBALL_BASE_URL}
       MINIO_ENDPOINT_URL: ${MINIO_ENDPOINT_URL}
@@ -58,7 +74,7 @@ services:
       airflow users create --username admin --password admin --firstname admin --lastname user --role Admin --email admin@example.com"
 
   airflow-webserver:
-    image: apache/airflow:2.9.3
+    image: football-airflow:local
     container_name: football_airflow_webserver
     depends_on:
       - airflow-init
@@ -69,7 +85,6 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW__CORE__ENABLE_XCOM_PICKLING: "true"
-      PIP_ADDITIONAL_REQUIREMENTS: "boto3 requests pandas pyarrow psycopg2-binary sqlalchemy"
       APIFOOTBALL_API_KEY: ${APIFOOTBALL_API_KEY}
       APIFOOTBALL_BASE_URL: ${APIFOOTBALL_BASE_URL}
       MINIO_ENDPOINT_URL: ${MINIO_ENDPOINT_URL}
@@ -83,12 +98,13 @@ services:
       - ./infra/airflow/dags:/opt/airflow/dags
       - ./warehouse:/opt/airflow/warehouse
       - ./dbt:/opt/airflow/dbt
+      - ./quality:/opt/airflow/quality
     ports:
       - "8080:8080"
     command: webserver
 
   airflow-scheduler:
-    image: apache/airflow:2.9.3
+    image: football-airflow:local
     container_name: football_airflow_scheduler
     depends_on:
       - airflow-init
@@ -99,7 +115,6 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW__CORE__ENABLE_XCOM_PICKLING: "true"
-      PIP_ADDITIONAL_REQUIREMENTS: "boto3 requests pandas pyarrow psycopg2-binary sqlalchemy"
       APIFOOTBALL_API_KEY: ${APIFOOTBALL_API_KEY}
       APIFOOTBALL_BASE_URL: ${APIFOOTBALL_BASE_URL}
       MINIO_ENDPOINT_URL: ${MINIO_ENDPOINT_URL}
@@ -113,6 +128,7 @@ services:
       - ./infra/airflow/dags:/opt/airflow/dags
       - ./warehouse:/opt/airflow/warehouse
       - ./dbt:/opt/airflow/dbt
+      - ./quality:/opt/airflow/quality
     command: scheduler
 
 

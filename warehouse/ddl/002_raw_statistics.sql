@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS raw.match_statistics (
   passes_pct         NUMERIC(5,2),
   ingested_run       TEXT,
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT pk_match_statistics PRIMARY KEY (fixture_id, team_id)
+  CONSTRAINT pk_match_statistics PRIMARY KEY (fixture_id, team_id),
+  CONSTRAINT fk_match_statistics_fixture
+    FOREIGN KEY (fixture_id) REFERENCES raw.fixtures (fixture_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_match_statistics_fixture
