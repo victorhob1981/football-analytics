@@ -1,26 +1,16 @@
-with events as (
-    select * from {{ source('postgres_raw', 'match_events') }}
+{{ config(materialized='incremental', unique_key='event_id', on_schema_change='sync_all_columns') }}
+
+with base as (
+    select * from {{ ref('int_fact_match_events_base') }}
 ),
-matches as (
-    select match_id from {{ ref('fact_matches') }}
-),
-cleaned as (
-    select
-        e.event_id,
-        e.fixture_id as match_id,
-        e.team_id,
-        e.player_id,
-        e.assist_id as assist_player_id,
-        e.time_elapsed,
-        e.time_extra,
-        e.type as event_type,
-        e.detail as event_detail,
-        case when e.type = 'Goal' then true else false end as is_goal,
-        now() as updated_at
-    from events e
-    inner join matches m
-      on m.match_id = e.fixture_id
-    where e.event_id is not null
-      and e.fixture_id is not null
+filtered as (
+    select *
+    from base
+    {% if is_incremental() %}
+    where coalesce(updated_at, now()) > (
+        select coalesce(max(updated_at), timestamp '1900-01-01')
+        from {{ this }}
+    )
+    {% endif %}
 )
-select * from cleaned
+select * from filtered

@@ -1,5 +1,7 @@
+{{ config(materialized='incremental', unique_key='date_sk', on_schema_change='sync_all_columns') }}
+
 with fixtures as (
-    select * from {{ source('postgres_raw', 'fixtures') }}
+    select * from {{ ref('stg_matches') }}
 ),
 bounds as (
     select
@@ -13,6 +15,7 @@ calendar as (
     from bounds
 )
 select
+    md5(concat('date:', date_day::text)) as date_sk,
     date_day,
     extract(year from date_day)::int as year,
     extract(month from date_day)::int as month,

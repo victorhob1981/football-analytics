@@ -1,0 +1,209 @@
+version: 2
+
+models:
+  - name: dim_team
+    description: "Dimensao de times."
+    columns:
+      - name: team_sk
+        description: "Chave substituta da dimensao de times."
+        tests:
+          - not_null
+          - unique
+      - name: team_id
+        description: "Identificador natural do time vindo da origem."
+        tests:
+          - not_null
+          - unique
+      - name: team_name
+        description: "Nome oficial do time."
+        tests:
+          - not_null
+
+  - name: dim_player
+    description: "Dimensao de jogadores."
+    columns:
+      - name: player_sk
+        description: "Chave substituta da dimensao de jogadores."
+        tests:
+          - not_null
+          - unique
+      - name: player_id
+        description: "Identificador natural do jogador vindo da origem."
+        tests:
+          - not_null
+          - unique
+      - name: player_name
+        description: "Nome do jogador."
+        tests:
+          - not_null
+
+  - name: dim_competition
+    description: "Dimensao de competicoes."
+    columns:
+      - name: competition_sk
+        description: "Chave substituta da dimensao de competicoes."
+        tests:
+          - not_null
+          - unique
+      - name: league_id
+        description: "Identificador natural da liga."
+        tests:
+          - not_null
+          - unique
+      - name: league_name
+        description: "Nome da competicao/liga."
+        tests:
+          - not_null
+
+  - name: dim_venue
+    description: "Dimensao de estadios."
+    columns:
+      - name: venue_sk
+        description: "Chave substituta da dimensao de estadios."
+        tests:
+          - not_null
+          - unique
+      - name: venue_id
+        description: "Identificador natural do estadio."
+        tests:
+          - not_null
+          - unique
+      - name: venue_name
+        description: "Nome do estadio."
+        tests:
+          - not_null
+
+  - name: dim_date
+    description: "Dimensao de calendario."
+    columns:
+      - name: date_sk
+        description: "Chave substituta da data no formato YYYYMMDD."
+        tests:
+          - not_null
+          - unique
+      - name: date_day
+        description: "Data calendario."
+        tests:
+          - not_null
+          - unique
+      - name: year
+        description: "Ano da data."
+        tests:
+          - not_null
+      - name: month
+        description: "Mes numerico da data."
+        tests:
+          - not_null
+      - name: day
+        description: "Dia do mes."
+        tests:
+          - not_null
+      - name: is_weekend
+        description: "Indicador de fim de semana."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false
+
+  - name: fact_matches
+    description: "Fato de partidas no grao de uma partida por linha."
+    columns:
+      - name: match_id
+        description: "Identificador unico da partida (fixture_id)."
+        tests:
+          - not_null
+          - unique
+      - name: competition_sk
+        description: "Chave substituta da competicao."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_competition')
+              field: competition_sk
+      - name: date_sk
+        description: "Chave substituta da data da partida."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_sk
+      - name: home_team_sk
+        description: "Chave substituta do time mandante."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+      - name: away_team_sk
+        description: "Chave substituta do time visitante."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+      - name: venue_sk
+        description: "Chave substituta do estadio."
+        tests:
+          - relationships:
+              to: ref('dim_venue')
+              field: venue_sk
+              where: "venue_sk is not null"
+      - name: season
+        description: "Temporada da partida."
+        tests:
+          - not_null
+      - name: date_day
+        description: "Data da partida."
+        tests:
+          - not_null
+      - name: result
+        description: "Resultado final em texto padronizado."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Home Win', 'Away Win', 'Draw']
+
+  - name: fact_match_events
+    description: "Fato de eventos por evento de jogo."
+    columns:
+      - name: event_id
+        description: "Chave tecnica unica do evento."
+        tests:
+          - not_null
+          - unique
+      - name: match_id
+        description: "Identificador da partida."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fact_matches')
+              field: match_id
+      - name: team_sk
+        description: "Chave substituta do time associado ao evento."
+        tests:
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+              where: "team_sk is not null"
+      - name: player_sk
+        description: "Chave substituta do jogador associado ao evento."
+        tests:
+          - relationships:
+              to: ref('dim_player')
+              field: player_sk
+              where: "player_sk is not null"
+      - name: assist_player_sk
+        description: "Chave substituta do jogador assistente."
+        tests:
+          - relationships:
+              to: ref('dim_player')
+              field: player_sk
+              where: "assist_player_sk is not null"
+      - name: is_goal
+        description: "Indicador se o evento representa gol."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false

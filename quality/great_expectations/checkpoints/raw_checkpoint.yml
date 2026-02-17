@@ -1,0 +1,35 @@
+name: raw_checkpoint
+config_version: 1.0
+class_name: Checkpoint
+run_name_template: "%Y%m%d-%H%M%S-raw"
+
+validations:
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_fixtures_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.fixtures"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_fixtures
+    expectation_suite_name: raw_fixtures_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_match_statistics_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.match_statistics"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_match_statistics
+    expectation_suite_name: raw_match_statistics_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_match_events_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.match_events"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_match_events
+    expectation_suite_name: raw_match_events_suite

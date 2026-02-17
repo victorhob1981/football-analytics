@@ -1,0 +1,34 @@
+{
+  "data_asset_type": null,
+  "expectation_suite_name": "gold_fact_matches_suite",
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_greater_than",
+      "kwargs": {
+        "value": 0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_pair_values_to_be_different",
+      "kwargs": {
+        "column_A": "home_team_sk",
+        "column_B": "away_team_sk"
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "total_goals",
+        "min_value": 0,
+        "max_value": 30
+      },
+      "meta": {}
+    }
+  ],
+  "ge_cloud_id": null,
+  "meta": {
+    "great_expectations_version": "0.18.21"
+  }
+}

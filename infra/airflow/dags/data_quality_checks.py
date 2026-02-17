@@ -1,8 +1,11 @@
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from datetime import datetime
+﻿from datetime import datetime, timedelta
 import os
+
+from airflow import DAG
+from airflow.operators.python import PythonOperator, get_current_context
 from sqlalchemy import create_engine, text
+
+from common.observability import DEFAULT_DAG_ARGS, StepMetrics, log_event
 
 
 def _get_required_env(name: str) -> str:
@@ -14,15 +17,6 @@ def _get_required_env(name: str) -> str:
 
 CHECKS = [
     {
-        "check_name": "raw_fixtures_null_pk",
-        "description": "raw.fixtures possui fixture_id nulo.",
-        "sql": """
-            SELECT *
-            FROM raw.fixtures
-            WHERE fixture_id IS NULL
-        """,
-    },
-    {
         "check_name": "raw_events_orphan",
         "description": "raw.match_events possui eventos com fixture_id inexistente em raw.fixtures.",
         "sql": """
@@ -31,15 +25,6 @@ CHECKS = [
             LEFT JOIN raw.fixtures f
               ON e.fixture_id = f.fixture_id
             WHERE f.fixture_id IS NULL
-        """,
-    },
-    {
-        "check_name": "gold_fact_matches_no_date",
-        "description": "gold.fact_matches possui linhas com date_day nulo.",
-        "sql": """
-            SELECT *
-            FROM gold.fact_matches
-            WHERE date_day IS NULL
         """,
     },
     {
@@ -56,36 +41,45 @@ CHECKS = [
 
 
 def run_data_quality_checks():
+    context = get_current_context()
     engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
     failed = []
 
-    with engine.begin() as conn:
-        for check in CHECKS:
-            rows = conn.execute(text(check["sql"])).fetchall()
-            bad_count = len(rows)
+    with StepMetrics(
+        service="airflow",
+        module="data_quality_checks",
+        step="run_data_quality_checks",
+        context=context,
+        dataset="quality.sql_assertions",
+    ) as metric:
+        with engine.begin() as conn:
+            for check in CHECKS:
+                rows = conn.execute(text(check["sql"])).fetchall()
+                bad_count = len(rows)
 
-            if bad_count == 0:
-                print(
-                    f"[DQ PASS] check={check['check_name']} | bad_rows=0 | "
-                    f"description={check['description']}"
+                log_event(
+                    level="info" if bad_count == 0 else "error",
+                    service="airflow",
+                    module="data_quality_checks",
+                    step=check["check_name"],
+                    status="success" if bad_count == 0 else "failed",
+                    context=context,
+                    dataset="quality.sql_assertions",
+                    row_count=bad_count,
+                    message=(
+                        f"[DQ {'PASS' if bad_count == 0 else 'FAIL'}] "
+                        f"check={check['check_name']} | bad_rows={bad_count} | description={check['description']}"
+                    ),
                 )
-            else:
-                print(
-                    f"[DQ FAIL] check={check['check_name']} | bad_rows={bad_count} | "
-                    f"description={check['description']}"
-                )
-                failed.append((check["check_name"], bad_count, check["description"]))
+
+                if bad_count > 0:
+                    failed.append((check["check_name"], bad_count, check["description"]))
+
+        metric.set_counts(rows_in=len(CHECKS), rows_out=len(CHECKS) - len(failed), row_count=len(CHECKS))
 
     if failed:
-        summary = "; ".join(
-            [
-                f"{name}(bad_rows={count}): {desc}"
-                for name, count, desc in failed
-            ]
-        )
+        summary = "; ".join([f"{name}(bad_rows={count}): {desc}" for name, count, desc in failed])
         raise ValueError(f"Data quality checks falharam: {summary}")
-
-    print(f"Data quality checks concluido com sucesso | checks={len(CHECKS)} | failed=0")
 
 
 with DAG(
@@ -93,9 +87,11 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,
+    default_args=DEFAULT_DAG_ARGS,
     tags=["quality", "validation", "warehouse"],
 ) as dag:
     PythonOperator(
         task_id="run_data_quality_checks",
         python_callable=run_data_quality_checks,
+        execution_timeout=timedelta(minutes=10),
     )

@@ -1,14 +1,16 @@
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from datetime import datetime
-import os
+﻿from datetime import datetime, timedelta
 import json
+import os
 import time
 from io import BytesIO
 
 import boto3
 import requests
+from airflow import DAG
+from airflow.operators.python import PythonOperator, get_current_context
 from sqlalchemy import create_engine, text
+
+from common.observability import DEFAULT_DAG_ARGS, StepMetrics, log_event
 
 
 LEAGUE_ID = 71
@@ -68,6 +70,7 @@ def _fetch_finished_fixture_ids(engine, league_id: int, season: int) -> list[int
 
 
 def ingest_statistics_bronze():
+    context = get_current_context()
     api_key = _get_required_env("APIFOOTBALL_API_KEY")
     base_url = os.getenv("APIFOOTBALL_BASE_URL", "https://v3.football.api-sports.io")
     pg_dsn = _get_required_env("FOOTBALL_PG_DSN")
@@ -77,9 +80,18 @@ def ingest_statistics_bronze():
     fixture_ids = _fetch_finished_fixture_ids(engine, LEAGUE_ID, SEASON)
 
     if not fixture_ids:
-        print(
-            "Nenhum fixture finalizado encontrado em raw.fixtures | "
-            f"league_id={LEAGUE_ID} | season={SEASON} | statuses={FINAL_STATUSES}"
+        log_event(
+            service="airflow",
+            module="ingest_statistics_bronze",
+            step="ingest_statistics_bronze",
+            status="success",
+            context=context,
+            dataset="statistics",
+            row_count=0,
+            message=(
+                "Nenhum fixture finalizado encontrado "
+                f"| league_id={LEAGUE_ID} | season={SEASON} | statuses={FINAL_STATUSES}"
+            ),
         )
         return
 
@@ -90,36 +102,54 @@ def ingest_statistics_bronze():
     succeeded = 0
     failed = 0
 
-    for idx, fixture_id in enumerate(fixture_ids, start=1):
-        try:
-            data, headers = _api_get_statistics(session, base_url, api_key, fixture_id)
+    with StepMetrics(
+        service="airflow",
+        module="ingest_statistics_bronze",
+        step="ingest_statistics_bronze",
+        context=context,
+        dataset="statistics",
+        table="football-bronze",
+    ) as metric:
+        for idx, fixture_id in enumerate(fixture_ids, start=1):
+            try:
+                data, headers = _api_get_statistics(session, base_url, api_key, fixture_id)
 
-            key = (
-                f"statistics/league={LEAGUE_ID}/season={SEASON}"
-                f"/fixture_id={fixture_id}/run={run_utc}/data.json"
-            )
-            payload = BytesIO(json.dumps(data).encode("utf-8"))
-            s3.upload_fileobj(payload, BRONZE_BUCKET, key)
-            succeeded += 1
+                key = (
+                    f"statistics/league={LEAGUE_ID}/season={SEASON}"
+                    f"/fixture_id={fixture_id}/run={run_utc}/data.json"
+                )
+                payload = BytesIO(json.dumps(data).encode("utf-8"))
+                s3.upload_fileobj(payload, BRONZE_BUCKET, key)
+                succeeded += 1
 
-            rate_headers = {
-                k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()
-            }
-            print(
-                f"[{idx}/{len(fixture_ids)}] fixture_id={fixture_id} salvo em "
-                f"s3://{BRONZE_BUCKET}/{key} | rate_headers={rate_headers}"
-            )
-        except Exception as exc:
-            failed += 1
-            print(f"[{idx}/{len(fixture_ids)}] erro fixture_id={fixture_id}: {exc}")
+                rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
+                print(
+                    f"[{idx}/{len(fixture_ids)}] fixture_id={fixture_id} salvo em "
+                    f"s3://{BRONZE_BUCKET}/{key} | rate_headers={rate_headers}"
+                )
+            except Exception as exc:
+                failed += 1
+                print(f"[{idx}/{len(fixture_ids)}] erro fixture_id={fixture_id}: {exc}")
 
-        if idx < len(fixture_ids) and sleep_seconds > 0:
-            time.sleep(sleep_seconds)
+            if idx < len(fixture_ids) and sleep_seconds > 0:
+                time.sleep(sleep_seconds)
 
-    print(
-        "Ingestao de statistics concluida | "
-        f"league_id={LEAGUE_ID} | season={SEASON} | total={len(fixture_ids)} | "
-        f"sucesso={succeeded} | falhas={failed}"
+        metric.set_counts(rows_in=len(fixture_ids), rows_out=succeeded, row_count=succeeded)
+
+    log_event(
+        service="airflow",
+        module="ingest_statistics_bronze",
+        step="summary",
+        status="success",
+        context=context,
+        dataset="statistics",
+        rows_in=len(fixture_ids),
+        rows_out=succeeded,
+        row_count=succeeded,
+        message=(
+            "Ingestao de statistics concluida "
+            f"| total={len(fixture_ids)} | sucesso={succeeded} | falhas={failed}"
+        ),
     )
 
 
@@ -128,9 +158,11 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,
+    default_args=DEFAULT_DAG_ARGS,
     tags=["bronze", "statistics"],
 ) as dag:
     PythonOperator(
         task_id="ingest_statistics_from_finished_fixtures",
         python_callable=ingest_statistics_bronze,
+        execution_timeout=timedelta(minutes=40),
     )

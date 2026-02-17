@@ -1,0 +1,50 @@
+name: dbmate-migrations
+
+on:
+  push:
+    paths:
+      - "db/migrations/**"
+      - ".github/workflows/dbmate.yml"
+  pull_request:
+    paths:
+      - "db/migrations/**"
+      - ".github/workflows/dbmate.yml"
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: football
+          POSTGRES_PASSWORD: football
+          POSTGRES_DB: football_dw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U football -d football_dw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dbmate
+        run: |
+          curl -fsSL -o /usr/local/bin/dbmate \
+            https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64
+          chmod +x /usr/local/bin/dbmate
+          dbmate --version
+
+      - name: Run migrations up
+        env:
+          DATABASE_URL: postgres://football:football@localhost:5432/football_dw?sslmode=disable
+        run: dbmate --migrations-dir db/migrations up
+
+      - name: Check migration status
+        env:
+          DATABASE_URL: postgres://football:football@localhost:5432/football_dw?sslmode=disable
+        run: dbmate --migrations-dir db/migrations status

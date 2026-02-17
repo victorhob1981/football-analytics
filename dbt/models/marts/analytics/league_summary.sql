@@ -6,7 +6,8 @@ competition as (
 ),
 aggregated as (
     select
-        m.league_id,
+        m.competition_sk,
+        c.league_id,
         c.league_name,
         m.season,
         count(*)::int as total_matches,
@@ -16,7 +17,7 @@ aggregated as (
         max(m.date_day) as last_match_date
     from matches m
     left join competition c
-      on c.league_id = m.league_id
-    group by m.league_id, c.league_name, m.season
+      on c.competition_sk = m.competition_sk
+    group by m.competition_sk, c.league_id, c.league_name, m.season
 )
 select * from aggregated

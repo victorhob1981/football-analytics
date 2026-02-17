@@ -1,5 +1,7 @@
+{{ config(materialized='incremental', unique_key='team_sk', on_schema_change='sync_all_columns') }}
+
 with fixtures as (
-    select * from {{ source('postgres_raw', 'fixtures') }}
+    select * from {{ ref('stg_matches') }}
 ),
 home_teams as (
     select distinct
@@ -23,6 +25,7 @@ teams as (
     select team_id, team_name from away_teams
 )
 select
+    md5(concat('team:', team_id::text)) as team_sk,
     team_id,
     team_name,
     cast(null as text) as logo_url,
