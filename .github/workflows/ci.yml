@@ -112,6 +112,9 @@ jobs:
       - name: dbt compile
         run: dbt compile --project-dir dbt --profiles-dir dbt
 
+      - name: dbt run (runtime SQL validation)
+        run: dbt run --select +marts.core +marts.analytics --project-dir dbt --profiles-dir dbt
+
       - name: dbt docs generate
         run: dbt docs generate --empty-catalog --project-dir dbt --profiles-dir dbt
 

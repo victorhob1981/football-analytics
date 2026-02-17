@@ -1,22 +1,28 @@
 import subprocess
 import shutil
 
-import pytest
-
 
 def test_dbt_compile_in_airflow_container():
-    if shutil.which("docker") is None:
-        pytest.skip("docker nao disponivel no ambiente de teste")
+    assert shutil.which("docker") is not None, (
+        "docker nao disponivel no ambiente de teste. "
+        "Instale e inicie o Docker Desktop para validar dbt compile no container Airflow."
+    )
 
     precheck = subprocess.run(
         ["docker", "compose", "ps", "--status", "running"],
         capture_output=True,
         text=True,
     )
-    if precheck.returncode != 0:
-        pytest.skip("docker compose indisponivel para dbt compile em container")
-    if "airflow-webserver" not in precheck.stdout and "football_airflow_webserver" not in precheck.stdout:
-        pytest.skip("container airflow-webserver nao esta em execucao para dbt compile em container")
+    assert precheck.returncode == 0, (
+        "docker compose indisponivel para dbt compile em container.\n"
+        f"STDOUT:\n{precheck.stdout}\nSTDERR:\n{precheck.stderr}"
+    )
+    assert (
+        "airflow-webserver" in precheck.stdout or "football_airflow_webserver" in precheck.stdout
+    ), (
+        "container airflow-webserver nao esta em execucao para dbt compile em container. "
+        "Suba a stack antes de rodar os testes: `docker compose up -d`."
+    )
 
     cmd = [
         "docker",

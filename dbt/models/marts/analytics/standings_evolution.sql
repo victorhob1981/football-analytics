@@ -1,4 +1,4 @@
-match_rows as (
+with match_rows as (
     select
         season,
         round_number as round,

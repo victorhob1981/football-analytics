@@ -47,7 +47,7 @@ def run_dbt_deps():
 def run_dbt_core():
     _run_cmd(
         step="dbt_run_core",
-        cmd=["dbt", "run", "--select", "marts.core", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROFILES_DIR],
+        cmd=["dbt", "run", "--select", "+marts.core", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROFILES_DIR],
         dataset="marts.core",
     )
 
@@ -55,7 +55,7 @@ def run_dbt_core():
 def run_dbt_analytics():
     _run_cmd(
         step="dbt_run_analytics",
-        cmd=["dbt", "run", "--select", "marts.analytics", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROFILES_DIR],
+        cmd=["dbt", "run", "--select", "+marts.analytics", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROFILES_DIR],
         dataset="marts.analytics",
     )
 

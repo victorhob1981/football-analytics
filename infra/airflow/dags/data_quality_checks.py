@@ -17,6 +17,25 @@ def _get_required_env(name: str) -> str:
 
 CHECKS = [
     {
+        "check_name": "raw_fixtures_null_pk",
+        "description": "raw.fixtures possui fixture_id nulo.",
+        "sql": """
+            SELECT *
+            FROM raw.fixtures
+            WHERE fixture_id IS NULL
+        """,
+    },
+    {
+        "check_name": "raw_match_statistics_null_pk",
+        "description": "raw.match_statistics possui fixture_id ou team_id nulos.",
+        "sql": """
+            SELECT *
+            FROM raw.match_statistics
+            WHERE fixture_id IS NULL
+               OR team_id IS NULL
+        """,
+    },
+    {
         "check_name": "raw_events_orphan",
         "description": "raw.match_events possui eventos com fixture_id inexistente em raw.fixtures.",
         "sql": """
@@ -25,6 +44,15 @@ CHECKS = [
             LEFT JOIN raw.fixtures f
               ON e.fixture_id = f.fixture_id
             WHERE f.fixture_id IS NULL
+        """,
+    },
+    {
+        "check_name": "mart_fact_matches_no_date",
+        "description": "mart.fact_matches possui date_day nulo.",
+        "sql": """
+            SELECT *
+            FROM mart.fact_matches
+            WHERE date_day IS NULL
         """,
     },
     {

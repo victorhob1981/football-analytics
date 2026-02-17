@@ -3,17 +3,23 @@
   "expectation_suite_name": "gold_fact_matches_suite",
   "expectations": [
     {
-      "expectation_type": "expect_table_row_count_to_be_greater_than",
+      "expectation_type": "expect_table_row_count_to_be_between",
       "kwargs": {
-        "value": 0
+        "min_value": 1
       },
       "meta": {}
     },
     {
-      "expectation_type": "expect_column_pair_values_to_be_different",
+      "expectation_type": "expect_column_values_to_not_be_null",
       "kwargs": {
-        "column_A": "home_team_sk",
-        "column_B": "away_team_sk"
+        "column": "home_team_sk"
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "away_team_sk"
       },
       "meta": {}
     },
