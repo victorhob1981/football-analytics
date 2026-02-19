@@ -10,6 +10,7 @@ select
     venue_id,
     venue_name,
     venue_city,
+    cast(null as text) as venue_country,
     status_short,
     status_long,
     league_id,

@@ -60,7 +60,7 @@ models:
           - not_null
 
   - name: dim_venue
-    description: "Dimensao de estadios."
+    description: "Dimensao de estadios deduplicada deterministicamente por venue_id."
     columns:
       - name: venue_sk
         description: "Chave substituta da dimensao de estadios."
@@ -74,6 +74,14 @@ models:
           - unique
       - name: venue_name
         description: "Nome do estadio."
+        tests:
+          - not_null
+      - name: venue_city
+        description: "Cidade do estadio com normalizacao leve (trim/nullif)."
+      - name: venue_country
+        description: "Pais do estadio com normalizacao leve (trim/nullif)."
+      - name: updated_at
+        description: "Timestamp de atualizacao da dimensao."
         tests:
           - not_null
 
