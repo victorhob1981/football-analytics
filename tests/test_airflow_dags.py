@@ -4,6 +4,8 @@ import subprocess
 
 import pytest
 
+pytestmark = pytest.mark.integration
+
 
 def _run_python_in_airflow(script: str):
     if shutil.which("docker") is None:
