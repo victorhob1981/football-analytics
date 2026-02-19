@@ -24,6 +24,7 @@ select
     e.assist_player_id,
     e.time_elapsed,
     e.time_extra,
+    e.is_time_elapsed_anomalous,
     e.event_type,
     e.event_detail,
     case when e.event_type = 'Goal' then true else false end as is_goal,
