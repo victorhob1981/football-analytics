@@ -4,7 +4,5 @@
 
 select *
 from {{ ref('fact_match_events') }}
-where time_elapsed is null
-   or time_elapsed < 0
-   or time_elapsed > 120
+where (time_elapsed is not null and time_elapsed < 0)
    or (time_extra is not null and (time_extra < 0 or time_extra > 30))

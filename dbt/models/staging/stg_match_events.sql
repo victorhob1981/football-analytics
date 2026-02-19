@@ -5,8 +5,16 @@ select
     event_id,
     season,
     fixture_id,
-    time_elapsed,
+    case
+        when time_elapsed is not null and time_elapsed < 0 then null
+        else time_elapsed
+    end as time_elapsed,
     time_extra,
+    case
+        when coalesce(is_time_elapsed_anomalous, false) then true
+        when time_elapsed is not null and time_elapsed < 0 then true
+        else false
+    end as is_time_elapsed_anomalous,
     team_id,
     team_name,
     player_id,

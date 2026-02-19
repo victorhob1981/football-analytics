@@ -91,6 +91,7 @@ EVENTS_TARGET_COLUMNS = [
     "fixture_id",
     "time_elapsed",
     "time_extra",
+    "is_time_elapsed_anomalous",
     "team_id",
     "team_name",
     "player_id",
@@ -118,6 +119,7 @@ EVENTS_REQUIRED_COLUMNS = [
     "comments",
 ]
 EVENTS_INT_COLUMNS = ["season", "fixture_id", "time_elapsed", "time_extra", "team_id", "player_id", "assist_id"]
+EVENTS_BOOL_COLUMNS = ["is_time_elapsed_anomalous"]
 EVENTS_TEXT_COLUMNS = ["event_id", "team_name", "player_name", "assist_name", "type", "detail", "comments"]
 
 
@@ -461,6 +463,10 @@ def load_match_events_silver_to_raw():
             load_df["season"] = season
         for col in EVENTS_INT_COLUMNS:
             load_df[col] = pd.to_numeric(load_df[col], errors="coerce").astype("Int64")
+        for col in EVENTS_BOOL_COLUMNS:
+            if col not in load_df.columns:
+                load_df[col] = False
+            load_df[col] = load_df[col].fillna(False).astype(bool)
         for col in EVENTS_TEXT_COLUMNS:
             load_df[col] = load_df[col].astype("string")
 

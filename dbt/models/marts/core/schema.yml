@@ -211,3 +211,10 @@ models:
           - accepted_values:
               values: [true, false]
               quote: false
+      - name: is_time_elapsed_anomalous
+        description: "Flag que indica anomalia de tempo (valor bruto negativo normalizado para NULL)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false

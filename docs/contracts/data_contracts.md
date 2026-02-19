@@ -90,7 +90,8 @@ Relevant fields and types:
 | event_id | TEXT | Yes | MD5 surrogate from event attributes |
 | season | INT | Yes | Partition key |
 | fixture_id | BIGINT | Yes | FK to fixtures |
-| time_elapsed / time_extra | INT | No | Minute data |
+| time_elapsed / time_extra | INT | No | Minute data (`time_elapsed < 0` is normalized to `NULL`) |
+| is_time_elapsed_anomalous | BOOLEAN | Yes | `TRUE` when raw source had negative elapsed minute |
 | team_id / player_id / assist_id | BIGINT | No | Actor ids |
 | team_name / player_name / assist_name | TEXT | No | Actor labels |
 | type / detail / comments | TEXT | No | Event attributes |
@@ -198,6 +199,7 @@ Quality rules applied:
 - Logical FK keys: `match_id`, `team_sk`, `player_sk`, `assist_player_sk`.
 - Required: `event_id`, `match_id`, `is_goal`.
 - Business fields: `event_type`, `event_detail`, time fields, actor links.
+- Anomaly field: `is_time_elapsed_anomalous` (`TRUE` when source elapsed minute was negative and normalized to `NULL`).
 - Incremental policy: by `updated_at` watermark (`is_incremental()`).
 
 Quality rules applied:
