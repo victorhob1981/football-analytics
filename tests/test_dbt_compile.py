@@ -1,6 +1,11 @@
 import subprocess
 import shutil
 
+import pytest
+
+
+pytestmark = pytest.mark.integration
+
 
 def test_dbt_compile_in_airflow_container():
     assert shutil.which("docker") is not None, (
