@@ -4,8 +4,10 @@ from datetime import datetime
 import os
 from sqlalchemy import create_engine, text
 
+from common.providers import get_default_league_id, get_default_provider
 
-DEFAULT_LEAGUE_ID = 71
+DEFAULT_PROVIDER = get_default_provider()
+DEFAULT_LEAGUE_ID = get_default_league_id(DEFAULT_PROVIDER)
 DEFAULT_SEASON = 2024
 
 

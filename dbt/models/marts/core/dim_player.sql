@@ -3,6 +3,12 @@
 with events as (
     select * from {{ ref('stg_match_events') }}
 ),
+lineups as (
+    select * from {{ ref('stg_fixture_lineups') }}
+),
+player_stats as (
+    select * from {{ ref('stg_fixture_player_statistics') }}
+),
 player_ids_union as (
     select player_id
     from events
@@ -13,6 +19,18 @@ player_ids_union as (
     select assist_player_id as player_id
     from events
     where assist_player_id is not null
+
+    union
+
+    select player_id
+    from lineups
+    where player_id is not null
+
+    union
+
+    select player_id
+    from player_stats
+    where player_id is not null
 ),
 player_attribute_candidates as (
     select
@@ -36,6 +54,30 @@ player_attribute_candidates as (
         2 as source_priority
     from events
     where assist_player_id is not null
+
+    union all
+
+    select
+        player_id,
+        nullif(trim(player_name), '') as player_name,
+        updated_at,
+        ingested_run,
+        cast(lineup_id as text) as event_id,
+        3 as source_priority
+    from lineups
+    where player_id is not null
+
+    union all
+
+    select
+        player_id,
+        nullif(trim(player_name), '') as player_name,
+        updated_at,
+        ingested_run,
+        cast(fixture_id as text) as event_id,
+        4 as source_priority
+    from player_stats
+    where player_id is not null
 ),
 ranked_players as (
     select

@@ -8,3 +8,15 @@ sources:
       - name: fixtures
       - name: match_statistics
       - name: match_events
+      - name: competition_leagues
+      - name: competition_seasons
+      - name: competition_stages
+      - name: competition_rounds
+      - name: standings_snapshots
+      - name: fixture_lineups
+      - name: fixture_player_statistics
+      - name: player_season_statistics
+      - name: player_transfers
+      - name: team_sidelined
+      - name: team_coaches
+      - name: head_to_head_fixtures

@@ -41,3 +41,43 @@ validations:
       batch_identifiers:
         runtime_batch_identifier_name: raw_match_events
     expectation_suite_name: raw_match_events_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_fixture_lineups_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.fixture_lineups"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_fixture_lineups
+    expectation_suite_name: raw_fixture_lineups_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_fixture_player_statistics_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.fixture_player_statistics"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_fixture_player_statistics
+    expectation_suite_name: raw_fixture_player_statistics_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_standings_snapshots_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.standings_snapshots"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_standings_snapshots
+    expectation_suite_name: raw_standings_snapshots_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_competition_rounds_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.competition_rounds"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_competition_rounds
+    expectation_suite_name: raw_competition_rounds_suite
