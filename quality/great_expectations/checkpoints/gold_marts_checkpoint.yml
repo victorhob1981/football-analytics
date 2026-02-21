@@ -41,3 +41,23 @@ validations:
       batch_identifiers:
         runtime_batch_identifier_name: mart_dim_player
     expectation_suite_name: mart_dim_player_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: mart_fact_fixture_player_stats_asset
+      runtime_parameters:
+        query: "SELECT * FROM mart.fact_fixture_player_stats"
+      batch_identifiers:
+        runtime_batch_identifier_name: mart_fact_fixture_player_stats
+    expectation_suite_name: mart_fact_fixture_player_stats_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: mart_player_match_summary_asset
+      runtime_parameters:
+        query: "SELECT * FROM mart.player_match_summary"
+      batch_identifiers:
+        runtime_batch_identifier_name: mart_player_match_summary
+    expectation_suite_name: mart_player_match_summary_suite

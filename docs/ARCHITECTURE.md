@@ -22,10 +22,19 @@ Official runtime flow:
   - `bronze_to_silver_fixtures_backfill`
   - `bronze_to_silver_statistics`
   - `bronze_to_silver_match_events`
+  - `bronze_to_silver_competition_structure`
+  - `bronze_to_silver_standings`
+  - `bronze_to_silver_lineups`
+  - `bronze_to_silver_fixture_player_statistics`
+  - `bronze_to_silver_player_season_statistics`
+  - `bronze_to_silver_player_transfers`
+  - `bronze_to_silver_team_sidelined`
+  - `bronze_to_silver_team_coaches`
+  - `bronze_to_silver_head_to_head`
 - Partitioning currently used:
-  - fixtures: `fixtures/league=71/season=2024/year=YYYY/month=MM/run=...`
-  - statistics: `statistics/league=71/season=2024/run=...`
-  - events: `events/season=2024/league_id=71/run=...`
+  - fixtures: `fixtures/league=648/season=2024/year=YYYY/month=MM/run=...`
+  - statistics: `statistics/league=648/season=2024/run=...`
+  - events: `events/season=2024/league_id=648/run=...`
 
 ### Raw (Postgres)
 - Loaded from Silver with explicit schema contracts and idempotent upsert.
@@ -33,10 +42,31 @@ Official runtime flow:
   - `raw.fixtures`
   - `raw.match_statistics`
   - `raw.match_events` (list partitioned by `season`)
+  - `raw.competition_leagues`
+  - `raw.competition_seasons`
+  - `raw.competition_stages`
+  - `raw.competition_rounds`
+  - `raw.standings_snapshots`
+  - `raw.fixture_lineups`
+  - `raw.fixture_player_statistics`
+  - `raw.player_season_statistics`
+  - `raw.player_transfers`
+  - `raw.team_sidelined`
+  - `raw.team_coaches`
+  - `raw.head_to_head_fixtures`
 - Load DAGs:
   - `silver_to_postgres_fixtures`
   - `silver_to_postgres_statistics`
   - `silver_to_postgres_match_events`
+  - `silver_to_postgres_competition_structure`
+  - `silver_to_postgres_standings`
+  - `silver_to_postgres_lineups`
+  - `silver_to_postgres_fixture_player_statistics`
+  - `silver_to_postgres_player_season_statistics`
+  - `silver_to_postgres_player_transfers`
+  - `silver_to_postgres_team_sidelined`
+  - `silver_to_postgres_team_coaches`
+  - `silver_to_postgres_head_to_head`
 
 ### Marts (dbt output in schema `mart`)
 - dbt models organized as:
@@ -45,16 +75,19 @@ Official runtime flow:
   - final marts in `dbt/models/marts/core/` and `dbt/models/marts/analytics/`
 - Core entities:
   - dims: `dim_team`, `dim_player`, `dim_competition`, `dim_date`, `dim_venue`
-  - facts: `fact_matches`, `fact_match_events`
-  - analytics: `team_monthly_stats`, `standings_evolution`, `league_summary`
+  - dims (expanded): `dim_stage`, `dim_round`, `dim_coach`
+  - facts: `fact_matches`, `fact_match_events`, `fact_fixture_lineups`, `fact_fixture_player_stats`, `fact_standings_snapshots`
+  - analytics: `team_monthly_stats`, `standings_evolution`, `league_summary`, `player_match_summary`, `player_season_summary`, `player_90_metrics`, `coach_performance_summary`, `head_to_head_summary`
 
 ## Orchestration flow (main DAG)
 Main DAG: `pipeline_brasileirao`.
 
 Execution groups:
-1. Ingestion group
-2. Bronze/Silver/Raw group
-3. Transform + quality group:
+1. `group_competition_structure`
+2. `group_fixture_enrichment`
+3. `group_player_layer`
+4. `group_context_extras`
+5. Transform + quality group:
 - `dbt_run`
 - `great_expectations_checks`
 - `data_quality_checks`

@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from src.core.http_client import HttpClient
+from pathlib import Path
+import sys
+
+DAGS_DIR = Path("infra/airflow/dags").resolve()
+if str(DAGS_DIR) not in sys.path:
+    sys.path.insert(0, str(DAGS_DIR))
+
+from common.http_client import ProviderHttpClient
 
 
 class _FakeResponse:
@@ -19,16 +26,21 @@ def test_http_client_retries_on_429(monkeypatch):
         _FakeResponse(429, {"error": "rate_limit"}, headers={"Retry-After": "0"}),
         _FakeResponse(200, {"ok": True}),
     ]
-    client = HttpClient(max_retries=2, backoff_factor=0.0)
+    client = ProviderHttpClient(
+        provider="test-provider",
+        base_url="https://example.com",
+        max_retries=2,
+        backoff_seconds=0.0,
+    )
 
-    def fake_get(url, headers=None, params=None, timeout=None):
+    def fake_request(method, url, params=None, headers=None, timeout=None):
         return responses.pop(0)
 
     sleeps: list[float] = []
-    monkeypatch.setattr(client.session, "get", fake_get)
-    monkeypatch.setattr("src.core.http_client.time.sleep", lambda value: sleeps.append(value))
+    monkeypatch.setattr(client._session, "request", fake_request)
+    monkeypatch.setattr("common.http_client.time.sleep", lambda value: sleeps.append(value))
 
-    payload = client.get("https://example.com/fixtures")
+    payload, _headers = client.request_json(endpoint="/fixtures")
     assert payload == {"ok": True}
     assert len(sleeps) == 1
 
@@ -38,16 +50,20 @@ def test_http_client_retries_on_500(monkeypatch):
         _FakeResponse(500, {"error": "temporary"}, text="temporary error"),
         _FakeResponse(200, {"ok": True}),
     ]
-    client = HttpClient(max_retries=2, backoff_factor=0.0)
+    client = ProviderHttpClient(
+        provider="test-provider",
+        base_url="https://example.com",
+        max_retries=2,
+        backoff_seconds=0.0,
+    )
 
-    def fake_get(url, headers=None, params=None, timeout=None):
+    def fake_request(method, url, params=None, headers=None, timeout=None):
         return responses.pop(0)
 
     sleeps: list[float] = []
-    monkeypatch.setattr(client.session, "get", fake_get)
-    monkeypatch.setattr("src.core.http_client.time.sleep", lambda value: sleeps.append(value))
+    monkeypatch.setattr(client._session, "request", fake_request)
+    monkeypatch.setattr("common.http_client.time.sleep", lambda value: sleeps.append(value))
 
-    payload = client.get("https://example.com/standings")
+    payload, _headers = client.request_json(endpoint="/standings")
     assert payload == {"ok": True}
     assert len(sleeps) == 1
-

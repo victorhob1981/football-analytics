@@ -226,3 +226,137 @@ models:
           - accepted_values:
               values: [true, false]
               quote: false
+
+  - name: dim_stage
+    description: "Dimensao de etapas (stages) de competicao."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - stage_id
+    columns:
+      - name: stage_sk
+        tests:
+          - not_null
+          - unique
+      - name: stage_id
+        tests:
+          - not_null
+      - name: provider
+        tests:
+          - not_null
+
+  - name: dim_round
+    description: "Dimensao de rodadas com chave sequencial por temporada."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - round_id
+    columns:
+      - name: round_sk
+        tests:
+          - not_null
+          - unique
+      - name: round_id
+        tests:
+          - not_null
+      - name: round_key
+        tests:
+          - not_null
+      - name: stage_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_stage')
+              field: stage_sk
+
+  - name: dim_coach
+    description: "Dimensao de tecnicos."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - coach_id
+    columns:
+      - name: coach_sk
+        tests:
+          - not_null
+          - unique
+      - name: coach_id
+        tests:
+          - not_null
+      - name: provider
+        tests:
+          - not_null
+
+  - name: fact_fixture_lineups
+    description: "Fato de lineups no grao provider/fixture/team/lineup (com player conhecido)."
+    columns:
+      - name: fixture_lineup_id
+        tests:
+          - not_null
+          - unique
+      - name: match_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fact_matches')
+              field: match_id
+      - name: team_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+      - name: player_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_player')
+              field: player_sk
+
+  - name: fact_fixture_player_stats
+    description: "Fato de estatisticas individuais por partida no grao provider/fixture/team/player."
+    columns:
+      - name: fixture_player_stat_id
+        tests:
+          - not_null
+          - unique
+      - name: match_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fact_matches')
+              field: match_id
+      - name: team_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+      - name: player_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_player')
+              field: player_sk
+
+  - name: fact_standings_snapshots
+    description: "Snapshots de classificacao por rodada."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - season_id
+            - stage_id
+            - round_id
+            - team_id
+    columns:
+      - name: standings_snapshot_id
+        tests:
+          - not_null
+          - unique
+      - name: team_id
+        tests:
+          - not_null

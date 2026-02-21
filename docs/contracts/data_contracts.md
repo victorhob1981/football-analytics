@@ -25,7 +25,7 @@ Detailed dbt field docs stay in dbt docs and model YAMLs. This file defines the 
 ### `raw.fixtures`
 - Grain: 1 row per fixture (`fixture_id`).
 - Primary key: `fixture_id`.
-- Origin: Silver parquet `football-silver/fixtures/league=71/season=2024/year=YYYY/month=MM/run=.../fixtures.parquet`.
+- Origin: Silver parquet `football-silver/fixtures/league=648/season=2024/year=YYYY/month=MM/run=.../fixtures.parquet`.
 - Mandatory fields (contract): `fixture_id`.
 
 Relevant fields and types:
@@ -52,7 +52,7 @@ Quality rules applied:
 - Grain: 1 row per (`fixture_id`, `team_id`).
 - Primary key: (`fixture_id`, `team_id`).
 - Foreign key: `fixture_id -> raw.fixtures.fixture_id` (`fk_match_statistics_fixture`, rollout with `NOT VALID`).
-- Origin: Silver parquet `football-silver/statistics/league=71/season=2024/run=.../statistics.parquet`.
+- Origin: Silver parquet `football-silver/statistics/league=648/season=2024/run=.../statistics.parquet`.
 - Mandatory fields (contract): `fixture_id`, `team_id`.
 
 Relevant fields and types:
@@ -82,7 +82,7 @@ Quality rules applied:
 - Primary key: (`event_id`, `season`).
 - Partition strategy: `PARTITION BY LIST (season)` with `raw.match_events_2024`.
 - Foreign key: `fixture_id -> raw.fixtures.fixture_id`.
-- Origin: Silver parquet `football-silver/events/season=2024/league_id=71/run=.../match_events.parquet`.
+- Origin: Silver parquet `football-silver/events/season=2024/league_id=648/run=.../match_events.parquet`.
 - Mandatory fields (contract): `event_id`, `season`, `fixture_id`.
 
 Relevant fields and types:
@@ -108,11 +108,79 @@ Quality rules applied:
 
 ---
 
+### Expanded raw contracts (SportMonks advanced)
+
+#### `raw.competition_leagues`
+- Grain: (`provider`, `league_id`)
+- PK: (`provider`, `league_id`)
+- Purpose: catalogo de ligas por provider para mapeamento de estrutura.
+
+#### `raw.competition_seasons`
+- Grain: (`provider`, `season_id`)
+- PK: (`provider`, `season_id`)
+- Purpose: temporadas com limites (`starting_at`/`ending_at`) e relacao com liga.
+
+#### `raw.competition_stages`
+- Grain: (`provider`, `stage_id`)
+- PK: (`provider`, `stage_id`)
+- Purpose: etapas (regular season/playoffs) da temporada.
+
+#### `raw.competition_rounds`
+- Grain: (`provider`, `round_id`)
+- PK: (`provider`, `round_id`)
+- Purpose: rodada canonica com ordenacao temporal.
+
+#### `raw.standings_snapshots`
+- Grain: (`provider`, `season_id`, `stage_id`, `round_id`, `team_id`)
+- PK: (`provider`, `season_id`, `stage_id`, `round_id`, `team_id`)
+- Purpose: snapshot da classificacao por rodada/time.
+
+#### `raw.fixture_lineups`
+- Grain: (`provider`, `fixture_id`, `team_id`, `lineup_id`)
+- PK: (`provider`, `fixture_id`, `team_id`, `lineup_id`)
+- Purpose: escalação/minutos/posição por slot de lineup em cada jogo, preservando casos com `player_id` ausente no provider.
+
+#### `raw.fixture_player_statistics`
+- Grain: (`provider`, `fixture_id`, `team_id`, `player_id`)
+- PK: (`provider`, `fixture_id`, `team_id`, `player_id`)
+- Purpose: estatísticas individuais por partida (JSON + pivots em dbt staging).
+
+#### `raw.player_season_statistics`
+- Grain: (`provider`, `player_id`, `season_id`, `team_id`)
+- PK: (`provider`, `player_id`, `season_id`, `team_id`)
+- Purpose: agregados de temporada por jogador/time.
+
+#### `raw.player_transfers`
+- Grain: (`provider`, `transfer_id`)
+- PK: (`provider`, `transfer_id`)
+- Purpose: histórico de transferências.
+
+#### `raw.team_sidelined`
+- Grain: (`provider`, `sidelined_id`)
+- PK: (`provider`, `sidelined_id`)
+- Purpose: indisponibilidade (lesão/suspensão) com período e categoria.
+
+#### `raw.team_coaches`
+- Grain: (`provider`, `coach_tenure_id`)
+- PK: (`provider`, `coach_tenure_id`)
+- Purpose: tenures de técnicos por time.
+
+#### `raw.head_to_head_fixtures`
+- Grain: (`provider`, `pair_team_id`, `pair_opponent_id`, `fixture_id`)
+- PK: (`provider`, `pair_team_id`, `pair_opponent_id`, `fixture_id`)
+- Purpose: histórico de confrontos diretos por par de times.
+
+Quality rules applied for expanded raw:
+- GE suites: `raw_fixture_lineups_suite`, `raw_fixture_player_statistics_suite`, `raw_standings_snapshots_suite`, `raw_competition_rounds_suite`
+- SQL assertions: duplicidade por grain, órfãos de fixture em player stats e cobertura mínima de titulares por time em partidas finalizadas.
+
+---
+
 ## Silver contracts (MinIO Parquet)
 
 ### Dataset `fixtures`
 - Grain: 1 row per fixture (`fixture_id`) after dedup.
-- Partition path: `fixtures/league=71/season=2024/year=YYYY/month=MM/run=<latest_run>/fixtures.parquet`.
+- Partition path: `fixtures/league=648/season=2024/year=YYYY/month=MM/run=<latest_run>/fixtures.parquet`.
 - Required input from Bronze flattening: fixture/league/team/goal attributes.
 - Derived fields: `date` (tmp), `year`, `month`.
 
@@ -121,7 +189,7 @@ Main schema (written):
 
 ### Dataset `statistics`
 - Grain: 1 row per (`fixture_id`, `team_id`) after dedup.
-- Partition path: `statistics/league=71/season=2024/run=<run_utc>/statistics.parquet`.
+- Partition path: `statistics/league=648/season=2024/run=<run_utc>/statistics.parquet`.
 - Required fields: `fixture_id`, `team_id`, `team_name`.
 - Derived/normalized fields:
   - pivoted metric columns from API `statistics[].type`
@@ -129,7 +197,7 @@ Main schema (written):
 
 ### Dataset `events`
 - Grain: 1 row per event (`event_id`) after dedup.
-- Partition path: `events/season=2024/league_id=71/run=<run_utc>/match_events.parquet`.
+- Partition path: `events/season=2024/league_id=648/run=<run_utc>/match_events.parquet`.
 - Required fields: `fixture_id` + flattened event attributes.
 - Derived fields:
   - `event_id` (MD5 of fixture/time/team/type/detail/player)
@@ -237,6 +305,38 @@ Quality rules applied:
 - Metrics: first/last match date and goal averages.
 - Source: `fact_matches` + `dim_competition`.
 - Quality: dbt schema tests + singular consistency test + SQL assertion `mart_score_mismatch`.
+
+### Expanded marts (player/context layer)
+
+#### Core dimensions
+- `dim_stage`: grain (`provider`, `stage_id`), key `stage_sk`.
+- `dim_round`: grain (`provider`, `round_id`), key `round_sk`, com `round_key` sequencial por temporada.
+- `dim_coach`: grain (`provider`, `coach_id`), key `coach_sk`.
+
+#### Core facts
+- `fact_fixture_lineups`:
+  - grain: (`provider`, `fixture_id`, `team_id`, `lineup_id`) para linhas com player conhecido
+  - key: `fixture_lineup_id`
+  - purpose: titularidade, posição, formação e minutos por jogador/jogo.
+- `fact_fixture_player_stats`:
+  - grain: (`provider`, `fixture_id`, `team_id`, `player_id`)
+  - key: `fixture_player_stat_id`
+  - purpose: métricas individuais por partida (gols, assistências, chutes, passes, xG, rating etc.).
+- `fact_standings_snapshots`:
+  - grain: (`provider`, `season_id`, `stage_id`, `round_id`, `team_id`)
+  - key: `standings_snapshot_id`
+  - purpose: evolução de tabela rodada a rodada.
+
+#### Analytics
+- `player_match_summary`: resumo por jogador/partida (base para perguntas tipo scout).
+- `player_season_summary`: agregação sazonal por jogador/time.
+- `player_90_metrics`: métricas normalizadas por 90 minutos.
+- `coach_performance_summary`: desempenho por tenure de técnico.
+- `head_to_head_summary`: histórico consolidado por par de times.
+
+Quality rules applied:
+- dbt tests de grain (`unique_combination_of_columns`) e `not_null` para chaves.
+- GE suites de mart para `fact_fixture_player_stats` e `player_match_summary`.
 
 ---
 

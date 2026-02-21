@@ -137,3 +137,116 @@ models:
         description: "Media de gols por partida."
         tests:
           - not_null
+
+  - name: player_match_summary
+    description: "Resumo de estatisticas por jogador em cada partida."
+    columns:
+      - name: fixture_player_stat_id
+        tests:
+          - not_null
+          - unique
+      - name: match_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fact_matches')
+              field: match_id
+      - name: player_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_player')
+              field: player_sk
+      - name: team_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+
+  - name: player_season_summary
+    description: "Resumo por temporada de estatisticas individuais."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - competition_sk
+            - season
+            - player_id
+            - team_id
+    columns:
+      - name: competition_sk
+        tests:
+          - not_null
+      - name: season
+        tests:
+          - not_null
+      - name: player_id
+        tests:
+          - not_null
+      - name: team_id
+        tests:
+          - not_null
+
+  - name: player_90_metrics
+    description: "Metricas por 90 minutos derivadas do resumo sazonal."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - competition_sk
+            - season
+            - player_id
+            - team_id
+    columns:
+      - name: player_id
+        tests:
+          - not_null
+      - name: goals_per_90
+        description: "Gols por 90 minutos."
+      - name: assists_per_90
+        description: "Assistencias por 90 minutos."
+      - name: xg_per_90
+        description: "xG por 90 minutos."
+
+  - name: coach_performance_summary
+    description: "Desempenho agregado dos tecnicos por tenure."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - coach_tenure_id
+    columns:
+      - name: coach_tenure_id
+        tests:
+          - not_null
+      - name: coach_id
+        tests:
+          - not_null
+      - name: team_id
+        tests:
+          - not_null
+      - name: matches
+        tests:
+          - not_null
+
+  - name: head_to_head_summary
+    description: "Resumo historico de confrontos diretos por par de times."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - league_id
+            - pair_team_id
+            - pair_opponent_id
+    columns:
+      - name: league_id
+        tests:
+          - not_null
+      - name: pair_team_id
+        tests:
+          - not_null
+      - name: pair_opponent_id
+        tests:
+          - not_null
+      - name: total_matches
+        tests:
+          - not_null

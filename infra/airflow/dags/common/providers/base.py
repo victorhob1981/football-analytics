@@ -74,3 +74,65 @@ class ProviderAdapter(ABC):
         fixture_id: int,
     ) -> tuple[JsonDict, dict[str, str]]:
         return self.get_fixture_events(fixture_id=fixture_id)
+
+    # Extended contract (P2+). Providers may opt-in progressively.
+    def get_competition_structure(
+        self,
+        *,
+        league_id: int,
+        season: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_competition_structure.")
+
+    def get_fixture_lineups(
+        self,
+        *,
+        fixture_id: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_fixture_lineups.")
+
+    def get_fixture_player_statistics(
+        self,
+        *,
+        fixture_id: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_fixture_player_statistics.")
+
+    def get_player_season_statistics(
+        self,
+        *,
+        player_id: int,
+        season: int | None = None,
+        league_id: int | None = None,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_player_season_statistics.")
+
+    def get_player_transfers(
+        self,
+        *,
+        player_id: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_player_transfers.")
+
+    def get_team_sidelined(
+        self,
+        *,
+        team_id: int,
+        season: int | None = None,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_team_sidelined.")
+
+    def get_team_coaches(
+        self,
+        *,
+        team_id: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_team_coaches.")
+
+    def get_head_to_head(
+        self,
+        *,
+        team_id: int,
+        opponent_id: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_head_to_head.")

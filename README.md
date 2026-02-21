@@ -13,6 +13,17 @@ Plataforma de dados para analise de futebol com fluxo oficial:
 - Providers de ingestao: `sportmonks` (default) e `api_football` (fallback), selecionados por `ACTIVE_PROVIDER`
 - CI: `.github/workflows/ci.yml`
 
+## Nucleo canonico de ingestao
+Source of truth para clients/providers/writer usado pelos DAGs:
+- HTTP client: `infra/airflow/dags/common/http_client.py`
+- Providers (registry + adapters): `infra/airflow/dags/common/providers/`
+- Raw writer (bronze payload): `infra/airflow/dags/common/raw_writer.py`
+- Servicos de ingestao/mapeamento/load: `infra/airflow/dags/common/services/`
+
+Observacao:
+- Modulos legados duplicados em `src/` e placeholders em `ingestion/src/` foram descontinuados/removidos para evitar divergencia.
+- Novas evolucoes de ingestao devem acontecer somente em `infra/airflow/dags/common/`.
+
 ## Subir stack local
 1. Criar `.env`:
 ```powershell
@@ -29,7 +40,7 @@ docker compose ps
 ```
 
 URLs:
-- Airflow: `http://localhost:8080` (`admin` / `admin`)
+- Airflow: `http://localhost:8080` (`AIRFLOW_ADMIN_USERNAME` / `AIRFLOW_ADMIN_PASSWORD` do `.env`)
 - MinIO Console: `http://localhost:9001`
 - Metabase: `http://localhost:3000`
 
@@ -52,15 +63,99 @@ DAG principal: `pipeline_brasileirao`.
 
 Execucao de teste:
 ```powershell
-$conf='{"league_id":71,"season":2024,"provider":"sportmonks"}'
+$conf='{"league_id":648,"season":2024,"provider":"sportmonks"}'
 docker compose exec -T airflow-webserver airflow dags test pipeline_brasileirao 2026-02-17 -c $conf
 ```
+
+Backfill deterministico de statistics (PowerShell-safe):
+```powershell
+# Backfill por temporada (season_id alias de season)
+@'
+import json
+import subprocess
+conf = json.dumps({
+    "mode": "backfill",
+    "provider": "sportmonks",
+    "league_id": 648,
+    "season_id": 2024
+})
+subprocess.run(
+    ["airflow", "dags", "test", "ingest_statistics_bronze", "2026-02-17", "-c", conf],
+    check=True,
+)
+'@ | docker compose exec -T airflow-webserver python -
+
+# Backfill por lista explicita de fixtures
+@'
+import json
+import subprocess
+conf = json.dumps({
+    "mode": "backfill",
+    "provider": "sportmonks",
+    "league_id": 648,
+    "season_id": 2024,
+    "fixture_ids": [1180355, 1180356, 1180357]
+})
+subprocess.run(
+    ["airflow", "dags", "test", "ingest_statistics_bronze", "2026-02-17", "-c", conf],
+    check=True,
+)
+'@ | docker compose exec -T airflow-webserver python -
+```
+
+Notas do modo backfill:
+- Persistencia em `raw.provider_sync_state` com `scope_key` dedicado (inclui hash da lista quando `fixture_ids` e explicito).
+- Retomada por cursor sem full-scan de S3 (evita reprocessar fixtures ja concluidos no mesmo escopo).
+- Escrita idempotente mantida via upsert no raw (`ON CONFLICT (fixture_id, team_id) DO UPDATE ... IS DISTINCT FROM`).
+- Rate limit/retry seguem o provider HTTP + `INGEST_STATISTICS_REQUESTS_PER_MINUTE`.
+
+## Ingestao SportMonks Advanced (arquitetura por dominio)
+Novos dominios implementados no pipeline:
+1. `group_competition_structure`:
+- `ingest_competition_structure_bronze`
+- `bronze_to_silver_competition_structure`
+- `silver_to_postgres_competition_structure`
+- `ingest_standings_bronze`
+- `bronze_to_silver_standings`
+- `silver_to_postgres_standings`
+2. `group_fixture_enrichment`:
+- fluxo existente de fixtures/statistics/events
+3. `group_player_layer`:
+- `ingest_lineups_bronze` -> `bronze_to_silver_lineups` -> `silver_to_postgres_lineups`
+- `ingest_fixture_player_statistics_bronze` -> `bronze_to_silver_fixture_player_statistics` -> `silver_to_postgres_fixture_player_statistics`
+- `ingest_player_season_statistics_bronze` -> `bronze_to_silver_player_season_statistics` -> `silver_to_postgres_player_season_statistics`
+4. `group_context_extras`:
+- `ingest_player_transfers_bronze` -> `bronze_to_silver_player_transfers` -> `silver_to_postgres_player_transfers`
+- `ingest_team_sidelined_bronze` -> `bronze_to_silver_team_sidelined` -> `silver_to_postgres_team_sidelined`
+- `ingest_team_coaches_bronze` -> `bronze_to_silver_team_coaches` -> `silver_to_postgres_team_coaches`
+- `ingest_head_to_head_bronze` -> `bronze_to_silver_head_to_head` -> `silver_to_postgres_head_to_head`
+
+Execucao ponta-a-ponta recomendada:
+```powershell
+$conf='{"league_id":648,"season":2024,"provider":"sportmonks"}'
+docker compose exec -T airflow-webserver airflow dags test pipeline_brasileirao 2026-02-19 -c $conf
+```
+
+Novas variaveis de rate limit no `.env`:
+- `INGEST_COMPETITION_REQUESTS_PER_MINUTE`
+- `INGEST_STANDINGS_REQUESTS_PER_MINUTE`
+- `INGEST_LINEUPS_REQUESTS_PER_MINUTE`
+- `INGEST_PLAYER_STATS_REQUESTS_PER_MINUTE`
+- `INGEST_PLAYER_SEASON_REQUESTS_PER_MINUTE`
+- `INGEST_TRANSFERS_REQUESTS_PER_MINUTE`
+- `INGEST_SIDELINED_REQUESTS_PER_MINUTE`
+- `INGEST_COACHES_REQUESTS_PER_MINUTE`
+- `INGEST_H2H_REQUESTS_PER_MINUTE`
 
 Selecionar provider (PowerShell):
 ```powershell
 $env:ACTIVE_PROVIDER='sportmonks'
+$env:SPORTMONKS_DEFAULT_LEAGUE_ID='648'
 $env:API_KEY_SPORTMONKS='sua_chave'
 $env:SPORTMONKS_BASE_URL='https://api.sportmonks.com/v3/football'
+$env:INGEST_FIXTURES_REQUESTS_PER_MINUTE='0'
+$env:INGEST_STATISTICS_REQUESTS_PER_MINUTE='0'
+$env:INGEST_EVENTS_REQUESTS_PER_MINUTE='0'
 ```
 
 Obs.: `league_id` no `dag_run.conf` e ID do provider ativo. `season` deve ser o ano da temporada (ex.: `2024`).
@@ -68,9 +163,20 @@ Obs.: `league_id` no `dag_run.conf` e ID do provider ativo. `season` deve ser o 
 Provider legado opcional:
 ```powershell
 $env:ACTIVE_PROVIDER='api_football'
+$env:APIFOOTBALL_DEFAULT_LEAGUE_ID='71'
 $env:APIFOOTBALL_API_KEY='sua_chave'
 $env:APIFOOTBALL_BASE_URL='https://v3.football.api-sports.io'
 ```
+
+## Reingestao SportMonks sem duplicidade
+Se ja houve ingestao via `api_football` para a mesma temporada, limpe o recorte antigo antes de reprocessar em `sportmonks` para evitar duplicidade analitica entre providers.
+
+Exemplo (temporada 2024):
+```powershell
+Get-Content 'warehouse/queries/reset_provider_api_football_brasileirao_2024.sql' | docker compose exec -T postgres psql -U football -d football_dw
+```
+
+Depois rode a ingestao SportMonks com `league_id=648`.
 
 Fluxo interno da DAG:
 1. Ingestao: `ingest_brasileirao_2024_backfill`, `ingest_statistics_bronze`, `ingest_match_events_bronze`
@@ -127,6 +233,66 @@ python -m pip install -r requirements-dev.txt
 make lint
 make test
 ```
+
+## Frontend local (BFF)
+No diretorio `frontend/`:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Ajuste `NEXT_PUBLIC_BFF_BASE_URL` para a URL da BFF (default local: `http://127.0.0.1:8010`).
+
+## Frontend E2E (Playwright)
+No diretorio `frontend/`:
+
+```powershell
+pnpm exec playwright install chromium
+pnpm run test:e2e
+```
+
+Os cenarios E2E usam interceptacao de `/api/*` para nao depender de backend real.
+
+## Como validar P1
+Comando unico:
+```powershell
+make quality-p1
+```
+
+Se nao tiver `make` no Windows:
+```powershell
+python tools/quality_p1.py
+```
+
+O alvo `quality-p1` executa, nesta ordem:
+1. `pytest -q -m "not integration"`
+2. `dbt run -s standings_evolution`
+3. `dbt test -s standings_evolution`
+
+No final, imprime resumo com status (`PASS`/`FAIL`) e tempo por etapa + tempo total.
+
+## Como rodar P2 verify
+Comando unico:
+```powershell
+make p2-verify
+```
+
+Se nao tiver `make` no Windows:
+```powershell
+python tools/p2_verify.py
+```
+
+O alvo `p2-verify` executa, nesta ordem:
+1. `pytest -q -m "not integration"`
+2. Queries de diagnostico em `warehouse/queries/`:
+- `fixtures_missing_stats.sql`
+- `stats_duplicates.sql`
+- `coverage_by_season.sql`
+3. `dbt test -s stg_match_statistics+`
+
+Artefatos:
+- outputs das queries em `artifacts/p2_verify_<timestamp_utc>/`.
+- resumo final no terminal com status (`PASS`/`FAIL`) e tempo por etapa + tempo total.
 
 Escopo atual de CI (`.github/workflows/ci.yml`):
 - lint (`ruff`)
