@@ -68,18 +68,23 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
   const [search, setSearch] = useState("");
   const [sortDirection, setSortDirection] = useState<RankingSortDirection>(rankingDefinition.defaultSort);
   const [minSampleInput, setMinSampleInput] = useState(rankingDefinition.minSample?.min?.toString() ?? "");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
   const minSampleValue = useMemo(() => parseMinSample(minSampleInput), [minSampleInput]);
 
   const metric = getMetric(rankingDefinition.metricKey);
   const rankingQuery = useRankingTable(rankingDefinition, {
     localFilters: {
       search,
+      page: pageIndex + 1,
+      pageSize,
       sortDirection,
       minSampleValue,
     },
   });
 
   const rows = rankingQuery.data?.rows ?? [];
+  const totalCount = rankingQuery.pagination?.totalCount ?? rows.length;
 
   const columns = useMemo<Array<ColumnDef<RankingTableRow, unknown>>>(
     () => [
@@ -158,6 +163,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
             className="rounded border border-slate-300 px-2 py-1"
             onChange={(event) => {
               setSearch(event.target.value);
+              setPageIndex(0);
             }}
             placeholder="Buscar por nome"
             type="text"
@@ -171,6 +177,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
             className="rounded border border-slate-300 bg-white px-2 py-1"
             onChange={(event) => {
               setSortDirection(event.target.value as RankingSortDirection);
+              setPageIndex(0);
             }}
             value={sortDirection}
           >
@@ -185,6 +192,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
             className="rounded border border-slate-300 px-2 py-1"
             onChange={(event) => {
               setMinSampleInput(event.target.value);
+              setPageIndex(0);
             }}
             placeholder={rankingDefinition.minSample?.min?.toString() ?? "Opcional"}
             type="number"
@@ -218,9 +226,17 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
         emptyDescription="Nao ha linhas para os filtros atuais."
         emptyTitle="Ranking vazio"
         enableVirtualization
-        initialPageSize={50}
         loading={rankingQuery.isLoading}
+        manualPagination
+        onPageChange={setPageIndex}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize);
+          setPageIndex(0);
+        }}
+        pageIndex={pageIndex}
+        pageSize={pageSize}
         pageSizeOptions={[25, 50, 100]}
+        totalCount={totalCount}
         virtualizerMaxHeight={520}
       />
     </main>

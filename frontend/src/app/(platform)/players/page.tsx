@@ -38,6 +38,8 @@ function parseMinMinutes(value: string): number | null {
 export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [minMinutesInput, setMinMinutesInput] = useState("");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const queryClient = useQueryClient();
   const { competitionId, seasonId, venue } = useGlobalFiltersState();
   const { params: timeRangeParams } = useTimeRange();
@@ -53,6 +55,8 @@ export default function PlayersPage() {
   const playersQuery = usePlayersList({
     search,
     minMinutes: normalizedMinMinutes,
+    page: pageIndex + 1,
+    pageSize,
   });
 
   const detailPrefetchFilters = useMemo<PlayerProfileFilters>(
@@ -110,19 +114,8 @@ export default function PlayersPage() {
     [addToComparison, comparisonEntityType, removeFromComparison, selectedIdsSet, setComparisonEntityType],
   );
 
-  const tableData = useMemo(() => {
-    const items = playersQuery.data?.items ?? [];
-    const normalizedSearch = search.trim().toLowerCase();
-
-    return items.filter((item) => {
-      const playerName = item.playerName?.toLowerCase() ?? "";
-      const passesSearchFilter = normalizedSearch.length === 0 || playerName.includes(normalizedSearch);
-      const playerMinutes = item.minutesPlayed ?? 0;
-      const passesMinMinutesFilter = normalizedMinMinutes === null || playerMinutes >= normalizedMinMinutes;
-
-      return passesSearchFilter && passesMinMinutesFilter;
-    });
-  }, [normalizedMinMinutes, playersQuery.data?.items, search]);
+  const tableData = useMemo(() => playersQuery.data?.items ?? [], [playersQuery.data?.items]);
+  const totalCount = playersQuery.pagination?.totalCount ?? tableData.length;
 
   const columns = useMemo<Array<ColumnDef<PlayerListItem, unknown>>>(
     () => [
@@ -235,6 +228,7 @@ export default function PlayersPage() {
             className="rounded border border-slate-300 px-2 py-1"
             onChange={(event) => {
               setSearch(event.target.value);
+              setPageIndex(0);
             }}
             placeholder="Ex.: Arrascaeta"
             type="text"
@@ -249,6 +243,7 @@ export default function PlayersPage() {
             min={0}
             onChange={(event) => {
               setMinMinutesInput(event.target.value);
+              setPageIndex(0);
             }}
             placeholder="Ex.: 300"
             type="number"
@@ -278,6 +273,16 @@ export default function PlayersPage() {
         emptyDescription="Nenhum jogador encontrado para o recorte atual."
         emptyTitle="Sem jogadores"
         loading={playersQuery.isLoading}
+        manualPagination
+        onPageChange={setPageIndex}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize);
+          setPageIndex(0);
+        }}
+        pageIndex={pageIndex}
+        pageSize={pageSize}
+        pageSizeOptions={[10, 20, 50, 100]}
+        totalCount={totalCount}
       />
     </main>
   );

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from .core.config import get_settings
 from .core.errors import AppError, error_payload
+from .core.rate_limit import FixedWindowRateLimiter
 from .routers.health import router as health_router
 from .routers.insights import router as insights_router
 from .routers.matches import router as matches_router
@@ -30,6 +31,11 @@ def _configure_logging() -> logging.Logger:
 
 logger = _configure_logging()
 settings = get_settings()
+rate_limiter = (
+    FixedWindowRateLimiter(max_requests=settings.rate_limit_requests_per_minute, window_seconds=60)
+    if settings.rate_limit_requests_per_minute > 0
+    else None
+)
 
 app = FastAPI(
     title=settings.app_name,
@@ -38,13 +44,28 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+cors_allow_origins = list(settings.cors_allow_origins)
+cors_allow_credentials = settings.cors_allow_credentials
+if "*" in cors_allow_origins and cors_allow_credentials:
+    logger.warning("CORS allow_credentials disabled because allow_origins contains '*'.")
+    cors_allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_allow_origins,
+    allow_credentials=cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _client_identifier(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+        if client_ip:
+            return client_ip
+    return request.client.host if request.client and request.client.host else "unknown"
 
 
 @app.middleware("http")
@@ -52,6 +73,31 @@ async def request_logging_middleware(request: Request, call_next):  # type: igno
     request_id = f"req_{uuid.uuid4().hex[:12]}"
     request.state.request_id = request_id
     started_at = time.perf_counter()
+
+    if rate_limiter is not None:
+        client_key = _client_identifier(request)
+        decision = rate_limiter.allow(client_key)
+        if not decision.allowed:
+            logger.warning(
+                "rate_limited method=%s path=%s client=%s request_id=%s retry_after=%s",
+                request.method,
+                request.url.path,
+                client_key,
+                request_id,
+                decision.retry_after_seconds,
+            )
+            response = JSONResponse(
+                status_code=429,
+                content=error_payload(
+                    message="Rate limit exceeded.",
+                    code="RATE_LIMITED",
+                    status=429,
+                    details={"retryAfterSeconds": decision.retry_after_seconds},
+                ),
+            )
+            response.headers["Retry-After"] = str(decision.retry_after_seconds)
+            response.headers["X-Request-Id"] = request_id
+            return response
 
     try:
         response = await call_next(request)

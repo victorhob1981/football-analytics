@@ -49,6 +49,9 @@ export function useMatchCenter(matchId: string | null | undefined, localFilters:
     enabled: normalizedMatchId.length > 0,
     staleTime: MATCH_CENTER_STALE_TIME_MS,
     gcTime: MATCH_CENTER_GC_TIME_MS,
-    isDataEmpty: (data) => data.match.matchId.trim().length === 0,
+    isDataEmpty: (data) => {
+      const responseMatchId = typeof data.match?.matchId === "string" ? data.match.matchId.trim() : "";
+      return responseMatchId.length === 0;
+    },
   });
 }

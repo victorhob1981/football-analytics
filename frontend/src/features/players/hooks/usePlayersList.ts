@@ -54,6 +54,6 @@ export function usePlayersList(localFilters: PlayersListLocalFilters = {}) {
     queryFn: () => fetchPlayersList(mergedFilters),
     staleTime: PLAYERS_LIST_STALE_TIME_MS,
     gcTime: PLAYERS_LIST_GC_TIME_MS,
-    isDataEmpty: (data) => data.items.length === 0,
+    isDataEmpty: (data) => !Array.isArray(data.items) || data.items.length === 0,
   });
 }

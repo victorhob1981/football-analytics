@@ -107,7 +107,7 @@ export function useRankingTable(rankingDefinition: RankingDefinition, options: U
     enabled,
     staleTime: cacheProfile.staleTimeMs,
     gcTime: cacheProfile.gcTimeMs,
-    isDataEmpty: (data) => data.rows.length === 0,
+    isDataEmpty: (data) => !Array.isArray(data.rows) || data.rows.length === 0,
   });
 
   return {

@@ -23,6 +23,8 @@ export default function MatchesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [sortDirection, setSortDirection] = useState<MatchesListSortDirection>("desc");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const queryClient = useQueryClient();
   const { competitionId, seasonId, venue } = useGlobalFiltersState();
   const { params: timeRangeParams } = useTimeRange();
@@ -30,6 +32,8 @@ export default function MatchesPage() {
   const matchesQuery = useMatchesList({
     search,
     status,
+    page: pageIndex + 1,
+    pageSize,
     sortBy: "kickoffAt",
     sortDirection,
   });
@@ -76,6 +80,7 @@ export default function MatchesPage() {
   );
 
   const tableData = useMemo(() => matchesQuery.data?.items ?? [], [matchesQuery.data?.items]);
+  const totalCount = matchesQuery.pagination?.totalCount ?? tableData.length;
 
   const columns = useMemo<Array<ColumnDef<MatchListItem, unknown>>>(
     () => [
@@ -165,6 +170,7 @@ export default function MatchesPage() {
             className="rounded border border-slate-300 px-2 py-1"
             onChange={(event) => {
               setSearch(event.target.value);
+              setPageIndex(0);
             }}
             placeholder="Ex.: Flamengo"
             type="text"
@@ -178,6 +184,7 @@ export default function MatchesPage() {
             className="rounded border border-slate-300 bg-white px-2 py-1"
             onChange={(event) => {
               setStatus(event.target.value);
+              setPageIndex(0);
             }}
             value={status}
           >
@@ -195,6 +202,7 @@ export default function MatchesPage() {
             className="rounded border border-slate-300 bg-white px-2 py-1"
             onChange={(event) => {
               setSortDirection(event.target.value as MatchesListSortDirection);
+              setPageIndex(0);
             }}
             value={sortDirection}
           >
@@ -225,6 +233,16 @@ export default function MatchesPage() {
         emptyDescription="Nenhuma partida encontrada para o recorte atual."
         emptyTitle="Sem partidas"
         loading={matchesQuery.isLoading}
+        manualPagination
+        onPageChange={setPageIndex}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize);
+          setPageIndex(0);
+        }}
+        pageIndex={pageIndex}
+        pageSize={pageSize}
+        pageSizeOptions={[10, 20, 50, 100]}
+        totalCount={totalCount}
       />
     </main>
   );

@@ -147,6 +147,11 @@ Novas variaveis de rate limit no `.env`:
 - `INGEST_COACHES_REQUESTS_PER_MINUTE`
 - `INGEST_H2H_REQUESTS_PER_MINUTE`
 
+Variaveis de seguranca da BFF no `.env`:
+- `BFF_CORS_ALLOW_ORIGINS` (lista separada por virgula)
+- `BFF_CORS_ALLOW_CREDENTIALS` (`true|false`)
+- `BFF_RATE_LIMIT_REQUESTS_PER_MINUTE` (default `120`)
+
 Selecionar provider (PowerShell):
 ```powershell
 $env:ACTIVE_PROVIDER='sportmonks'
@@ -251,7 +256,7 @@ pnpm exec playwright install chromium
 pnpm run test:e2e
 ```
 
-Os cenarios E2E usam interceptacao de `/api/*` para nao depender de backend real.
+Os cenarios E2E usam interceptacao de `/api/v1/*` para nao depender de backend real.
 
 ## Como validar P1
 Comando unico:
@@ -297,6 +302,7 @@ Artefatos:
 Escopo atual de CI (`.github/workflows/ci.yml`):
 - lint (`ruff`)
 - unit tests (`pytest`)
+- frontend checks (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`)
 - dbt validations (`dbt deps`, `dbt compile`, `dbt docs generate`)
 
 ## Metabase e dashboards versionados
@@ -323,5 +329,3 @@ Versionamento de dashboards:
 - DDL legado (somente referencia): `warehouse/ddl/`
 
 
-
-diff for pr
