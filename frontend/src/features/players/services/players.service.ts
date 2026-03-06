@@ -24,7 +24,14 @@ function toQueryParams<TFilters extends object>(filters: TFilters): QueryParams 
       continue;
     }
 
-    const normalizedKey = key === "dateRangeStart" ? "dateStart" : key === "dateRangeEnd" ? "dateEnd" : key;
+    const normalizedKey =
+      key === "dateRangeStart"
+        ? "dateStart"
+        : key === "dateRangeEnd"
+          ? "dateEnd"
+          : key === "monthKey"
+            ? "month"
+            : key;
     queryParams[normalizedKey] = value as string | number | boolean;
   }
 

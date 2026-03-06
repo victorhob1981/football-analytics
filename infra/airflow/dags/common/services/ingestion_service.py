@@ -760,8 +760,8 @@ def ingest_statistics_raw():
 def ingest_match_events_raw():
     context = get_current_context()
     runtime = resolve_runtime_params(context)
-    league_id = runtime["league_id"]
-    season = runtime["season"]
+    default_league_id = runtime["league_id"]
+    default_season = runtime["season"]
     provider_name = runtime["provider"]
 
     requests_per_minute = _get_int_env(
@@ -796,7 +796,18 @@ def ingest_match_events_raw():
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
     engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
-    fixture_ids = _fetch_finished_fixture_ids(engine, league_id, season)
+
+    targets = _resolve_statistics_targets(
+        context=context,
+        default_league_id=default_league_id,
+        default_season=default_season,
+        fetch_finished_fixture_ids=lambda league, year: _fetch_finished_fixture_ids(engine, league, year),
+    )
+    mode = targets["mode"]
+    league_id = targets["league_id"]
+    season = targets["season"]
+    fixture_ids = targets["fixture_ids"]
+    target_source = targets["target_source"]
 
     if not fixture_ids:
         log_event(
@@ -809,30 +820,39 @@ def ingest_match_events_raw():
             row_count=0,
             message=(
                 "Nenhum fixture finalizado encontrado "
-                f"| provider={provider_name} | league_id={league_id} | season={season} | statuses={FINAL_STATUSES}"
+                f"| provider={provider_name} | mode={mode} | league_id={league_id} | season={season} "
+                f"| source={target_source} | statuses={FINAL_STATUSES}"
             ),
         )
         return
 
     run_utc = datetime.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
     entity_type = "match_events"
-    scope_key = _sync_scope_key(league_id=league_id, season=season)
+    explicit_scope_fixture_ids = fixture_ids if (mode == "backfill" and target_source == "explicit_fixture_ids") else None
+    scope_key = _sync_scope_key(
+        league_id=league_id,
+        season=season,
+        mode=mode,
+        fixture_ids=explicit_scope_fixture_ids,
+    )
     current_cursor = _read_sync_cursor(
         engine,
         provider_name=provider_name,
         entity_type=entity_type,
         scope_key=scope_key,
     )
+    effective_skip_ingested = True if mode == "backfill" else skip_ingested
     pending_fixture_ids, ingested_fixture_ids, pending_strategy = _resolve_pending_fixture_ids(
         s3_client=s3_client,
         fixture_ids=fixture_ids,
-        skip_ingested=skip_ingested,
+        skip_ingested=effective_skip_ingested,
         s3_prefix=f"events/league={league_id}/season={season}/",
         cursor=current_cursor,
+        cursor_only=(mode == "backfill"),
     )
 
     if not pending_fixture_ids:
-        bootstrap_cursor = fixture_ids[-1] if (skip_ingested and current_cursor is None and fixture_ids) else current_cursor
+        bootstrap_cursor = fixture_ids[-1] if (effective_skip_ingested and current_cursor is None and fixture_ids) else current_cursor
         _upsert_sync_state(
             engine,
             provider_name=provider_name,
@@ -855,9 +875,11 @@ def ingest_match_events_raw():
             rows_in=len(fixture_ids),
             rows_out=0,
             message=(
-                "Todos os fixtures finalizados ja possuem dados no bronze "
-                f"| provider={provider_name} | total={len(fixture_ids)} | ingeridos_previamente={len(ingested_fixture_ids)} "
-                f"| estrategia={pending_strategy} | cursor_atual={current_cursor} | cursor_persistido={bootstrap_cursor}"
+                "Todos os fixtures alvo ja possuem dados no bronze "
+                f"| provider={provider_name} | mode={mode} | source={target_source} "
+                f"| total={len(fixture_ids)} | ingeridos_previamente={len(ingested_fixture_ids)} "
+                f"| estrategia={pending_strategy} | skip_ingested_efetivo={effective_skip_ingested} "
+                f"| cursor_atual={current_cursor} | cursor_persistido={bootstrap_cursor}"
             ),
         )
         return
@@ -897,7 +919,13 @@ def ingest_match_events_raw():
                     payload=payload,
                     provider=provider.name,
                     endpoint="fixtures/events",
-                    source_params={"fixture": fixture_id},
+                    source_params={
+                        "league_id": league_id,
+                        "season": season,
+                        "fixture": fixture_id,
+                        "mode": mode,
+                        "source": target_source,
+                    },
                     entity_type="match_events",
                 )
                 succeeded += 1
@@ -959,17 +987,20 @@ def ingest_match_events_raw():
         row_count=total_events,
         message=(
             "Raw match_events concluido "
-            f"| provider={provider_name} | league_id={league_id} | season={season} "
+            f"| provider={provider_name} | mode={mode} | source={target_source} "
+            f"| league_id={league_id} | season={season} "
             f"| fixtures_total={len(fixture_ids)} | pendentes={len(pending_fixture_ids)} "
             f"| tentativas={attempted} | sucesso={succeeded} | falhas={failed} | eventos={total_events} "
             f"| limite_diario={daily_limit_reached} | motivo={stop_reason} "
-            f"| estrategia={pending_strategy} | cursor_anterior={current_cursor} | cursor_novo={next_cursor}"
+            f"| estrategia={pending_strategy} | skip_ingested_efetivo={effective_skip_ingested} "
+            f"| cursor_anterior={current_cursor} | cursor_novo={next_cursor}"
         ),
     )
 
     if fail_on_partial and succeeded < len(pending_fixture_ids):
         raise RuntimeError(
             "Ingestao raw match_events parcial. "
+            f"mode={mode} | source={target_source} | "
             f"pendentes={len(pending_fixture_ids)} | tentativas={attempted} | sucesso={succeeded} | falhas={failed} | "
             f"limite_diario={daily_limit_reached}."
         )

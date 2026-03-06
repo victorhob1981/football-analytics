@@ -103,6 +103,73 @@ subprocess.run(
 '@ | docker compose exec -T airflow-webserver python -
 ```
 
+Backfill deterministico por lote de fixtures (statistics + events + lineups + fixture_player_statistics):
+```powershell
+# 1) Ler fixtures finalizados do Brasileirao 2024 (SportMonks league_id=648)
+$fixtures = docker compose exec -T postgres psql -U football -d football_dw -At -c "SELECT fixture_id FROM raw.fixtures WHERE league_id=648 AND season=2024 AND status_short IN ('FT','AET','PEN') ORDER BY fixture_id"
+
+# 2) Processar em lotes (ajuste $batchSize conforme sua quota diaria)
+$batchSize = 80
+$runDate = (Get-Date).ToString('yyyy-MM-dd')
+
+for ($i = 0; $i -lt $fixtures.Count; $i += $batchSize) {
+  $chunk = $fixtures[$i..([Math]::Min($i + $batchSize - 1, $fixtures.Count - 1))]
+  $chunkIds = @($chunk | ForEach-Object { [int]$_ })
+  $confObj = @{
+    mode = "backfill"
+    provider = "sportmonks"
+    league_id = 648
+    season = 2024
+    fixture_ids = $chunkIds
+  }
+  $conf = $confObj | ConvertTo-Json -Compress
+
+  docker compose exec -T airflow-webserver airflow dags test ingest_statistics_bronze $runDate -c $conf
+  docker compose exec -T airflow-webserver airflow dags test ingest_match_events_bronze $runDate -c $conf
+  docker compose exec -T airflow-webserver airflow dags test ingest_lineups_bronze $runDate -c $conf
+  docker compose exec -T airflow-webserver airflow dags test ingest_fixture_player_statistics_bronze $runDate -c $conf
+}
+
+# 3) Consolidar Bronze -> Silver -> Raw
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_statistics $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_statistics $runDate
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_match_events $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_match_events $runDate
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_lineups $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_lineups $runDate
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_fixture_player_statistics $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_fixture_player_statistics $runDate
+```
+
+Depois do bloco por fixtures, execute os dominios contextuais:
+```powershell
+$runDate = (Get-Date).ToString('yyyy-MM-dd')
+docker compose exec -T airflow-webserver airflow dags test ingest_player_season_statistics_bronze $runDate -c '{"provider":"sportmonks","league_id":648,"season":2024}'
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_player_season_statistics $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_player_season_statistics $runDate
+
+docker compose exec -T airflow-webserver airflow dags test ingest_player_transfers_bronze $runDate -c '{"provider":"sportmonks","league_id":648,"season":2024}'
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_player_transfers $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_player_transfers $runDate
+
+docker compose exec -T airflow-webserver airflow dags test ingest_team_sidelined_bronze $runDate -c '{"provider":"sportmonks","league_id":648,"season":2024}'
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_team_sidelined $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_team_sidelined $runDate
+
+docker compose exec -T airflow-webserver airflow dags test ingest_team_coaches_bronze $runDate -c '{"provider":"sportmonks","league_id":648,"season":2024}'
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_team_coaches $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_team_coaches $runDate
+
+docker compose exec -T airflow-webserver airflow dags test ingest_head_to_head_bronze $runDate -c '{"provider":"sportmonks","league_id":648,"season":2024}'
+docker compose exec -T airflow-webserver airflow dags test bronze_to_silver_head_to_head $runDate
+docker compose exec -T airflow-webserver airflow dags test silver_to_postgres_head_to_head $runDate
+```
+
+Query unica de cobertura full-scope:
+```powershell
+Get-Content 'warehouse/queries/coverage_full_scope_2024.sql' | docker compose exec -T postgres psql -U football -d football_dw
+```
+
 Notas do modo backfill:
 - Persistencia em `raw.provider_sync_state` com `scope_key` dedicado (inclui hash da lista quando `fixture_ids` e explicito).
 - Retomada por cursor sem full-scan de S3 (evita reprocessar fixtures ja concluidos no mesmo escopo).
@@ -327,5 +394,3 @@ Versionamento de dashboards:
 - Arquitetura: `docs/ARCHITECTURE.md`
 - Roadmap: `docs/ROADMAP.md`
 - DDL legado (somente referencia): `warehouse/ddl/`
-
-

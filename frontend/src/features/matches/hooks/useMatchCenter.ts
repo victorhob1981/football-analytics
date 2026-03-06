@@ -1,7 +1,5 @@
 import { useMemo } from "react";
 
-import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
-import { useTimeRange } from "@/shared/hooks/useTimeRange";
 import { useQueryWithCoverage } from "@/shared/hooks/useQueryWithCoverage";
 
 import { matchesQueryKeys } from "@/features/matches/queryKeys";
@@ -12,34 +10,20 @@ const MATCH_CENTER_STALE_TIME_MS = 5 * 60 * 1000;
 const MATCH_CENTER_GC_TIME_MS = 20 * 60 * 1000;
 
 export function useMatchCenter(matchId: string | null | undefined, localFilters: MatchCenterLocalFilters = {}) {
-  const { competitionId, seasonId, venue } = useGlobalFiltersState();
-  const { params: timeRangeParams } = useTimeRange();
   const normalizedMatchId = matchId?.trim() ?? "";
 
   const mergedFilters = useMemo<MatchCenterFilters>(
     () => ({
-      competitionId,
-      seasonId,
-      roundId: timeRangeParams.roundId,
-      venue,
-      lastN: timeRangeParams.lastN,
-      dateRangeStart: timeRangeParams.dateRangeStart,
-      dateRangeEnd: timeRangeParams.dateRangeEnd,
+      includeTeamStats: localFilters.includeTeamStats,
       includeTimeline: localFilters.includeTimeline,
       includeLineups: localFilters.includeLineups,
       includePlayerStats: localFilters.includePlayerStats,
     }),
     [
-      competitionId,
+      localFilters.includeTeamStats,
       localFilters.includeLineups,
       localFilters.includePlayerStats,
       localFilters.includeTimeline,
-      seasonId,
-      timeRangeParams.dateRangeEnd,
-      timeRangeParams.dateRangeStart,
-      timeRangeParams.lastN,
-      timeRangeParams.roundId,
-      venue,
     ],
   );
 

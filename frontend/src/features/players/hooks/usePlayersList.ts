@@ -22,6 +22,7 @@ export function usePlayersList(localFilters: PlayersListLocalFilters = {}) {
       competitionId,
       seasonId,
       roundId: timeRangeParams.roundId,
+      monthKey: timeRangeParams.monthKey,
       venue,
       lastN: timeRangeParams.lastN,
       dateRangeStart: timeRangeParams.dateRangeStart,
@@ -45,6 +46,7 @@ export function usePlayersList(localFilters: PlayersListLocalFilters = {}) {
     timeRangeParams.dateRangeEnd,
     timeRangeParams.dateRangeStart,
     timeRangeParams.lastN,
+    timeRangeParams.monthKey,
     timeRangeParams.roundId,
     venue,
   ]);

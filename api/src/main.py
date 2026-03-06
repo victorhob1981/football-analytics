@@ -18,6 +18,9 @@ from .routers.insights import router as insights_router
 from .routers.matches import router as matches_router
 from .routers.players import router as players_router
 from .routers.rankings import router as rankings_router
+from .routers.home import router as home_router
+from .routers.clubs import router as clubs_router
+from .routers.standings import router as standings_router
 
 
 def _configure_logging() -> logging.Logger:
@@ -60,11 +63,8 @@ app.add_middleware(
 
 
 def _client_identifier(request: Request) -> str:
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        client_ip = forwarded_for.split(",")[0].strip()
-        if client_ip:
-            return client_ip
+    # Do not blindly trust x-forwarded-for without a TrustedHostMiddleware or similar proxy boundary.
+    # For now, default to the immediate client host to prevent trivial IP spoofing.
     return request.client.host if request.client and request.client.host else "unknown"
 
 
@@ -201,7 +201,10 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 
 
 app.include_router(health_router)
+app.include_router(home_router)
 app.include_router(players_router)
 app.include_router(rankings_router)
+app.include_router(standings_router)
 app.include_router(matches_router)
 app.include_router(insights_router)
+app.include_router(clubs_router)

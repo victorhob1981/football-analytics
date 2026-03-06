@@ -35,7 +35,7 @@ Justificativa: a plataforma tem mais de 80 métricas mapeadas, múltiplos domín
 
 ### 1.3 Gerenciamento de estado global: **Zustand**
 
-Justificativa: os filtros globais (liga, temporada, rodada, lastN, intervalo) precisam de estado persistente, reativo, e compartilhado entre múltiplas features. Zustand é minimal, sem boilerplate de Redux, testável, e compatível com SSR. Context API não escala para múltiplos slices com derivações. Redux é overhead desnecessário para este tipo de estado.
+Justificativa: os filtros globais (liga, temporada, rodada, mes, lastN, intervalo, venue) precisam de estado persistente, reativo, e compartilhado entre multiplas features. Zustand e minimal, sem boilerplate de Redux, testavel, e compativel com SSR. Context API nao escala para multiplos slices com derivacoes. Redux e overhead desnecessario para este tipo de estado.
 
 ### 1.4 Cache e data fetching: **TanStack Query v5 (React Query)**
 
@@ -240,7 +240,7 @@ Essa separação é mais ergonômica no ecossistema React moderno do que o padr�
 
 | Tipo de estado | Onde vive |
 |---|---|
-| Filtros globais (liga, temporada, rodada, lastN, intervalo) | Zustand store global |
+| Filtros globais (liga, temporada, rodada, mes, lastN, intervalo, venue) | Zustand store global |
 | Entidades selecionadas para comparativo | Zustand store de comparação |
 | Estado de UI (sidebars, modais abertos) | Zustand store de UI ou useState local |
 | Dados remotos (respostas de API) | TanStack Query cache |
@@ -352,13 +352,14 @@ Qualquer página pode "adicionar ao comparativo" enviando uma entidade para o st
 
 ### 6.1 GlobalFilters Store
 
-O store Zustand `globalFilters.store.ts` mantém:
+O store Zustand `globalFilters.store.ts` mantem:
 
 ```
 {
   competitionId: string
   seasonId: string
   roundId: string | null
+  monthKey: string | null     // formato YYYY-MM
   dateRangeStart: string | null
   dateRangeEnd: string | null
   lastN: number | null
@@ -366,17 +367,43 @@ O store Zustand `globalFilters.store.ts` mantém:
 }
 ```
 
-Regras de precedência: `lastN` e `dateRange` são mutuamente exclusivos. A UI desabilita um quando o outro está ativo. Zustand action `setTimeRange` resolve isso internamente.
+Regras de precedencia:
+
+- `seasonId` e obrigatorio para qualquer consulta analitica.
+- `roundId`, `monthKey`, `lastN` e `dateRange` sao mutuamente exclusivos dentro da dimensao temporal.
+- `venue` e ortogonal ao tempo (pode combinar com qualquer recorte temporal).
+- A action `setTimeRange` normaliza conflitos e mantem somente o recorte ativo.
 
 ### 6.2 GlobalFilterBar
 
-Componente fixo no layout raiz da plataforma (header ou sidebar superior). É um Client Component que lê e escreve no store. É o único lugar onde os filtros globais são alterados globalmente.
+Componente no shell da plataforma responsavel por ler e escrever no store global. O comportamento e controlado por configuracao de rota, nao por ifs espalhados.
 
-Cada página pode ter filtros locais adicionais (ex: posição de jogador no ranking de jogadores). Esses filtros locais não vão para o store global — ficam em estado local da feature.
+Cada pagina registra um `pageFilterConfig`:
+
+```
+type FilterState = 'enabled' | 'partial' | 'disabled'
+
+type PageFilterConfig = {
+  season: FilterState
+  round: FilterState
+  month: FilterState
+  lastN: FilterState
+  dateRange: FilterState
+  venue: FilterState
+}
+```
+
+Regras de UX:
+
+- `enabled`: filtro habilitado sem alerta.
+- `partial`: filtro habilitado com badge/tooltip "aplica parcialmente nesta pagina".
+- `disabled`: filtro desabilitado visualmente e ignorado para aquela rota.
+
+Filtros locais de feature (ex: posicao no ranking de jogadores) continuam fora do store global.
 
 ### 6.3 Query Keys e Reatividade
 
-Todos os query keys do TanStack Query incluem o estado dos filtros globais como parte da chave. Isso garante que qualquer mudança no filtro global invalida automaticamente todos os queries dependentes e dispara revalidação.
+Todos os query keys do TanStack Query incluem os filtros globais efetivamente ativos para a rota. Isso garante que qualquer mudanca relevante invalida os queries corretos sem thrash de cache.
 
 Padrão de query key:
 
@@ -391,14 +418,27 @@ Exemplo:
 
 ### 6.4 Time Intelligence — Recortes Dinâmicos
 
-A plataforma suporta quatro recortes temporais:
+A plataforma suporta cinco recortes temporais globais:
 
 - **Temporada completa**: sem filtro de tempo adicional.
+- **Por rodada**: `roundId` especifico.
+- **Por mes**: `monthKey` no formato `YYYY-MM`.
 - **Últimos N jogos (lastN)**: parâmetro inteiro enviado ao BFF.
 - **Intervalo de datas**: dateRangeStart + dateRangeEnd.
-- **Por rodada**: roundId específico.
 
-O hook `useTimeRange` abstrai qual recorte está ativo e retorna os parâmetros corretos para passar ao service. Componentes de UI não interpretam o recorte — apenas chamam `useTimeRange()` e passam o resultado para o serviço.
+O hook `useTimeRange` abstrai o modo ativo e retorna parametros normalizados para os services:
+
+- `none`
+- `round`
+- `month`
+- `lastN`
+- `dateRange`
+
+Componentes de UI nao interpretam o recorte; apenas consomem `useTimeRange()` e repassam para os hooks de dados.
+
+### 6.5 Matriz de Suporte por Pagina
+
+A matriz funcional do manual (Sim/Parcial/Nao por pagina) e implementada via `pageFilterConfig` por rota. O layout da plataforma injeta esse config no `GlobalFilterBar`, evitando discrepancias de comportamento entre paginas.
 
 ---
 
@@ -488,7 +528,7 @@ O componente de erro recebe a action de retry e tenta revalidar o query afetado,
 
 ### 9.1 Tipo Insight
 
-O contrato do insight vem tipado da BFF conforme especificado no documento funcional:
+Contrato canonico de insight no frontend e na BFF:
 
 ```
 InsightObject {
@@ -501,11 +541,26 @@ InsightObject {
 }
 ```
 
+Observacao de compatibilidade documental:
+
+- Se algum documento usar aliases em PT-BR (`severidade`, `explicacao`, `periodo_referencia`, `fonte_dados`), eles devem ser mapeados na BFF para o contrato canonico acima.
+- O frontend deve consumir somente o contrato canonico para manter tipagem unica.
+
 ### 9.2 Componentes de Insight
 
-- `InsightCard`: card autossuficiente com ícone de severidade, explicação, evidências numéricas, e período.
-- `InsightFeed`: lista vertical de InsightCards com agrupamento por severidade ou domínio.
-- `InsightBadge`: badge inline usado em tabelas, perfis de clube/jogador — indica que há insights para aquela entidade sem mostrar o conteúdo.
+- `InsightCard`: card com icone, explicacao, evidencias numericas e periodo.
+- `InsightFeed`: lista de `InsightCard` com ordenacao deterministica por severidade.
+- `InsightBadge`: badge inline que representa a maior severidade presente no contexto.
+
+Ordem obrigatoria no feed:
+
+`critical` -> `warning` -> `info`
+
+Semantica visual obrigatoria:
+
+- `critical`: vermelho + icone de alerta critico.
+- `warning`: amarelo/ambar + icone de alerta moderado.
+- `info`: azul/cinza + icone informativo.
 
 ### 9.3 Posicionamento de Insights na UI
 

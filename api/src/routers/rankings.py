@@ -18,6 +18,12 @@ FreshnessClass = Literal["season", "fast"]
 RANKING_CONFIG: dict[str, dict[str, Any]] = {
     "player-goals": {"metricKey": "goals", "domain": "player", "valueColumn": "goals", "defaultSort": "desc"},
     "player-assists": {"metricKey": "assists", "domain": "player", "valueColumn": "assists", "defaultSort": "desc"},
+    "player-offensive-contributions": {
+        "metricKey": "offensive_contributions",
+        "domain": "player",
+        "valueColumn": "offensive_contributions",
+        "defaultSort": "desc",
+    },
     "player-shots-total": {
         "metricKey": "shots_total",
         "domain": "player",
@@ -28,6 +34,26 @@ RANKING_CONFIG: dict[str, dict[str, Any]] = {
         "metricKey": "shots_on_target",
         "domain": "player",
         "valueColumn": "shots_on_goal",
+        "defaultSort": "desc",
+    },
+    "player-key-passes": {
+        "metricKey": "key_passes",
+        "domain": "player",
+        "valueColumn": "key_passes",
+        "defaultSort": "desc",
+    },
+    "player-tackles": {"metricKey": "tackles", "domain": "player", "valueColumn": "tackles", "defaultSort": "desc"},
+    "player-interceptions": {
+        "metricKey": "interceptions",
+        "domain": "player",
+        "valueColumn": "interceptions",
+        "defaultSort": "desc",
+    },
+    "player-duels": {"metricKey": "duels", "domain": "player", "valueColumn": "duels", "defaultSort": "desc"},
+    "player-fouls-committed": {
+        "metricKey": "fouls_committed",
+        "domain": "player",
+        "valueColumn": "fouls_committed",
         "defaultSort": "desc",
     },
     "player-pass-accuracy": {
@@ -41,6 +67,48 @@ RANKING_CONFIG: dict[str, dict[str, Any]] = {
         "metricKey": "yellow_cards",
         "domain": "player",
         "valueColumn": "yellow_cards",
+        "defaultSort": "desc",
+    },
+    "player-cards-total": {
+        "metricKey": "cards_total",
+        "domain": "player",
+        "valueColumn": "cards_total",
+        "defaultSort": "desc",
+    },
+    "player-goals-per-90": {
+        "metricKey": "goals_per_90",
+        "domain": "player",
+        "valueColumn": "goals_per_90",
+        "defaultSort": "desc",
+    },
+    "player-assists-per-90": {
+        "metricKey": "assists_per_90",
+        "domain": "player",
+        "valueColumn": "assists_per_90",
+        "defaultSort": "desc",
+    },
+    "player-shots-total-per-90": {
+        "metricKey": "shots_total_per_90",
+        "domain": "player",
+        "valueColumn": "shots_total_per_90",
+        "defaultSort": "desc",
+    },
+    "player-key-passes-per-90": {
+        "metricKey": "key_passes_per_90",
+        "domain": "player",
+        "valueColumn": "key_passes_per_90",
+        "defaultSort": "desc",
+    },
+    "player-tackles-per-90": {
+        "metricKey": "tackles_per_90",
+        "domain": "player",
+        "valueColumn": "tackles_per_90",
+        "defaultSort": "desc",
+    },
+    "player-interceptions-per-90": {
+        "metricKey": "interceptions_per_90",
+        "domain": "player",
+        "valueColumn": "interceptions_per_90",
         "defaultSort": "desc",
     },
     "team-possession": {
@@ -206,9 +274,22 @@ def _fetch_player_ranking_rows(
         "rating": "avg(fs.rating)::numeric",
         "goals": "sum(fs.goals)::numeric",
         "assists": "sum(fs.assists)::numeric",
+        "offensive_contributions": "sum(fs.goals + fs.assists)::numeric",
         "shots_total": "sum(fs.shots_total)::numeric",
         "shots_on_goal": "sum(fs.shots_on_goal)::numeric",
+        "key_passes": "sum(fs.key_passes)::numeric",
+        "tackles": "sum(fs.tackles)::numeric",
+        "interceptions": "sum(fs.interceptions)::numeric",
+        "duels": "sum(fs.duels)::numeric",
+        "fouls_committed": "sum(fs.fouls_committed)::numeric",
         "yellow_cards": "sum(fs.yellow_cards)::numeric",
+        "cards_total": "sum(fs.yellow_cards + fs.red_cards)::numeric",
+        "goals_per_90": "case when sum(fs.minutes_played) > 0 then (sum(fs.goals) * 90.0) / sum(fs.minutes_played) else null end",
+        "assists_per_90": "case when sum(fs.minutes_played) > 0 then (sum(fs.assists) * 90.0) / sum(fs.minutes_played) else null end",
+        "shots_total_per_90": "case when sum(fs.minutes_played) > 0 then (sum(fs.shots_total) * 90.0) / sum(fs.minutes_played) else null end",
+        "key_passes_per_90": "case when sum(fs.minutes_played) > 0 then (sum(fs.key_passes) * 90.0) / sum(fs.minutes_played) else null end",
+        "tackles_per_90": "case when sum(fs.minutes_played) > 0 then (sum(fs.tackles) * 90.0) / sum(fs.minutes_played) else null end",
+        "interceptions_per_90": "case when sum(fs.minutes_played) > 0 then (sum(fs.interceptions) * 90.0) / sum(fs.minutes_played) else null end",
     }[value_column]
 
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
@@ -229,7 +310,13 @@ def _fetch_player_ranking_rows(
                 coalesce(pms.assists, 0) as assists,
                 coalesce(pms.shots_total, 0) as shots_total,
                 coalesce(pms.shots_on_goal, 0) as shots_on_goal,
+                coalesce(pms.key_passes, 0) as key_passes,
+                coalesce(pms.tackles, 0) as tackles,
+                coalesce(pms.interceptions, 0) as interceptions,
+                coalesce(pms.duels, 0) as duels,
+                coalesce(pms.fouls_committed, 0) as fouls_committed,
                 coalesce(pms.yellow_cards, 0) as yellow_cards,
+                coalesce(pms.red_cards, 0) as red_cards,
                 pms.rating,
                 row_number() over (
                     partition by pms.player_id
@@ -263,6 +350,13 @@ def _fetch_player_ranking_rows(
             where (%s::text is null or player_name ilike %s)
               and (%s::numeric is null or minutes_played >= %s)
         ),
+        distribution as (
+            select
+                avg(c.metric_value) as metric_avg,
+                stddev_pop(c.metric_value) as metric_stddev
+            from constrained c
+            where c.metric_value is not null
+        ),
         ranked as (
             select
                 c.player_id,
@@ -272,8 +366,18 @@ def _fetch_player_ranking_rows(
                 c.matches_played,
                 c.minutes_played,
                 c.metric_value,
-                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.player_id asc) as rank
+                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.player_id asc) as rank,
+                case
+                    when d.metric_stddev is null or d.metric_stddev = 0 or c.metric_value is null then false
+                    when '{order_dir}' = 'asc' then c.metric_value <= (d.metric_avg - (2 * d.metric_stddev))
+                    else c.metric_value >= (d.metric_avg + (2 * d.metric_stddev))
+                end as is_outlier,
+                case
+                    when d.metric_stddev is null or d.metric_stddev = 0 or c.metric_value is null then null
+                    else (c.metric_value - d.metric_avg) / nullif(d.metric_stddev, 0)
+                end as outlier_z_score
             from constrained c
+            cross join distribution d
         )
         select
             r.*,
@@ -382,11 +486,28 @@ def _fetch_team_possession_rows(
             where (%s::text is null or team_name ilike %s)
               and (%s::int is null or matches_played >= %s)
         ),
+        distribution as (
+            select
+                avg(c.metric_value) as metric_avg,
+                stddev_pop(c.metric_value) as metric_stddev
+            from constrained c
+            where c.metric_value is not null
+        ),
         ranked as (
             select
                 c.*,
-                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.team_id asc) as rank
+                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.team_id asc) as rank,
+                case
+                    when d.metric_stddev is null or d.metric_stddev = 0 or c.metric_value is null then false
+                    when '{order_dir}' = 'asc' then c.metric_value <= (d.metric_avg - (2 * d.metric_stddev))
+                    else c.metric_value >= (d.metric_avg + (2 * d.metric_stddev))
+                end as is_outlier,
+                case
+                    when d.metric_stddev is null or d.metric_stddev = 0 or c.metric_value is null then null
+                    else (c.metric_value - d.metric_avg) / nullif(d.metric_stddev, 0)
+                end as outlier_z_score
             from constrained c
+            cross join distribution d
         )
         select
             r.*,
@@ -475,11 +596,28 @@ def _fetch_team_pass_accuracy_rows(
             where (%s::text is null or team_name ilike %s)
               and (%s::int is null or matches_played >= %s)
         ),
+        distribution as (
+            select
+                avg(c.metric_value) as metric_avg,
+                stddev_pop(c.metric_value) as metric_stddev
+            from constrained c
+            where c.metric_value is not null
+        ),
         ranked as (
             select
                 c.*,
-                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.team_id asc) as rank
+                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.team_id asc) as rank,
+                case
+                    when d.metric_stddev is null or d.metric_stddev = 0 or c.metric_value is null then false
+                    when '{order_dir}' = 'asc' then c.metric_value <= (d.metric_avg - (2 * d.metric_stddev))
+                    else c.metric_value >= (d.metric_avg + (2 * d.metric_stddev))
+                end as is_outlier,
+                case
+                    when d.metric_stddev is null or d.metric_stddev = 0 or c.metric_value is null then null
+                    else (c.metric_value - d.metric_avg) / nullif(d.metric_stddev, 0)
+                end as outlier_z_score
             from constrained c
+            cross join distribution d
         )
         select
             r.*,
@@ -519,6 +657,7 @@ def get_ranking(
     dateEnd: date | None = None,
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
+    month: str | None = None,
     search: str | None = None,
     minSampleValue: int | None = Query(default=None, ge=0),
     freshnessClass: FreshnessClass = "season",
@@ -537,6 +676,7 @@ def get_ranking(
         date_end=dateEnd,
         date_range_start=dateRangeStart,
         date_range_end=dateRangeEnd,
+        month=month,
     )
 
     effective_sort = sortDirection or ranking_config["defaultSort"]
@@ -609,6 +749,8 @@ def get_ranking(
             "minutesPlayed": float(row["minutes_played"]) if row.get("minutes_played") is not None else None,
             "teamId": str(row["team_id"]) if row.get("team_id") is not None else None,
             "teamName": row.get("team_name"),
+            "isOutlier": bool(row.get("is_outlier")),
+            "outlierZScore": float(row["outlier_z_score"]) if row.get("outlier_z_score") is not None else None,
         }
         for row in rows
     ]

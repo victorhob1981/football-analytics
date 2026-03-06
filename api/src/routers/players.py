@@ -86,6 +86,7 @@ def get_players(
     dateEnd: date | None = None,
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
+    month: str | None = None,
     search: str | None = None,
     teamId: str | None = None,
     position: str | None = None,
@@ -105,6 +106,7 @@ def get_players(
         date_end=dateEnd,
         date_range_start=dateRangeStart,
         date_range_end=dateRangeEnd,
+        month=month,
     )
 
     where_sql, where_params = _player_scope_filters_sql(global_filters)
@@ -316,6 +318,7 @@ def get_player_profile(
     dateEnd: date | None = None,
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
+    month: str | None = None,
     includeRecentMatches: bool = True,
     recentMatchesLimit: int = Query(default=10, ge=1, le=50),
 ) -> dict[str, Any]:
@@ -330,6 +333,7 @@ def get_player_profile(
         date_end=dateEnd,
         date_range_start=dateRangeStart,
         date_range_end=dateRangeEnd,
+        month=month,
     )
 
     player_ref = db_client.fetch_one(

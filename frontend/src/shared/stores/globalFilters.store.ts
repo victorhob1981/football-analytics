@@ -11,27 +11,54 @@ const INITIAL_GLOBAL_FILTERS_STATE: GlobalFiltersState = {
   competitionId: null,
   seasonId: null,
   roundId: null,
+  monthKey: null,
   dateRangeStart: null,
   dateRangeEnd: null,
   lastN: null,
   venue: "all",
 };
 
+function clearTemporalFilters(state: GlobalFiltersState): GlobalFiltersState {
+  return {
+    ...state,
+    roundId: null,
+    monthKey: null,
+    dateRangeStart: null,
+    dateRangeEnd: null,
+    lastN: null,
+  };
+}
+
 function applyTimeRange(state: GlobalFiltersState, timeRange: TimeRangeInput): GlobalFiltersState {
+  if (timeRange.mode === "none") {
+    return clearTemporalFilters(state);
+  }
+
+  if (timeRange.mode === "round") {
+    return {
+      ...clearTemporalFilters(state),
+      roundId: timeRange.roundId,
+    };
+  }
+
+  if (timeRange.mode === "month") {
+    return {
+      ...clearTemporalFilters(state),
+      monthKey: timeRange.monthKey,
+    };
+  }
+
   if (timeRange.mode === "lastN") {
     return {
-      ...state,
+      ...clearTemporalFilters(state),
       lastN: timeRange.lastN,
-      dateRangeStart: null,
-      dateRangeEnd: null,
     };
   }
 
   return {
-    ...state,
+    ...clearTemporalFilters(state),
     dateRangeStart: timeRange.dateRangeStart,
     dateRangeEnd: timeRange.dateRangeEnd,
-    lastN: null,
   };
 }
 
@@ -57,10 +84,20 @@ export const useGlobalFiltersStore = create<GlobalFiltersStore>((set) => ({
     }));
   },
   setRoundId: (roundId) => {
-    set((state) => ({
-      ...state,
-      roundId,
-    }));
+    set((state) =>
+      applyTimeRange(state, {
+        mode: "round",
+        roundId,
+      }),
+    );
+  },
+  setMonthKey: (monthKey) => {
+    set((state) =>
+      applyTimeRange(state, {
+        mode: "month",
+        monthKey,
+      }),
+    );
   },
   setVenue: (venue) => {
     set((state) => setVenueValue(state, venue));

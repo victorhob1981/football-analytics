@@ -1,84 +1,86 @@
 "use client";
 
-import { InsightBadge, InsightFeed, getHighestInsightSeverity } from "@/features/insights/components";
-import { CoverageBadge } from "@/shared/components/coverage/CoverageBadge";
-import { PartialDataBanner } from "@/shared/components/coverage/PartialDataBanner";
-import { EmptyState } from "@/shared/components/feedback/EmptyState";
-import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
-import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
-import { useInsights } from "@/shared/hooks/useInsights";
+import Link from "next/link";
+
+import {
+  CoverageSummarySection,
+  HomeInsightsSection,
+  HomeKpiSection,
+  HomeSectionShell,
+  StandingsEvolutionSection,
+  TopPlayersSection,
+  TopTeamsSection,
+} from "@/features/home/components";
+import { GlobalFilterBar } from "@/shared/components/filters/GlobalFilterBar";
 
 export default function PlatformHomePage() {
-  const { competitionId } = useGlobalFiltersState();
-  const insightEntityType = competitionId ? "competition" : "global";
-  const insightsQuery = useInsights({
-    entityType: insightEntityType,
-    entityId: competitionId ?? null,
-  });
-
-  const insights = insightsQuery.data ?? [];
-  const highestSeverity = getHighestInsightSeverity(insights);
-
-  if (insightsQuery.isLoading) {
-    return (
-      <main className="space-y-4">
-        <header className="space-y-1">
-          <h1 className="text-xl font-semibold">Home da Plataforma</h1>
-          <p className="text-sm text-slate-600">Carregando insights executivos...</p>
+  return (
+    <div className="home-gradient-bg -mx-4 -mt-4 px-4 pb-8 pt-6 md:-mx-6 md:-mt-6 md:px-6 md:pt-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-100">Visao Geral</h1>
+          <p className="mt-1 text-sm text-slate-300">
+            Resumo executivo da temporada em curso
+          </p>
         </header>
 
-        <LoadingSkeleton height={84} />
-        <LoadingSkeleton height={120} />
-        <LoadingSkeleton height={120} />
-      </main>
-    );
-  }
+        <GlobalFilterBar />
 
-  if (insightsQuery.isError && !insightsQuery.data) {
-    return (
-      <main className="space-y-4">
-        <h1 className="text-xl font-semibold">Home da Plataforma</h1>
-        <section className="rounded-md border border-rose-300 bg-rose-50 p-4 text-sm text-rose-700">
-          <p>Falha ao carregar insights da home.</p>
-          <p>{insightsQuery.error?.message}</p>
-        </section>
-      </main>
-    );
-  }
+        <HomeKpiSection />
 
-  return (
-    <main className="space-y-4">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold">Home da Plataforma</h1>
-          <InsightBadge count={insights.length} highestSeverity={highestSeverity} />
+        <HomeSectionShell
+          subtitle="Melhores ataques e defesas no recorte atual"
+          title="Destaques de Times"
+        >
+          <TopTeamsSection />
+        </HomeSectionShell>
+
+        <HomeSectionShell
+          subtitle="Pontos acumulados por rodada e comparacao entre clubes"
+          title="Evolucao da Classificacao"
+        >
+          <StandingsEvolutionSection />
+        </HomeSectionShell>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <HomeSectionShell
+            subtitle="Lideres de gols e assistencias no recorte selecionado"
+            title="Top Jogadores"
+            action={
+              <Link
+                className="text-xs font-medium text-emerald-300 no-underline hover:text-emerald-200 hover:underline"
+                href="/players"
+              >
+                Ver todos
+              </Link>
+            }
+          >
+            <TopPlayersSection />
+          </HomeSectionShell>
+
+          <HomeSectionShell
+            subtitle="Alertas e tendencias detectados automaticamente"
+            title="Insights da Rodada"
+          >
+            <HomeInsightsSection />
+          </HomeSectionShell>
         </div>
-        <p className="text-sm text-slate-600">
-          Feed de insights no contexto <strong>{insightEntityType}</strong>.
-        </p>
-      </header>
 
-      {insightsQuery.isError ? (
-        <section className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          Dados carregados com alerta: {insightsQuery.error?.message}
-        </section>
-      ) : null}
-
-      {insightsQuery.isPartial ? <PartialDataBanner coverage={insightsQuery.coverage} /> : null}
-
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-slate-600">Status de cobertura:</span>
-        <CoverageBadge coverage={insightsQuery.coverage} />
+        <HomeSectionShell
+          subtitle="Qualidade e completude dos dados por modulo"
+          title="Cobertura de Dados"
+          action={
+            <Link
+              className="text-xs font-medium text-emerald-300 no-underline hover:text-emerald-200 hover:underline"
+              href="/audit"
+            >
+              Ver painel completo
+            </Link>
+          }
+        >
+          <CoverageSummarySection />
+        </HomeSectionShell>
       </div>
-
-      {insightsQuery.isEmpty ? (
-        <EmptyState
-          description="Nenhum insight foi retornado para o contexto atual da home."
-          title="Sem insights na home"
-        />
-      ) : (
-        <InsightFeed insights={insights} title="Insights em destaque" />
-      )}
-    </main>
+    </div>
   );
 }

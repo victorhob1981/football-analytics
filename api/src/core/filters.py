@@ -5,6 +5,7 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
+from .config import get_settings
 from .errors import AppError
 
 
@@ -66,6 +67,7 @@ def validate_and_build_global_filters(
     date_end: date | None,
     date_range_start: date | None,
     date_range_end: date | None,
+    month: str | None = None,
 ) -> GlobalFilters:
     normalized_venue = VenueFilter(venue) if venue else VenueFilter.all
     normalized_competition = _to_optional_int(competition_id, field_name="competitionId")
@@ -77,6 +79,22 @@ def validate_and_build_global_filters(
         date_range_start=date_range_start,
         date_range_end=date_range_end,
     )
+
+    if month:
+        try:
+            from datetime import datetime
+            import calendar
+            dt_month = datetime.strptime(month, "%Y-%m").date()
+            _, last_day = calendar.monthrange(dt_month.year, dt_month.month)
+            normalized_date_start = dt_month.replace(day=1)
+            normalized_date_end = dt_month.replace(day=last_day)
+        except ValueError as exc:
+            raise AppError(
+                message="Invalid month format. Expected 'YYYY-MM'.",
+                code="INVALID_QUERY_PARAM",
+                status=400,
+                details={"month": month},
+            ) from exc
 
     if last_n is not None and last_n <= 0:
         raise AppError(
@@ -91,7 +109,7 @@ def validate_and_build_global_filters(
 
     if has_last_n and has_date_range:
         raise AppError(
-            message="Invalid time range. 'lastN' cannot be combined with 'dateStart/dateEnd'.",
+            message="Invalid time range. 'lastN' cannot be combined with 'dateStart/dateEnd' or 'month'.",
             code="INVALID_TIME_RANGE",
             status=400,
             details={
@@ -127,6 +145,12 @@ def validate_and_build_global_filters(
                 "dateEnd": normalized_date_end.isoformat(),
             },
         )
+
+    settings = get_settings()
+    if normalized_competition is None and settings.default_league_id is not None:
+        normalized_competition = settings.default_league_id
+    if normalized_season is None and settings.default_season is not None:
+        normalized_season = settings.default_season
 
     return GlobalFilters(
         competition_id=normalized_competition,

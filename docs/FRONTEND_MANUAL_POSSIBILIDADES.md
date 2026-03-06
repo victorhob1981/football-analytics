@@ -880,11 +880,12 @@ Objetivo: transformar o produto de visualizacao descritiva em plataforma analiti
 
 - Cada insight deve ser calculado na BFF e entregue como objeto tipado, com:
 - `insight_id`
-- `severidade` (`info`, `warning`, `critical`)
-- `explicacao` (texto curto, sem SQL)
-- `evidencias` (metricas numericas usadas)
-- `periodo_referencia`
-- `fonte_dados` (`mart.*` e, quando necessario, `raw.*`)
+- `severity` (`info`, `warning`, `critical`)
+- `explanation` (texto curto, sem SQL)
+- `evidences` (metricas numericas usadas)
+- `reference_period`
+- `data_source` (`mart.*` e, quando necessario, `raw.*`)
+- Alias documentais em PT-BR (`severidade`, `explicacao`, `periodo_referencia`, `fonte_dados`) podem existir em material funcional, mas a API deve normalizar para os nomes canonicos acima.
 - O frontend consome insights como componente reutilizavel de cards e feed analitico.
 - Recomendacao de cache para insights:
 - Home/Rankings: TTL 5 a 10 min.

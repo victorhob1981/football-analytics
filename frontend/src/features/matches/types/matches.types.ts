@@ -1,4 +1,5 @@
 import type { VenueFilter } from "@/shared/types/filters.types";
+import type { CoverageState } from "@/shared/types/coverage.types";
 
 export type MatchesListSortBy = "kickoffAt" | "status" | "homeTeamName" | "awayTeamName";
 export type MatchesListSortDirection = "asc" | "desc";
@@ -12,11 +13,18 @@ export interface MatchListItem {
   roundId?: string | null;
   kickoffAt?: string | null;
   status?: string | null;
+  refereeName?: string | null;
+  attendance?: number | null;
+  weatherDescription?: string | null;
+  weatherTemperatureC?: number | null;
+  weatherWindKph?: number | null;
   venueName?: string | null;
   homeTeamId?: string | null;
   homeTeamName?: string | null;
+  homeTeamLogoUrl?: string | null;
   awayTeamId?: string | null;
   awayTeamName?: string | null;
+  awayTeamLogoUrl?: string | null;
   homeScore?: number | null;
   awayScore?: number | null;
 }
@@ -42,6 +50,8 @@ export interface MatchLineupPlayer {
   position?: string | null;
   shirtNumber?: number | null;
   isStarter?: boolean | null;
+  formationField?: string | null;
+  formationPosition?: number | null;
 }
 
 export interface MatchPlayerStat {
@@ -54,11 +64,24 @@ export interface MatchPlayerStat {
   assists?: number | null;
   shotsTotal?: number | null;
   passesCompleted?: number | null;
+  keyPasses?: number | null;
+  tackles?: number | null;
+  interceptions?: number | null;
+  duels?: number | null;
   rating?: number | null;
+}
+
+export interface MatchTeamStat {
+  metricKey: string;
+  metricLabel: string;
+  homeValue?: number | null;
+  awayValue?: number | null;
+  coverage?: CoverageState;
 }
 
 export interface MatchCenterData {
   match: MatchListItem;
+  teamStats?: MatchTeamStat[];
   timeline?: MatchTimelineEvent[];
   lineups?: MatchLineupPlayer[];
   playerStats?: MatchPlayerStat[];
@@ -72,6 +95,7 @@ export interface MatchesGlobalFilters {
   competitionId?: string | null;
   seasonId?: string | null;
   roundId?: string | null;
+  monthKey?: string | null;
   venue?: VenueFilter;
   lastN?: number | null;
   dateRangeStart?: string | null;
@@ -80,6 +104,7 @@ export interface MatchesGlobalFilters {
 
 export interface MatchesListLocalFilters {
   search?: string;
+  teamScope?: "any" | "home" | "away";
   status?: string | null;
   page?: number;
   pageSize?: number;
@@ -88,6 +113,7 @@ export interface MatchesListLocalFilters {
 }
 
 export interface MatchCenterLocalFilters {
+  includeTeamStats?: boolean;
   includeTimeline?: boolean;
   includeLineups?: boolean;
   includePlayerStats?: boolean;

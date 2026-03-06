@@ -3,8 +3,10 @@
 import { useMatchCenter } from "@/features/matches/hooks";
 import {
   MatchCenterHeader,
+  MatchInsightsSection,
   MatchLineupsPlaceholder,
   MatchPlayerStatsPlaceholder,
+  MatchTeamStatsSection,
   MatchTimelinePlaceholder,
 } from "@/features/matches/components";
 import { CoverageBadge } from "@/shared/components/coverage/CoverageBadge";
@@ -18,6 +20,7 @@ type MatchCenterContentProps = {
 
 export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
   const matchCenterQuery = useMatchCenter(matchId, {
+    includeTeamStats: true,
     includeTimeline: true,
     includeLineups: true,
     includePlayerStats: true,
@@ -63,7 +66,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
     );
   }
 
-  const { match, timeline, lineups, playerStats } = matchCenterQuery.data;
+  const { match, teamStats, timeline, lineups, playerStats } = matchCenterQuery.data;
 
   return (
     <main className="space-y-4">
@@ -82,9 +85,26 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
         <CoverageBadge coverage={matchCenterQuery.coverage} />
       </div>
 
+      <MatchTeamStatsSection
+        awayTeamName={match.awayTeamName}
+        homeTeamName={match.homeTeamName}
+        teamStats={teamStats}
+      />
       <MatchTimelinePlaceholder events={timeline} />
-      <MatchLineupsPlaceholder lineups={lineups} />
-      <MatchPlayerStatsPlaceholder playerStats={playerStats} />
+      <MatchLineupsPlaceholder
+        awayTeamId={match.awayTeamId}
+        awayTeamName={match.awayTeamName}
+        homeTeamId={match.homeTeamId}
+        homeTeamName={match.homeTeamName}
+        lineups={lineups}
+      />
+      <MatchPlayerStatsPlaceholder
+        awayTeamName={match.awayTeamName}
+        homeTeamId={match.homeTeamId}
+        homeTeamName={match.homeTeamName}
+        playerStats={playerStats}
+      />
+      <MatchInsightsSection matchId={match.matchId} />
     </main>
   );
 }

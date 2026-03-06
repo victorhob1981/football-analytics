@@ -56,7 +56,8 @@ class SportMonksProvider(ProviderAdapter):
     ) -> tuple[dict[str, Any], dict[str, str]]:
         payload, headers = self._client.request_json(
             endpoint=endpoint,
-            params={"api_token": self._api_key, **params},
+            params=params,
+            headers={"Authorization": self._api_key},
         )
         return payload, headers
 

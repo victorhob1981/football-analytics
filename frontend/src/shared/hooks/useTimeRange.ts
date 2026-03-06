@@ -2,10 +2,11 @@ import { useMemo } from "react";
 
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 
-export type ActiveTimeRangeMode = "none" | "lastN" | "dateRange";
+export type ActiveTimeRangeMode = "none" | "round" | "month" | "lastN" | "dateRange";
 
 export interface NormalizedTimeRangeParams {
   roundId: string | null;
+  monthKey: string | null;
   lastN: number | null;
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
@@ -18,15 +19,44 @@ export interface TimeRangeState {
 }
 
 export function useTimeRange(): TimeRangeState {
-  const { roundId, lastN, dateRangeStart, dateRangeEnd } = useGlobalFiltersState();
+  const { roundId, monthKey, lastN, dateRangeStart, dateRangeEnd } = useGlobalFiltersState();
 
   return useMemo(() => {
+    if (roundId !== null) {
+      return {
+        activeMode: "round" as const,
+        hasTimeRange: true,
+        params: {
+          roundId,
+          monthKey: null,
+          lastN: null,
+          dateRangeStart: null,
+          dateRangeEnd: null,
+        },
+      };
+    }
+
+    if (monthKey !== null) {
+      return {
+        activeMode: "month" as const,
+        hasTimeRange: true,
+        params: {
+          roundId: null,
+          monthKey,
+          lastN: null,
+          dateRangeStart: null,
+          dateRangeEnd: null,
+        },
+      };
+    }
+
     if (lastN !== null) {
       return {
         activeMode: "lastN" as const,
         hasTimeRange: true,
         params: {
-          roundId,
+          roundId: null,
+          monthKey: null,
           lastN,
           dateRangeStart: null,
           dateRangeEnd: null,
@@ -39,7 +69,8 @@ export function useTimeRange(): TimeRangeState {
         activeMode: "dateRange" as const,
         hasTimeRange: true,
         params: {
-          roundId,
+          roundId: null,
+          monthKey: null,
           lastN: null,
           dateRangeStart,
           dateRangeEnd,
@@ -51,11 +82,12 @@ export function useTimeRange(): TimeRangeState {
       activeMode: "none" as const,
       hasTimeRange: false,
       params: {
-        roundId,
+        roundId: null,
+        monthKey: null,
         lastN: null,
         dateRangeStart: null,
         dateRangeEnd: null,
       },
     };
-  }, [dateRangeEnd, dateRangeStart, lastN, roundId]);
+  }, [dateRangeEnd, dateRangeStart, lastN, monthKey, roundId]);
 }

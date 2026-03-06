@@ -14,6 +14,23 @@ router = APIRouter(prefix="/api/v1/matches", tags=["matches"])
 
 MatchesSortBy = Literal["kickoffAt", "status", "homeTeamName", "awayTeamName"]
 SortDirection = Literal["asc", "desc"]
+TeamScope = Literal["any", "home", "away"]
+
+TEAM_STATS_METRICS: tuple[tuple[str, str], ...] = (
+    ("total_shots", "Finalizacoes"),
+    ("ball_possession", "Posse"),
+    ("total_passes", "Passes"),
+    ("corner_kicks", "Escanteios"),
+    ("fouls", "Faltas"),
+    ("yellow_cards", "Cartoes amarelos"),
+    ("red_cards", "Cartoes vermelhos"),
+)
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
 
 
 def _request_id(request: Request) -> str | None:
@@ -51,7 +68,9 @@ def get_matches(
     dateEnd: date | None = None,
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
+    month: str | None = None,
     search: str | None = None,
+    teamScope: TeamScope = "any",
     status: str | None = None,
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
@@ -68,6 +87,7 @@ def get_matches(
         date_end=dateEnd,
         date_range_start=dateRangeStart,
         date_range_end=dateRangeEnd,
+        month=month,
     )
 
     where_sql, where_params = _match_filters_sql(global_filters)
@@ -113,11 +133,14 @@ def get_matches(
                 fm.round_number::text as round_id,
                 rf.date_utc as kickoff_at,
                 coalesce(rf.status_short, rf.status_long) as status,
+                rf.referee as referee_name,
                 dv.venue_name as venue_name,
                 fm.home_team_id::text as home_team_id,
                 home_team.team_name as home_team_name,
+                home_team.logo_url as home_team_logo_url,
                 fm.away_team_id::text as away_team_id,
                 away_team.team_name as away_team_name,
+                away_team.logo_url as away_team_logo_url,
                 fm.home_goals as home_score,
                 fm.away_goals as away_score
             from filtered_matches fm
@@ -135,7 +158,12 @@ def get_matches(
         filtered_rows as (
             select *
             from enriched e
-            where (%s::text is null or e.home_team_name ilike %s or e.away_team_name ilike %s)
+            where (
+                %s::text is null
+                or (%s::text = 'any' and (e.home_team_name ilike %s or e.away_team_name ilike %s))
+                or (%s::text = 'home' and e.home_team_name ilike %s)
+                or (%s::text = 'away' and e.away_team_name ilike %s)
+            )
               and (%s::text is null or coalesce(e.status, '') ilike %s)
         )
         select
@@ -152,7 +180,12 @@ def get_matches(
             global_filters.last_n,
             global_filters.last_n,
             search_pattern,
+            teamScope,
             search_pattern,
+            search_pattern,
+            teamScope,
+            search_pattern,
+            teamScope,
             search_pattern,
             status_pattern,
             status_pattern,
@@ -173,11 +206,14 @@ def get_matches(
             "roundId": row["round_id"],
             "kickoffAt": row.get("kickoff_at"),
             "status": row.get("status"),
+            "refereeName": row.get("referee_name"),
             "venueName": row.get("venue_name"),
             "homeTeamId": row["home_team_id"],
             "homeTeamName": row.get("home_team_name"),
+            "homeTeamLogoUrl": row.get("home_team_logo_url"),
             "awayTeamId": row["away_team_id"],
             "awayTeamName": row.get("away_team_name"),
+            "awayTeamLogoUrl": row.get("away_team_logo_url"),
             "homeScore": row.get("home_score"),
             "awayScore": row.get("away_score"),
         }
@@ -194,9 +230,11 @@ def get_matches(
 
 def _build_match_sections_coverage(
     *,
+    include_team_stats: bool,
     include_timeline: bool,
     include_lineups: bool,
     include_player_stats: bool,
+    team_stats_count: int,
     timeline_count: int,
     lineups_count: int,
     player_stats_count: int,
@@ -204,6 +242,10 @@ def _build_match_sections_coverage(
     requested = 0
     available = 0
 
+    if include_team_stats:
+        requested += 1
+        if team_stats_count > 0:
+            available += 1
     if include_timeline:
         requested += 1
         if timeline_count > 0:
@@ -234,6 +276,8 @@ def get_match_center(
     dateEnd: date | None = None,
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
+    month: str | None = None,
+    includeTeamStats: bool = True,
     includeTimeline: bool = True,
     includeLineups: bool = True,
     includePlayerStats: bool = True,
@@ -249,6 +293,7 @@ def get_match_center(
         date_end=dateEnd,
         date_range_start=dateRangeStart,
         date_range_end=dateRangeEnd,
+        month=month,
     )
 
     match_where, match_params = _match_filters_sql(global_filters)
@@ -262,11 +307,18 @@ def get_match_center(
             fm.round_number::text as round_id,
             rf.date_utc as kickoff_at,
             coalesce(rf.status_short, rf.status_long) as status,
+            rf.referee as referee_name,
+            rf.attendance as attendance,
+            rf.weather_description as weather_description,
+            rf.weather_temperature_c as weather_temperature_c,
+            rf.weather_wind_kph as weather_wind_kph,
             dv.venue_name as venue_name,
             fm.home_team_id::text as home_team_id,
             home_team.team_name as home_team_name,
+            home_team.logo_url as home_team_logo_url,
             fm.away_team_id::text as away_team_id,
             away_team.team_name as away_team_name,
+            away_team.logo_url as away_team_logo_url,
             fm.home_goals as home_score,
             fm.away_goals as away_score
         from mart.fact_matches fm
@@ -303,19 +355,68 @@ def get_match_center(
             "roundId": match_row["round_id"],
             "kickoffAt": match_row.get("kickoff_at"),
             "status": match_row.get("status"),
+            "refereeName": match_row.get("referee_name"),
+            "attendance": int(match_row["attendance"]) if match_row.get("attendance") is not None else None,
+            "weatherDescription": match_row.get("weather_description"),
+            "weatherTemperatureC": _to_float(match_row.get("weather_temperature_c")),
+            "weatherWindKph": _to_float(match_row.get("weather_wind_kph")),
             "venueName": match_row.get("venue_name"),
             "homeTeamId": match_row["home_team_id"],
             "homeTeamName": match_row.get("home_team_name"),
+            "homeTeamLogoUrl": match_row.get("home_team_logo_url"),
             "awayTeamId": match_row["away_team_id"],
             "awayTeamName": match_row.get("away_team_name"),
+            "awayTeamLogoUrl": match_row.get("away_team_logo_url"),
             "homeScore": match_row.get("home_score"),
             "awayScore": match_row.get("away_score"),
         }
     }
 
+    team_stat_rows: list[dict[str, Any]] = []
     timeline_rows: list[dict[str, Any]] = []
     lineup_rows: list[dict[str, Any]] = []
     player_stat_rows: list[dict[str, Any]] = []
+
+    if includeTeamStats:
+        team_stats_query = """
+            select
+                ms.team_id::text as team_id,
+                ms.total_shots,
+                ms.ball_possession,
+                ms.total_passes,
+                ms.corner_kicks,
+                ms.fouls,
+                ms.yellow_cards,
+                ms.red_cards
+            from raw.match_statistics ms
+            where ms.fixture_id = %s;
+        """
+        team_stats_result = db_client.fetch_all(team_stats_query, [match_id])
+        stats_by_team: dict[str, dict[str, Any]] = {
+            str(row["team_id"]): row for row in team_stats_result if row.get("team_id") is not None
+        }
+        home_team_stats = stats_by_team.get(str(match_row["home_team_id"]))
+        away_team_stats = stats_by_team.get(str(match_row["away_team_id"]))
+
+        for metric_key, metric_label in TEAM_STATS_METRICS:
+            home_value = _to_float(home_team_stats.get(metric_key)) if home_team_stats else None
+            away_value = _to_float(away_team_stats.get(metric_key)) if away_team_stats else None
+            available_count = int(home_value is not None) + int(away_value is not None)
+            team_stat_rows.append(
+                {
+                    "metricKey": metric_key,
+                    "metricLabel": metric_label,
+                    "homeValue": home_value,
+                    "awayValue": away_value,
+                    "coverage": build_coverage_from_counts(
+                        available_count=available_count,
+                        total_count=2,
+                        label=f"Cobertura {metric_label.lower()}",
+                    ),
+                }
+            )
+
+        data["teamStats"] = team_stat_rows
 
     if includeTimeline:
         timeline_query = """
@@ -339,6 +440,26 @@ def get_match_center(
             order by fme.time_elapsed asc nulls last, fme.event_id asc;
         """
         timeline_result = db_client.fetch_all(timeline_query, [match_id])
+
+        if not timeline_result:
+            timeline_fallback_query = """
+                select
+                    rme.event_id,
+                    rme.time_elapsed as minute,
+                    rme.time_extra as second,
+                    cast(null as text) as period,
+                    rme.type,
+                    rme.detail,
+                    rme.team_id::text as team_id,
+                    rme.team_name,
+                    rme.player_id::text as player_id,
+                    rme.player_name
+                from raw.match_events rme
+                where rme.fixture_id = %s
+                order by rme.time_elapsed asc nulls last, rme.event_id asc;
+            """
+            timeline_result = db_client.fetch_all(timeline_fallback_query, [match_id])
+
         timeline_rows = [
             {
                 "eventId": row.get("event_id"),
@@ -364,13 +485,19 @@ def get_match_center(
                 ffl.team_id::text as team_id,
                 team.team_name as team_name,
                 ffl.position_name as position,
+                ffl.formation_field,
+                ffl.formation_position,
                 ffl.jersey_number as shirt_number,
                 ffl.is_starter
             from mart.fact_fixture_lineups ffl
             left join mart.dim_team team
               on team.team_id = ffl.team_id
             where ffl.match_id = %s
-            order by ffl.team_id asc, ffl.is_starter desc, ffl.jersey_number asc nulls last;
+            order by
+                ffl.team_id asc,
+                ffl.is_starter desc,
+                ffl.formation_position asc nulls last,
+                ffl.jersey_number asc nulls last;
         """
         lineups_result = db_client.fetch_all(lineups_query, [match_id])
         lineup_rows = [
@@ -380,6 +507,8 @@ def get_match_center(
                 "teamId": row.get("team_id"),
                 "teamName": row.get("team_name"),
                 "position": row.get("position"),
+                "formationField": row.get("formation_field"),
+                "formationPosition": row.get("formation_position"),
                 "shirtNumber": row.get("shirt_number"),
                 "isStarter": row.get("is_starter"),
             }
@@ -398,7 +527,11 @@ def get_match_center(
                 fps.goals,
                 fps.assists,
                 fps.shots_total,
-                cast(null as numeric) as passes_completed,
+                fps.passes_total as passes_completed,
+                fps.key_passes,
+                fps.tackles,
+                fps.interceptions,
+                fps.duels,
                 fps.rating
             from mart.fact_fixture_player_stats fps
             left join mart.dim_team team
@@ -417,7 +550,11 @@ def get_match_center(
                 "goals": float(row["goals"]) if row.get("goals") is not None else None,
                 "assists": float(row["assists"]) if row.get("assists") is not None else None,
                 "shotsTotal": float(row["shots_total"]) if row.get("shots_total") is not None else None,
-                "passesCompleted": row.get("passes_completed"),
+                "passesCompleted": _to_float(row.get("passes_completed")),
+                "keyPasses": _to_float(row.get("key_passes")),
+                "tackles": _to_float(row.get("tackles")),
+                "interceptions": _to_float(row.get("interceptions")),
+                "duels": _to_float(row.get("duels")),
                 "rating": float(row["rating"]) if row.get("rating") is not None else None,
             }
             for row in stats_result
@@ -425,9 +562,11 @@ def get_match_center(
         data["playerStats"] = player_stat_rows
 
     coverage = _build_match_sections_coverage(
+        include_team_stats=includeTeamStats,
         include_timeline=includeTimeline,
         include_lineups=includeLineups,
         include_player_stats=includePlayerStats,
+        team_stats_count=sum(1 for row in team_stat_rows if row.get("homeValue") is not None or row.get("awayValue") is not None),
         timeline_count=len(timeline_rows),
         lineups_count=len(lineup_rows),
         player_stats_count=len(player_stat_rows),
