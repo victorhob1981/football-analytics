@@ -3,6 +3,12 @@ with source_events as (
 )
 select
     event_id,
+    provider,
+    provider_league_id,
+    competition_key,
+    season_label,
+    provider_season_id,
+    provider_event_id,
     season,
     fixture_id,
     case
@@ -24,6 +30,8 @@ select
     type as event_type,
     detail as event_detail,
     comments,
+    ingested_at,
+    source_run_id,
     ingested_run,
     updated_at
 from source_events

@@ -116,7 +116,7 @@ with DAG(
         run_ingest_standings >> run_bronze_to_silver_standings >> run_silver_to_postgres_standings
 
     with TaskGroup(group_id="group_fixture_enrichment") as group_fixture_enrichment:
-        run_ingest_fixtures = trigger_task("run_ingest_brasileirao_2024_backfill", "ingest_brasileirao_2024_backfill")
+        run_ingest_fixtures = trigger_task("run_ingest_fixtures_backfill", "ingest_fixtures_backfill")
         run_bronze_to_silver_fixtures = trigger_task("run_bronze_to_silver_fixtures_backfill", "bronze_to_silver_fixtures_backfill")
         run_silver_to_postgres_fixtures = trigger_task("run_silver_to_postgres_fixtures", "silver_to_postgres_fixtures")
         run_ingest_fixtures >> run_bronze_to_silver_fixtures >> run_silver_to_postgres_fixtures

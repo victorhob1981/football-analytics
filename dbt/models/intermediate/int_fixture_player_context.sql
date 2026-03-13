@@ -10,8 +10,13 @@ events as (
 matches as (
     select
         fixture_id,
+        provider,
+        provider_league_id,
+        competition_key,
         league_id,
         season,
+        season_label,
+        provider_season_id,
         date_utc::date as match_date
     from {{ ref('stg_matches') }}
 ),
@@ -50,8 +55,12 @@ event_player_totals as (
 select
     f.provider,
     f.fixture_id,
+    m.provider_league_id,
+    m.competition_key,
     m.league_id,
     m.season,
+    m.season_label,
+    m.provider_season_id,
     m.match_date,
     f.team_id,
     coalesce(f.team_name, l.payload -> 'team' ->> 'name') as team_name,
@@ -78,6 +87,8 @@ select
     f.rating,
     f.statistics,
     f.payload,
+    f.ingested_at,
+    f.source_run_id,
     f.ingested_run,
     coalesce(f.updated_at, l.updated_at, now()) as updated_at
 from fps f

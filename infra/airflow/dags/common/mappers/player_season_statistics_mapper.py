@@ -4,6 +4,8 @@ from typing import Any
 
 import pandas as pd
 
+from common.discard_guardrails import drop_duplicates_with_threshold, dropna_with_threshold
+
 
 def _as_int(value: Any) -> int | None:
     if value is None:
@@ -42,8 +44,11 @@ def build_player_season_statistics_dataframe(payloads: list[dict[str, Any]]) -> 
     df = pd.DataFrame(rows)
     if df.empty:
         raise RuntimeError("Nenhuma linha de player_season_statistics gerada a partir dos payloads raw.")
-    df = df.dropna(subset=["player_id", "season_id"]).copy()
+    df = dropna_with_threshold(df, subset=["player_id", "season_id"], context_label="player_season_statistics")
     df["team_id"] = df["team_id"].fillna(0).astype("Int64")
-    df = df.drop_duplicates(subset=["provider", "player_id", "season_id", "team_id"], keep="last").copy()
+    df = drop_duplicates_with_threshold(
+        df,
+        subset=["provider", "player_id", "season_id", "team_id"],
+        context_label="player_season_statistics",
+    )
     return df
-

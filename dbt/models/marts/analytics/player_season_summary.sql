@@ -2,14 +2,20 @@ with player_matches as (
     select * from {{ ref('player_match_summary') }}
 )
 select
+    provider,
+    competition_key,
     competition_sk,
+    season_sk,
     season,
+    season_label,
     player_sk,
     player_id,
     player_name,
     team_sk,
     team_id,
     team_name,
+    provider_league_id,
+    provider_season_id,
     count(distinct match_id) as matches,
     sum(coalesce(minutes_played, 0)) as minutes_played,
     sum(coalesce(goals, 0)) as goals,
@@ -28,14 +34,21 @@ select
     sum(coalesce(clean_sheets, 0)) as clean_sheets,
     sum(coalesce(xg, 0)) as xg,
     avg(rating) as avg_rating,
+    max(source_run_id) as source_run_id,
     max(updated_at) as updated_at
 from player_matches
 group by
+    provider,
+    competition_key,
     competition_sk,
+    season_sk,
     season,
+    season_label,
     player_sk,
     player_id,
     player_name,
     team_sk,
     team_id,
-    team_name
+    team_name,
+    provider_league_id,
+    provider_season_id

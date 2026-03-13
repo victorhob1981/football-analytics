@@ -97,6 +97,18 @@ def _parse_fixture_ids(raw_fixture_ids: Any) -> list[int]:
     return sorted(set(parsed))
 
 
+def _provider_pages_used(payload: dict[str, Any]) -> int:
+    provider_meta = payload.get("provider_meta")
+    if not isinstance(provider_meta, dict):
+        return 1
+    raw_pages_used = provider_meta.get("pages_used", 1)
+    try:
+        pages_used = int(raw_pages_used)
+    except (TypeError, ValueError):
+        return 1
+    return max(pages_used, 1)
+
+
 def _get_int_env(
     primary: str,
     *,
@@ -324,6 +336,8 @@ def _upsert_sync_state(
     cursor: int | None,
     status: str,
     update_last_successful_sync: bool,
+    scope_validated: bool | None = None,
+    scope_validation_notes: str | None = None,
 ) -> None:
     sql = text(
         """
@@ -336,6 +350,8 @@ def _upsert_sync_state(
             last_successful_sync,
             cursor,
             status,
+            scope_validated,
+            scope_validation_notes,
             updated_at
         )
         VALUES (
@@ -347,6 +363,8 @@ def _upsert_sync_state(
             :last_successful_sync,
             :cursor,
             :status,
+            COALESCE(:scope_validated, FALSE),
+            :scope_validation_notes,
             now()
         )
         ON CONFLICT (provider, entity_type, scope_key)
@@ -359,6 +377,11 @@ def _upsert_sync_state(
             ),
             cursor = COALESCE(EXCLUDED.cursor, raw.provider_sync_state.cursor),
             status = EXCLUDED.status,
+            scope_validated = COALESCE(:scope_validated, raw.provider_sync_state.scope_validated),
+            scope_validation_notes = COALESCE(
+                :scope_validation_notes,
+                raw.provider_sync_state.scope_validation_notes
+            ),
             updated_at = now()
         """
     )
@@ -371,6 +394,8 @@ def _upsert_sync_state(
         "last_successful_sync": datetime.utcnow() if update_last_successful_sync else None,
         "cursor": str(cursor) if cursor is not None else None,
         "status": status,
+        "scope_validated": scope_validated,
+        "scope_validation_notes": scope_validation_notes,
     }
     try:
         with engine.begin() as conn:
@@ -435,6 +460,8 @@ def ingest_fixtures_raw():
     runtime = resolve_runtime_params(context)
     league_id = runtime["league_id"]
     season = runtime["season"]
+    season_label = runtime.get("season_label")
+    provider_season_id = runtime.get("provider_season_id")
     provider_name = runtime["provider"]
     windows = resolve_fixture_windows(context, season)
 
@@ -464,16 +491,22 @@ def ingest_fixtures_raw():
             source_params = {
                 "league_id": league_id,
                 "season": season,
+                "season_label": season_label,
+                "provider_season_id": provider_season_id,
                 "date_from": date_from,
                 "date_to": date_to,
             }
-            payload, headers = provider.get_fixtures(
-                league_id=league_id,
-                season=season,
-                date_from=date_from,
-                date_to=date_to,
-            )
-            requests_used += 1
+            provider_kwargs = {
+                "league_id": league_id,
+                "season": season,
+                "date_from": date_from,
+                "date_to": date_to,
+            }
+            if provider_name == "sportmonks":
+                provider_kwargs["season_label"] = season_label
+                provider_kwargs["provider_season_id"] = provider_season_id
+            payload, headers = provider.get_fixtures(**provider_kwargs)
+            requests_used += _provider_pages_used(payload)
 
             key = (
                 f"fixtures/league={league_id}/season={season}"
@@ -495,7 +528,8 @@ def ingest_fixtures_raw():
             rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
             print(
                 f"[{provider.name}] [{date_from}..{date_to}] "
-                f"league_id={league_id} season={season} results={write_result['results']} | rate_headers={rate_headers}"
+                f"league_id={league_id} season={season} season_label={season_label} "
+                f"provider_season_id={provider_season_id} results={write_result['results']} | rate_headers={rate_headers}"
             )
 
         metric.set_counts(rows_in=requests_used, rows_out=total_results, row_count=total_results)
@@ -512,6 +546,7 @@ def ingest_fixtures_raw():
         row_count=total_results,
         message=(
             f"Raw fixtures concluido | provider={provider_name} | league_id={league_id} | season={season} "
+            f"| season_label={season_label} | provider_season_id={provider_season_id} "
             f"| windows={len(windows)} | requests={requests_used} | fixtures={total_results}"
         ),
     )
@@ -1031,6 +1066,37 @@ def _fetch_team_ids(engine, *, league_id: int, season: int) -> list[int]:
     return [int(row[0]) for row in rows]
 
 
+def _count_lineups_for_scope(engine, *, league_id: int, season: int) -> int:
+    sql = text(
+        """
+        SELECT COUNT(*)
+        FROM raw.fixture_lineups fl
+        JOIN raw.fixtures f ON f.fixture_id = fl.fixture_id
+        WHERE f.league_id = :league_id
+          AND f.season = :season
+        """
+    )
+    with engine.begin() as conn:
+        return int(conn.execute(sql, {"league_id": league_id, "season": season}).scalar_one())
+
+
+def _fetch_player_ids_from_lineups_only(engine, *, league_id: int, season: int) -> list[int]:
+    sql = text(
+        """
+        SELECT DISTINCT fl.player_id
+        FROM raw.fixture_lineups fl
+        JOIN raw.fixtures f ON f.fixture_id = fl.fixture_id
+        WHERE f.league_id = :league_id
+          AND f.season = :season
+          AND fl.player_id IS NOT NULL
+        ORDER BY fl.player_id
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(sql, {"league_id": league_id, "season": season}).fetchall()
+    return [int(row[0]) for row in rows]
+
+
 def _fetch_player_ids_for_scope(engine, *, league_id: int, season: int) -> list[int]:
     lineup_sql = text(
         """
@@ -1115,6 +1181,8 @@ def _ingest_entity_by_numeric_ids(
     scope_key: str,
     fail_on_partial: bool,
     max_consecutive_failures: int,
+    scope_validated_on_write: bool | None = None,
+    scope_validation_notes_on_write: str | None = None,
 ) -> None:
     sorted_ids = sorted(set(target_ids))
     if not sorted_ids:
@@ -1252,6 +1320,8 @@ def _ingest_entity_by_numeric_ids(
         cursor=next_cursor,
         status=sync_status,
         update_last_successful_sync=next_cursor is not None and next_cursor != current_cursor,
+        scope_validated=scope_validated_on_write,
+        scope_validation_notes=scope_validation_notes_on_write,
     )
     log_event(
         service="airflow",
@@ -1284,6 +1354,8 @@ def ingest_competition_structure_raw():
     runtime = resolve_runtime_params(context)
     league_id = runtime["league_id"]
     season = runtime["season"]
+    season_label = runtime.get("season_label")
+    provider_season_id = runtime.get("provider_season_id")
     provider_name = runtime["provider"]
     requests_per_minute = _get_int_env(
         "INGEST_COMPETITION_REQUESTS_PER_MINUTE",
@@ -1294,7 +1366,11 @@ def ingest_competition_structure_raw():
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
     run_utc = datetime.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
-    payload, headers = provider.get_competition_structure(league_id=league_id, season=season)
+    provider_kwargs = {"league_id": league_id, "season": season}
+    if provider_name == "sportmonks":
+        provider_kwargs["season_label"] = season_label
+        provider_kwargs["provider_season_id"] = provider_season_id
+    payload, headers = provider.get_competition_structure(**provider_kwargs)
     key = f"competition_structure/league={league_id}/season={season}/run={run_utc}/data.json"
     write_result = write_raw_payload(
         s3_client=s3_client,
@@ -1303,7 +1379,12 @@ def ingest_competition_structure_raw():
         payload=payload,
         provider=provider.name,
         endpoint="competition/structure",
-        source_params={"league_id": league_id, "season": season},
+        source_params={
+            "league_id": league_id,
+            "season": season,
+            "season_label": season_label,
+            "provider_season_id": provider_season_id,
+        },
         entity_type="competition_structure",
     )
     rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
@@ -1319,6 +1400,7 @@ def ingest_competition_structure_raw():
         row_count=write_result["results"],
         message=(
             f"Raw competition_structure concluido | provider={provider_name} | league_id={league_id} | season={season} "
+            f"| season_label={season_label} | provider_season_id={provider_season_id} "
             f"| key={key} | rate_headers={rate_headers}"
         ),
     )
@@ -1329,6 +1411,8 @@ def ingest_standings_raw():
     runtime = resolve_runtime_params(context)
     league_id = runtime["league_id"]
     season = runtime["season"]
+    season_label = runtime.get("season_label")
+    provider_season_id = runtime.get("provider_season_id")
     provider_name = runtime["provider"]
     requests_per_minute = _get_int_env(
         "INGEST_STANDINGS_REQUESTS_PER_MINUTE",
@@ -1339,7 +1423,11 @@ def ingest_standings_raw():
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
     run_utc = datetime.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
-    payload, headers = provider.get_standings(league_id=league_id, season=season)
+    provider_kwargs = {"league_id": league_id, "season": season}
+    if provider_name == "sportmonks":
+        provider_kwargs["season_label"] = season_label
+        provider_kwargs["provider_season_id"] = provider_season_id
+    payload, headers = provider.get_standings(**provider_kwargs)
     key = f"standings/league={league_id}/season={season}/run={run_utc}/data.json"
     write_result = write_raw_payload(
         s3_client=s3_client,
@@ -1348,7 +1436,12 @@ def ingest_standings_raw():
         payload=payload,
         provider=provider.name,
         endpoint="standings",
-        source_params={"league_id": league_id, "season": season},
+        source_params={
+            "league_id": league_id,
+            "season": season,
+            "season_label": season_label,
+            "provider_season_id": provider_season_id,
+        },
         entity_type="standings",
     )
     rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
@@ -1364,6 +1457,7 @@ def ingest_standings_raw():
         row_count=write_result["results"],
         message=(
             f"Raw standings concluido | provider={provider_name} | league_id={league_id} | season={season} "
+            f"| season_label={season_label} | provider_season_id={provider_season_id} "
             f"| key={key} | rate_headers={rate_headers}"
         ),
     )
@@ -1528,6 +1622,8 @@ def ingest_player_season_statistics_raw():
     runtime = resolve_runtime_params(context)
     league_id = runtime["league_id"]
     season = runtime["season"]
+    season_label = runtime.get("season_label")
+    provider_season_id = runtime.get("provider_season_id")
     provider_name = runtime["provider"]
     requests_per_minute = _get_int_env(
         "INGEST_PLAYER_SEASON_REQUESTS_PER_MINUTE",
@@ -1550,8 +1646,95 @@ def ingest_player_season_statistics_raw():
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
     engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
-    player_ids = _fetch_player_ids_for_scope(engine, league_id=league_id, season=season)
+    lineup_count = _count_lineups_for_scope(engine, league_id=league_id, season=season)
+    if lineup_count == 0:
+        message = (
+            "Guardrail PSS: raw.fixture_lineups vazio para "
+            f"league_id={league_id} season={season}. "
+            "Execute ingest_lineups_bronze e carregue silver+raw antes de "
+            "ingest_player_season_statistics_bronze."
+        )
+        log_event(
+            service="airflow",
+            module="ingestion_service",
+            step="guardrail_player_season_statistics",
+            status="failed",
+            context=context,
+            dataset="player_season_statistics",
+            row_count=0,
+            rows_in=0,
+            rows_out=0,
+            message=message,
+        )
+        raise RuntimeError(message)
+
+    player_ids = _fetch_player_ids_from_lineups_only(engine, league_id=league_id, season=season)
+    seeded_player_ids = len(player_ids)
+    if not player_ids:
+        message = (
+            "Guardrail PSS: nenhum player_id encontrado em raw.fixture_lineups "
+            f"para league_id={league_id} season={season} "
+            f"apesar de lineup_count={lineup_count}. Estado inconsistente."
+        )
+        log_event(
+            service="airflow",
+            module="ingestion_service",
+            step="guardrail_player_season_statistics",
+            status="failed",
+            context=context,
+            dataset="player_season_statistics",
+            row_count=0,
+            rows_in=lineup_count,
+            rows_out=0,
+            message=message,
+        )
+        raise RuntimeError(message)
+
+    log_event(
+        service="airflow",
+        module="ingestion_service",
+        step="seed_player_season_statistics",
+        status="success",
+        context=context,
+        dataset="player_season_statistics",
+        rows_in=lineup_count,
+        rows_out=seeded_player_ids,
+        row_count=seeded_player_ids,
+        message=(
+            "Seed PSS | source=fixture_lineups_only "
+            f"| lineup_count={lineup_count} | seeded_player_ids={seeded_player_ids} "
+            f"| provider_requests_planned={seeded_player_ids} "
+            f"| league_id={league_id} | season={season} "
+            f"| season_label={season_label} | provider_season_id={provider_season_id}"
+        ),
+    )
     scope_key = _sync_scope_key(league_id=league_id, season=season) + "/entity=player_season_statistics"
+
+    def _fetch_player_season_statistics(player_id: int):
+        provider_kwargs = {
+            "player_id": player_id,
+            "season": season,
+            "league_id": league_id,
+        }
+        if provider_name == "sportmonks":
+            provider_kwargs["season_label"] = season_label
+            provider_kwargs["provider_season_id"] = provider_season_id
+        return provider.get_player_season_statistics(**provider_kwargs)
+
+    def _player_season_source_params(player_id: int) -> dict[str, Any]:
+        source_params = {
+            "league_id": league_id,
+            "season": season,
+            "player_id": player_id,
+            "lineup_count": lineup_count,
+            "seeded_player_ids": seeded_player_ids,
+            "provider_requests_planned": seeded_player_ids,
+        }
+        if season_label is not None:
+            source_params["season_label"] = season_label
+        if provider_season_id is not None:
+            source_params["provider_season_id"] = provider_season_id
+        return source_params
 
     _ingest_entity_by_numeric_ids(
         context=context,
@@ -1566,16 +1749,8 @@ def ingest_player_season_statistics_raw():
         target_ids=player_ids,
         key_prefix=f"player_season_statistics/league={league_id}/season={season}",
         id_name="player_id",
-        fetch_fn=lambda player_id: provider.get_player_season_statistics(
-            player_id=player_id,
-            season=season,
-            league_id=league_id,
-        ),
-        source_params_fn=lambda player_id: {
-            "league_id": league_id,
-            "season": season,
-            "player_id": player_id,
-        },
+        fetch_fn=_fetch_player_season_statistics,
+        source_params_fn=_player_season_source_params,
         scope_key=scope_key,
         fail_on_partial=fail_on_partial,
         max_consecutive_failures=max_consecutive_failures,
@@ -1642,6 +1817,7 @@ def ingest_team_sidelined_raw():
     runtime = resolve_runtime_params(context)
     league_id = runtime["league_id"]
     season = runtime["season"]
+    provider_season_id = runtime.get("provider_season_id")
     provider_name = runtime["provider"]
     requests_per_minute = _get_int_env(
         "INGEST_SIDELINED_REQUESTS_PER_MINUTE",
@@ -1667,6 +1843,22 @@ def ingest_team_sidelined_raw():
     team_ids = _fetch_team_ids(engine, league_id=league_id, season=season)
     scope_key = _sync_scope_key(league_id=league_id, season=season) + "/entity=team_sidelined"
 
+    def _fetch_team_sidelined(team_id: int):
+        provider_kwargs = {"team_id": team_id, "season": season}
+        if provider_name == "sportmonks":
+            provider_kwargs["provider_season_id"] = provider_season_id
+        return provider.get_team_sidelined(**provider_kwargs)
+
+    def _team_sidelined_source_params(team_id: int) -> dict[str, Any]:
+        source_params = {
+            "league_id": league_id,
+            "season": season,
+            "team_id": team_id,
+        }
+        if provider_name == "sportmonks":
+            source_params["provider_season_id"] = provider_season_id
+        return source_params
+
     _ingest_entity_by_numeric_ids(
         context=context,
         provider_name=provider_name,
@@ -1680,12 +1872,8 @@ def ingest_team_sidelined_raw():
         target_ids=team_ids,
         key_prefix=f"team_sidelined/league={league_id}/season={season}",
         id_name="team_id",
-        fetch_fn=lambda team_id: provider.get_team_sidelined(team_id=team_id, season=season),
-        source_params_fn=lambda team_id: {
-            "league_id": league_id,
-            "season": season,
-            "team_id": team_id,
-        },
+        fetch_fn=_fetch_team_sidelined,
+        source_params_fn=_team_sidelined_source_params,
         scope_key=scope_key,
         fail_on_partial=fail_on_partial,
         max_consecutive_failures=max_consecutive_failures,
@@ -1752,6 +1940,8 @@ def ingest_head_to_head_raw():
     runtime = resolve_runtime_params(context)
     league_id = runtime["league_id"]
     season = runtime["season"]
+    season_label = runtime.get("season_label")
+    provider_season_id = runtime.get("provider_season_id")
     provider_name = runtime["provider"]
     requests_per_minute = _get_int_env(
         "INGEST_H2H_REQUESTS_PER_MINUTE",
@@ -1808,14 +1998,22 @@ def ingest_head_to_head_raw():
         fetch_fn=lambda pair_index: provider.get_head_to_head(
             team_id=pair_map[pair_index][0],
             opponent_id=pair_map[pair_index][1],
+            league_id=league_id,
+            season=season,
+            season_label=season_label,
+            provider_season_id=provider_season_id,
         ),
         source_params_fn=lambda pair_index: {
             "league_id": league_id,
             "season": season,
+            "season_label": season_label,
+            "provider_season_id": provider_season_id,
             "pair_team_id": pair_map[pair_index][0],
             "pair_opponent_id": pair_map[pair_index][1],
         },
         scope_key=scope_key,
         fail_on_partial=fail_on_partial,
         max_consecutive_failures=max_consecutive_failures,
+        scope_validated_on_write=False,
+        scope_validation_notes_on_write="pending_raw_scope_validation",
     )

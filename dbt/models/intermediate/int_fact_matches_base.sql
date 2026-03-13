@@ -6,7 +6,8 @@ statistics as (
 )
 select
     m.match_id,
-    md5(concat('competition:', m.league_id::text)) as competition_sk,
+    md5(concat(m.provider, ':competition:', coalesce(m.competition_key, m.league_id::text))) as competition_sk,
+    md5(concat(m.provider, ':season:', coalesce(m.competition_key, m.league_id::text), ':', coalesce(m.season_label, m.season::text))) as season_sk,
     md5(concat('date:', m.date_day::text)) as date_sk,
     md5(concat('team:', m.home_team_id::text)) as home_team_sk,
     md5(concat('team:', m.away_team_id::text)) as away_team_sk,
@@ -14,11 +15,38 @@ select
         when m.venue_id is not null then md5(concat('venue:', m.venue_id::text))
         else null
     end as venue_sk,
+    m.provider,
+    m.provider_league_id,
+    m.competition_key,
+    m.competition_type,
     m.league_id,
     m.season,
+    m.season_label,
+    m.provider_season_id,
     m.date_day,
     m.round,
-    coalesce((regexp_match(m.round, '([0-9]+)'))[1]::int, 0) as round_number,
+    m.round_name,
+    m.stage_id,
+    case
+        when m.stage_id is not null then md5(concat(m.provider, ':stage:', m.stage_id::text))
+        else null
+    end as stage_sk,
+    m.stage_name,
+    m.round_id,
+    case
+        when m.round_id is not null then md5(concat(m.provider, ':round:', m.round_id::text))
+        else null
+    end as round_sk,
+    m.group_name,
+    m.leg as leg_number,
+    case
+        when coalesce(m.round_name, m.round) is not null then coalesce((regexp_match(coalesce(m.round_name, m.round), '([0-9]+)'))[1]::int, 0)
+        else 0
+    end as round_number,
+    case
+        when m.competition_type in ('cup', 'continental_cup') then true
+        else false
+    end as is_knockout,
     m.home_team_id,
     m.away_team_id,
     m.venue_id,

@@ -3,7 +3,8 @@ with h2h as (
 ),
 competition as (
     select
-        league_id,
+        provider,
+        competition_key,
         competition_sk
     from {{ ref('dim_competition') }}
 ),
@@ -15,8 +16,12 @@ teams as (
 )
 select
     h.provider,
+    h.competition_key,
     c.competition_sk,
+    h.provider_league_id,
     h.league_id,
+    min(h.season_label) as first_season_label,
+    max(h.season_label) as last_season_label,
     min(h.season_id) as first_season_id,
     max(h.season_id) as last_season_id,
     h.pair_team_id,
@@ -56,14 +61,19 @@ select
     max(h.updated_at) as updated_at
 from h2h h
 left join competition c
-  on c.league_id = h.league_id
+  on c.provider = h.provider
+ and c.competition_key = h.competition_key
 left join teams t1
   on t1.team_id = h.pair_team_id
 left join teams t2
   on t2.team_id = h.pair_opponent_id
+where h.provider is not null
+  and h.competition_key is not null
 group by
     h.provider,
+    h.competition_key,
     c.competition_sk,
+    h.provider_league_id,
     h.league_id,
     h.pair_team_id,
     h.pair_opponent_id

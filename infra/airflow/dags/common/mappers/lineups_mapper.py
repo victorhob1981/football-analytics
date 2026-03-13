@@ -5,6 +5,8 @@ from typing import Any
 
 import pandas as pd
 
+from common.discard_guardrails import drop_duplicates_with_threshold, dropna_with_threshold
+
 
 def _as_int(value: Any) -> int | None:
     if value is None:
@@ -93,6 +95,10 @@ def build_fixture_lineups_dataframe(payloads: list[dict[str, Any]]) -> pd.DataFr
     df = pd.DataFrame(rows)
     if df.empty:
         raise RuntimeError("Nenhuma linha de lineups gerada a partir dos payloads raw.")
-    df = df.dropna(subset=["fixture_id", "team_id", "lineup_id"]).copy()
-    df = df.drop_duplicates(subset=["provider", "fixture_id", "team_id", "lineup_id"], keep="last").copy()
+    df = dropna_with_threshold(df, subset=["fixture_id", "team_id", "lineup_id"], context_label="lineups")
+    df = drop_duplicates_with_threshold(
+        df,
+        subset=["provider", "fixture_id", "team_id", "lineup_id"],
+        context_label="lineups",
+    )
     return df

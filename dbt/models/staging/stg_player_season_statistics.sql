@@ -7,13 +7,19 @@ named_rows as (
         s.player_id,
         nullif(trim(coalesce(s.payload -> 'player' ->> 'name', s.payload ->> 'player_name')), '') as player_name,
         s.season_id,
+        s.provider_season_id,
         s.league_id,
+        s.provider_league_id,
+        s.competition_key,
+        s.season_label,
         s.team_id,
         nullif(trim(coalesce(s.payload -> 'team' ->> 'name', s.payload ->> 'team_name')), '') as team_name,
         nullif(trim(s.season_name), '') as season_name,
         nullif(trim(s.position_name), '') as position_name,
         s.statistics,
         s.payload,
+        s.ingested_at,
+        s.source_run_id,
         s.ingested_run,
         s.updated_at
     from source_stats s
@@ -23,6 +29,7 @@ expanded_metrics as (
         n.provider,
         n.player_id,
         n.season_id,
+        n.provider_season_id,
         n.team_id,
         lower(coalesce(metric.item ->> 'type', metric.item ->> 'developer_name', metric.item ->> 'raw_type_name', '')) as metric_name,
         nullif(
@@ -53,6 +60,7 @@ pivoted as (
         provider,
         player_id,
         season_id,
+        provider_season_id,
         team_id,
         max(case when metric_name in ('goals', 'goal') then metric_value end) as goals,
         max(case when metric_name in ('assists', 'assist') then metric_value end) as assists,
@@ -61,14 +69,18 @@ pivoted as (
         max(case when metric_name in ('rating', 'player_rating') then metric_value end) as rating,
         max(case when metric_name in ('xg', 'expected_goals') then metric_value end) as xg
     from expanded_metrics
-    group by provider, player_id, season_id, team_id
+    group by provider, player_id, season_id, provider_season_id, team_id
 )
 select
     n.provider,
     n.player_id,
     n.player_name,
     n.season_id,
+    n.provider_season_id,
     n.league_id,
+    n.provider_league_id,
+    n.competition_key,
+    n.season_label,
     n.team_id,
     n.team_name,
     n.season_name,
@@ -81,6 +93,8 @@ select
     p.xg,
     n.statistics,
     n.payload,
+    n.ingested_at,
+    n.source_run_id,
     n.ingested_run,
     n.updated_at
 from named_rows n
@@ -88,4 +102,5 @@ left join pivoted p
   on p.provider = n.provider
  and p.player_id = n.player_id
  and p.season_id = n.season_id
+ and p.provider_season_id is not distinct from n.provider_season_id
  and p.team_id = n.team_id

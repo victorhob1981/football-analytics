@@ -5,12 +5,18 @@ named_rows as (
     select
         s.provider,
         s.fixture_id,
+        s.provider_league_id,
+        s.competition_key,
+        s.season_label,
+        s.provider_season_id,
         s.team_id,
         s.player_id,
         nullif(trim(coalesce(s.payload -> 'player' ->> 'name', s.payload ->> 'player_name')), '') as player_name,
         nullif(trim(coalesce(s.payload -> 'team' ->> 'name', s.payload ->> 'team_name')), '') as team_name,
         s.statistics,
         s.payload,
+        s.ingested_at,
+        s.source_run_id,
         s.ingested_run,
         s.updated_at
     from source_stats s
@@ -19,6 +25,10 @@ expanded_metrics as (
     select
         n.provider,
         n.fixture_id,
+        n.provider_league_id,
+        n.competition_key,
+        n.season_label,
+        n.provider_season_id,
         n.team_id,
         n.player_id,
         lower(coalesce(metric.item ->> 'type', metric.item ->> 'developer_name', metric.item ->> 'raw_type_name', '')) as metric_name,
@@ -49,6 +59,10 @@ pivoted as (
     select
         provider,
         fixture_id,
+        provider_league_id,
+        competition_key,
+        season_label,
+        provider_season_id,
         team_id,
         player_id,
         max(case when metric_name in ('goals', 'goal') then metric_value end) as goals,
@@ -69,11 +83,23 @@ pivoted as (
         max(case when metric_name in ('rating', 'player_rating') then metric_value end) as rating,
         max(case when metric_name in ('minutes', 'minutes_played', 'time_played') then metric_value end) as minutes_played
     from expanded_metrics
-    group by provider, fixture_id, team_id, player_id
+    group by
+        provider,
+        fixture_id,
+        provider_league_id,
+        competition_key,
+        season_label,
+        provider_season_id,
+        team_id,
+        player_id
 )
 select
     n.provider,
     n.fixture_id,
+    n.provider_league_id,
+    n.competition_key,
+    n.season_label,
+    n.provider_season_id,
     n.team_id,
     n.team_name,
     n.player_id,
@@ -97,11 +123,17 @@ select
     p.minutes_played,
     n.statistics,
     n.payload,
+    n.ingested_at,
+    n.source_run_id,
     n.ingested_run,
     n.updated_at
 from named_rows n
 left join pivoted p
   on p.provider = n.provider
  and p.fixture_id = n.fixture_id
+ and p.provider_league_id is not distinct from n.provider_league_id
+ and p.competition_key is not distinct from n.competition_key
+ and p.season_label is not distinct from n.season_label
+ and p.provider_season_id is not distinct from n.provider_season_id
  and p.team_id = n.team_id
  and p.player_id = n.player_id

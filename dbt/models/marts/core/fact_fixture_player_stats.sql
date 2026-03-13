@@ -8,7 +8,10 @@ fact_matches as (
     select
         match_id,
         competition_sk,
+        season_sk,
+        competition_key,
         season,
+        season_label,
         date_day
     from {{ ref('fact_matches') }}
 ),
@@ -18,8 +21,13 @@ base as (
         c.provider,
         c.fixture_id as match_id,
         fm.competition_sk,
+        fm.season_sk,
+        fm.competition_key,
         fm.season,
+        fm.season_label,
         fm.date_day as match_date,
+        c.provider_league_id,
+        c.provider_season_id,
         md5(concat('team:', c.team_id::text)) as team_sk,
         md5(concat('player:', c.player_id::text)) as player_sk,
         c.team_id,
@@ -46,6 +54,7 @@ base as (
         c.xg,
         c.rating,
         c.statistics,
+        c.source_run_id,
         c.ingested_run,
         coalesce(c.updated_at, now()) as updated_at
     from context c

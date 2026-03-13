@@ -6,7 +6,7 @@ Todas as consultas usam apenas modelos dbt finais (`fact_`, `dim_`, `marts.analy
 ## Convenções globais
 - **Jogos válidos**: `home_goals IS NOT NULL AND away_goals IS NOT NULL`.
 - **Ordenação temporal**: `date_day ASC` para histórico e `date_day DESC, match_id DESC` para “recente”.
-- **Escopo padrão**: temporada (`season`) e competição (`competition_sk` ou `league_id` via `dim_competition`).
+- **Escopo padrão**: `competition_key`/`competition_sk` e `season_label`.
 
 ---
 
@@ -14,10 +14,10 @@ Todas as consultas usam apenas modelos dbt finais (`fact_`, `dim_`, `marts.analy
 
 **Nome**: `ranking_mensal`  
 **Descrição**: ranking por time/mês com pontos, vitórias, empates, derrotas, saldo, gols pró e gols contra.  
-**Grão**: `temporada + ano + mês + time`  
+**Grão**: `competição + temporada + ano + mês + time`  
 **Filtros padrão**:
-- temporada obrigatória
-- competição opcional (via join com `fact_matches`)
+- `competition_key` obrigatório
+- `season_label` obrigatório
 - somente meses com `matches > 0`
 **Fórmula**:
 - `points = wins * 3 + draws`
@@ -31,6 +31,8 @@ Todas as consultas usam apenas modelos dbt finais (`fact_`, `dim_`, `marts.analy
 ### SQL canônico
 ```sql
 SELECT
+  tms.competition_key,
+  tms.season_label,
   tms.season,
   tms.year,
   tms.month,
@@ -44,7 +46,8 @@ SELECT
   tms.goals_for,
   tms.goals_against
 FROM mart.team_monthly_stats tms
-WHERE tms.season = :season
+WHERE tms.competition_key = :competition_key
+  AND tms.season_label = :season_label
   AND tms.matches > 0
 ORDER BY
   tms.year::int DESC,
@@ -64,7 +67,8 @@ ORDER BY
 **Grão**: `time` (com base nos últimos N jogos por time)  
 **Filtros padrão**:
 - `N` configurável (`:n_games`, padrão sugerido `5`)
-- temporada obrigatória
+- `competition_key` obrigatório
+- `season_label` obrigatório
 - somente jogos válidos
 **Fórmula**:
 - por jogo: `W=3`, `D=1`, `L=0`
@@ -79,6 +83,8 @@ ORDER BY
 ```sql
 WITH team_matches AS (
   SELECT
+    fm.competition_key,
+    fm.season_label,
     fm.season,
     fm.match_id,
     fm.date_day,
@@ -89,13 +95,16 @@ WITH team_matches AS (
   FROM mart.fact_matches fm
   JOIN mart.dim_team dt
     ON dt.team_sk = fm.home_team_sk
-  WHERE fm.season = :season
+  WHERE fm.competition_key = :competition_key
+    AND fm.season_label = :season_label
     AND fm.home_goals IS NOT NULL
     AND fm.away_goals IS NOT NULL
 
   UNION ALL
 
   SELECT
+    fm.competition_key,
+    fm.season_label,
     fm.season,
     fm.match_id,
     fm.date_day,
@@ -106,7 +115,8 @@ WITH team_matches AS (
   FROM mart.fact_matches fm
   JOIN mart.dim_team dt
     ON dt.team_sk = fm.away_team_sk
-  WHERE fm.season = :season
+  WHERE fm.competition_key = :competition_key
+    AND fm.season_label = :season_label
     AND fm.home_goals IS NOT NULL
     AND fm.away_goals IS NOT NULL
 ),
@@ -114,7 +124,7 @@ ranked AS (
   SELECT
     tm.*,
     ROW_NUMBER() OVER (
-      PARTITION BY tm.season, tm.team_sk
+      PARTITION BY tm.competition_key, tm.season_label, tm.team_sk
       ORDER BY tm.date_day DESC, tm.match_id DESC
     ) AS rn
   FROM team_matches tm
@@ -125,6 +135,8 @@ last_n AS (
   WHERE rn <= :n_games
 )
 SELECT
+  competition_key,
+  season_label,
   season,
   team_sk,
   team_name,
@@ -137,7 +149,7 @@ SELECT
   SUM(goals_against) AS goals_against_last_n,
   SUM(goals_for - goals_against) AS goal_diff_last_n
 FROM last_n
-GROUP BY season, team_sk, team_name
+GROUP BY competition_key, season_label, season, team_sk, team_name
 ORDER BY points_last_n DESC, goal_diff_last_n DESC, goals_for_last_n DESC, team_name ASC;
 ```
 
@@ -149,7 +161,8 @@ ORDER BY points_last_n DESC, goal_diff_last_n DESC, goals_for_last_n DESC, team_
 **Descrição**: comparação de performance como mandante vs visitante por time.  
 **Grão**: `temporada + time + contexto (home/away)`  
 **Filtros padrão**:
-- temporada obrigatória
+- `competition_key` obrigatório
+- `season_label` obrigatório
 - somente jogos válidos
 **Fórmula**:
 - por contexto: jogos, vitórias, empates, derrotas, pontos, gols pró/contra, saldo
@@ -163,6 +176,8 @@ ORDER BY points_last_n DESC, goal_diff_last_n DESC, goals_for_last_n DESC, team_
 ```sql
 WITH home_stats AS (
   SELECT
+    fm.competition_key,
+    fm.season_label,
     fm.season,
     fm.home_team_sk AS team_sk,
     dt.team_name,
@@ -176,13 +191,16 @@ WITH home_stats AS (
     SUM(fm.away_goals) AS goals_against
   FROM mart.fact_matches fm
   JOIN mart.dim_team dt ON dt.team_sk = fm.home_team_sk
-  WHERE fm.season = :season
+  WHERE fm.competition_key = :competition_key
+    AND fm.season_label = :season_label
     AND fm.home_goals IS NOT NULL
     AND fm.away_goals IS NOT NULL
-  GROUP BY fm.season, fm.home_team_sk, dt.team_name
+  GROUP BY fm.competition_key, fm.season_label, fm.season, fm.home_team_sk, dt.team_name
 ),
 away_stats AS (
   SELECT
+    fm.competition_key,
+    fm.season_label,
     fm.season,
     fm.away_team_sk AS team_sk,
     dt.team_name,
@@ -196,12 +214,15 @@ away_stats AS (
     SUM(fm.home_goals) AS goals_against
   FROM mart.fact_matches fm
   JOIN mart.dim_team dt ON dt.team_sk = fm.away_team_sk
-  WHERE fm.season = :season
+  WHERE fm.competition_key = :competition_key
+    AND fm.season_label = :season_label
     AND fm.home_goals IS NOT NULL
     AND fm.away_goals IS NOT NULL
-  GROUP BY fm.season, fm.away_team_sk, dt.team_name
+  GROUP BY fm.competition_key, fm.season_label, fm.season, fm.away_team_sk, dt.team_name
 )
 SELECT
+  competition_key,
+  season_label,
   season,
   team_sk,
   team_name,
@@ -230,7 +251,8 @@ ORDER BY team_name, context;
 **Descrição**: distribuição de gols por faixa de minuto.  
 **Grão**: `temporada + bucket_minuto`  
 **Filtros padrão**:
-- temporada obrigatória
+- `competition_key` obrigatório
+- `season_label` obrigatório
 - somente eventos de gol (`is_goal = true`)
 - minutos válidos (`time_elapsed` não nulo)
 **Fórmula**:
@@ -246,18 +268,23 @@ ORDER BY team_name, context;
 ```sql
 WITH goals AS (
   SELECT
+    fm.competition_key,
+    fm.season_label,
     fm.season,
     fme.time_elapsed
   FROM mart.fact_match_events fme
   JOIN mart.fact_matches fm
     ON fm.match_id = fme.match_id
-  WHERE fm.season = :season
+  WHERE fm.competition_key = :competition_key
+    AND fm.season_label = :season_label
     AND fme.is_goal = TRUE
     AND fme.time_elapsed IS NOT NULL
     AND fme.time_elapsed BETWEEN 0 AND 120
 ),
 bucketed AS (
   SELECT
+    competition_key,
+    season_label,
     season,
     CASE
       WHEN time_elapsed BETWEEN 0 AND 15 THEN '00-15'
@@ -272,12 +299,16 @@ bucketed AS (
   FROM goals
 )
 SELECT
+  competition_key,
+  season_label,
   season,
   minute_bucket,
   COUNT(*) AS goals
 FROM bucketed
-GROUP BY season, minute_bucket
+GROUP BY competition_key, season_label, season, minute_bucket
 ORDER BY
+  competition_key,
+  season_label,
   season,
   CASE minute_bucket
     WHEN '00-15' THEN 1

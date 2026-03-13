@@ -6,11 +6,23 @@ models:
     tests:
       - unique_combination_of_columns:
           combination_of_columns:
-            - season
+            - competition_sk
+            - season_label
             - year
             - month
             - team_sk
     columns:
+      - name: competition_sk
+        description: "Chave substituta da competicao."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_competition')
+              field: competition_sk
+      - name: season_label
+        description: "Label canonico da temporada."
+        tests:
+          - not_null
       - name: season
         description: "Temporada do agregado."
         tests:
@@ -46,12 +58,13 @@ models:
           - not_null
 
   - name: standings_evolution
-    description: "Evolucao rodada a rodada por time no grain competicao/temporada/time/rodada."
+    description: "Evolucao oficial de standings por snapshot no grain competicao/temporada/stage/time/rodada."
     tests:
       - unique_combination_of_columns:
           combination_of_columns:
             - competition_sk
-            - season
+            - season_label
+            - stage_sk
             - team_id
             - round_key
     columns:
@@ -112,7 +125,7 @@ models:
       - unique_combination_of_columns:
           combination_of_columns:
             - competition_sk
-            - season
+            - season_label
     columns:
       - name: competition_sk
         description: "Chave substituta da competicao."
@@ -170,7 +183,7 @@ models:
       - unique_combination_of_columns:
           combination_of_columns:
             - competition_sk
-            - season
+            - season_label
             - player_id
             - team_id
     columns:
@@ -193,7 +206,7 @@ models:
       - unique_combination_of_columns:
           combination_of_columns:
             - competition_sk
-            - season
+            - season_label
             - player_id
             - team_id
     columns:
@@ -234,7 +247,7 @@ models:
       - unique_combination_of_columns:
           combination_of_columns:
             - provider
-            - league_id
+            - competition_key
             - pair_team_id
             - pair_opponent_id
     columns:

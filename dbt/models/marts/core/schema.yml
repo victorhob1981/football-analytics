@@ -43,19 +43,54 @@ models:
 
   - name: dim_competition
     description: "Dimensao de competicoes."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - provider_league_id
     columns:
       - name: competition_sk
         description: "Chave substituta da dimensao de competicoes."
         tests:
           - not_null
           - unique
-      - name: league_id
-        description: "Identificador natural da liga."
+      - name: provider
+        description: "Provider de origem da competicao."
+        tests:
+          - not_null
+      - name: provider_league_id
+        description: "Identificador natural da competicao no provider."
+        tests:
+          - not_null
+      - name: competition_key
+        description: "Chave canonica da competicao."
+        tests:
+          - not_null
+      - name: league_name
+        description: "Nome da competicao/liga."
+        tests:
+          - not_null
+
+  - name: dim_season
+    description: "Dimensao canonica de temporadas por competicao."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - competition_key
+            - season_label
+    columns:
+      - name: season_sk
         tests:
           - not_null
           - unique
-      - name: league_name
-        description: "Nome da competicao/liga."
+      - name: provider
+        tests:
+          - not_null
+      - name: competition_key
+        tests:
+          - not_null
+      - name: season_label
         tests:
           - not_null
 
@@ -133,6 +168,13 @@ models:
           - relationships:
               to: ref('dim_competition')
               field: competition_sk
+      - name: season_sk
+        description: "Chave substituta da temporada."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_season')
+              field: season_sk
       - name: date_sk
         description: "Chave substituta da data da partida."
         tests:

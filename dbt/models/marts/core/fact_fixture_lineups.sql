@@ -5,13 +5,27 @@ with lineups as (
     select * from {{ ref('stg_fixture_lineups') }}
 ),
 valid_matches as (
-    select match_id from {{ ref('fact_matches') }}
+    select
+        match_id,
+        competition_sk,
+        season_sk,
+        competition_key,
+        season,
+        season_label
+    from {{ ref('fact_matches') }}
 ),
 base as (
     select
         md5(concat(l.provider, ':', l.fixture_id::text, ':', l.team_id::text, ':', l.lineup_id::text)) as fixture_lineup_id,
         l.provider,
         l.fixture_id as match_id,
+        m.competition_sk,
+        m.season_sk,
+        m.competition_key,
+        m.season,
+        m.season_label,
+        l.provider_league_id,
+        l.provider_season_id,
         md5(concat('team:', l.team_id::text)) as team_sk,
         md5(concat('player:', l.player_id::text)) as player_sk,
         l.team_id,
@@ -27,6 +41,7 @@ base as (
         l.jersey_number,
         l.minutes_played,
         l.details,
+        l.source_run_id,
         l.ingested_run,
         coalesce(l.updated_at, now()) as updated_at
     from lineups l

@@ -17,16 +17,22 @@ dim_teams as (
 )
 select
     fps.fixture_player_stat_id,
+    fps.provider,
+    fps.competition_key,
     fps.match_id,
     fps.match_date,
     fps.competition_sk,
+    fps.season_sk,
     fps.season,
+    fps.season_label,
     fps.player_sk,
     coalesce(dp.player_id, fps.player_id) as player_id,
     coalesce(dp.player_name, fps.player_name) as player_name,
     fps.team_sk,
     coalesce(dt.team_id, fps.team_id) as team_id,
     coalesce(dt.team_name, fps.team_name) as team_name,
+    fps.provider_league_id,
+    fps.provider_season_id,
     fps.position_name,
     fps.is_starter,
     fps.minutes_played,
@@ -46,6 +52,7 @@ select
     fps.clean_sheets,
     fps.xg,
     fps.rating,
+    fps.source_run_id,
     fps.updated_at
 from fact_player_stats fps
 left join dim_players dp
