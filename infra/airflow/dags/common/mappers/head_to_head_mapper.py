@@ -4,6 +4,8 @@ from typing import Any
 
 import pandas as pd
 
+from common.discard_guardrails import drop_duplicates_with_threshold, dropna_with_threshold
+
 
 def _as_int(value: Any) -> int | None:
     if value is None:
@@ -49,9 +51,15 @@ def build_head_to_head_fixtures_dataframe(payloads: list[dict[str, Any]]) -> pd.
     df = pd.DataFrame(rows)
     if df.empty:
         raise RuntimeError("Nenhuma linha de head_to_head_fixtures gerada a partir dos payloads raw.")
-    df = df.dropna(subset=["pair_team_id", "pair_opponent_id", "fixture_id"]).copy()
-    df = df.drop_duplicates(
+    df = dropna_with_threshold(
+        df,
+        subset=["pair_team_id", "pair_opponent_id", "fixture_id"],
+        context_label="head_to_head",
+    )
+    df = drop_duplicates_with_threshold(
         subset=["provider", "pair_team_id", "pair_opponent_id", "fixture_id"],
+        df=df,
+        context_label="head_to_head",
         keep="last",
-    ).copy()
+    )
     return df

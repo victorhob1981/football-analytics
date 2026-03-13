@@ -79,6 +79,7 @@ def _flatten_events_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
     fixture_id = _payload_fixture_id(payload)
     if fixture_id is None:
         return []
+    provider = str(payload.get("provider") or "").strip() or "unknown"
 
     response_rows = payload.get("response", []) or []
     if not isinstance(response_rows, list):
@@ -117,7 +118,9 @@ def _flatten_events_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     comments,
                     provider_event_id=provider_event_id,
                 ),
+                "provider": provider,
                 "fixture_id": fixture_id,
+                "provider_event_id": provider_event_id,
                 "time_elapsed": time_elapsed,
                 "time_extra": time_extra,
                 "is_time_elapsed_anomalous": is_time_elapsed_anomalous,
@@ -136,7 +139,7 @@ def _flatten_events_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _assert_no_conflicting_event_id_collisions(df: pd.DataFrame) -> None:
-    duplicate_ids = df[df.duplicated(subset=["event_id"], keep=False)]
+    duplicate_ids = df[df.duplicated(subset=["provider", "fixture_id", "event_id"], keep=False)]
     if duplicate_ids.empty:
         return
 
@@ -161,13 +164,15 @@ def _assert_no_conflicting_event_id_collisions(df: pd.DataFrame) -> None:
         .fillna("")
         .agg("|".join, axis=1)
     )
-    signature_counts = signatures.groupby(duplicate_ids["event_id"]).nunique()
+    duplicate_keys = duplicate_ids[["provider", "fixture_id", "event_id"]].astype("string").fillna("")
+    composite_keys = duplicate_keys.agg("|".join, axis=1)
+    signature_counts = signatures.groupby(composite_keys).nunique()
     conflicting_ids = signature_counts[signature_counts > 1]
     if not conflicting_ids.empty:
         sample_ids = ", ".join(str(value) for value in conflicting_ids.index[:5])
         raise RuntimeError(
-            "Colisao de event_id detectada com eventos distintos. "
-            f"event_ids={sample_ids}"
+            "Colisao de identidade de match event detectada com eventos distintos. "
+            f"keys={sample_ids}"
         )
 
 
@@ -180,17 +185,17 @@ def build_match_events_dataframe(payloads: list[dict[str, Any]]) -> pd.DataFrame
         raise RuntimeError("Nenhuma linha de match events gerada a partir dos payloads raw.")
 
     df = pd.DataFrame(rows)
-    for col in ["fixture_id", "time_elapsed", "time_extra", "team_id", "player_id", "assist_id"]:
+    for col in ["fixture_id", "time_elapsed", "time_extra", "team_id", "player_id", "assist_id", "provider_event_id"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
 
     if "is_time_elapsed_anomalous" not in df.columns:
         df["is_time_elapsed_anomalous"] = False
     df["is_time_elapsed_anomalous"] = df["is_time_elapsed_anomalous"].fillna(False).astype(bool)
 
-    text_cols = ["event_id", "team_name", "player_name", "assist_name", "type", "detail", "comments"]
+    text_cols = ["event_id", "provider", "team_name", "player_name", "assist_name", "type", "detail", "comments"]
     for col in text_cols:
         df[col] = df[col].astype("string")
 
     _assert_no_conflicting_event_id_collisions(df)
-    df = df.drop_duplicates(subset=["event_id"], keep="last").copy()
+    df = df.drop_duplicates(subset=["provider", "fixture_id", "event_id"], keep="last").copy()
     return df

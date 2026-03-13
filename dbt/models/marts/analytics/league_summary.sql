@@ -7,9 +7,14 @@ competition as (
 aggregated as (
     select
         m.competition_sk,
+        m.competition_key,
         c.league_id,
+        c.provider,
+        c.provider_league_id,
+        c.competition_name,
         c.league_name,
         m.season,
+        m.season_label,
         count(*)::int as total_matches,
         sum(coalesce(m.total_goals, 0))::int as total_goals,
         round(sum(coalesce(m.total_goals, 0))::numeric / nullif(count(*), 0), 4) as avg_goals_per_match,
@@ -18,6 +23,15 @@ aggregated as (
     from matches m
     left join competition c
       on c.competition_sk = m.competition_sk
-    group by m.competition_sk, c.league_id, c.league_name, m.season
+    group by
+        m.competition_sk,
+        m.competition_key,
+        c.league_id,
+        c.provider,
+        c.provider_league_id,
+        c.competition_name,
+        c.league_name,
+        m.season,
+        m.season_label
 )
 select * from aggregated

@@ -4,8 +4,12 @@ with rounds as (
 ordered as (
     select
         provider,
+        provider_league_id,
+        competition_key,
+        season_label,
         league_id,
         season_id,
+        provider_season_id,
         stage_id,
         round_id,
         round_name,
@@ -14,7 +18,7 @@ ordered as (
         finished,
         is_current,
         row_number() over (
-            partition by provider, season_id
+            partition by provider, coalesce(provider_season_id, season_id)
             order by
                 starting_at nulls last,
                 ending_at nulls last,

@@ -20,3 +20,11 @@ sources:
       - name: team_sidelined
       - name: team_coaches
       - name: head_to_head_fixtures
+
+  - name: control_plane
+    database: "{{ env_var('FOOTBALL_PG_DBNAME', env_var('POSTGRES_DB', 'football_dw')) }}"
+    schema: control
+    tables:
+      - name: competitions
+      - name: competition_provider_map
+      - name: season_catalog

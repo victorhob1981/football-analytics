@@ -5,6 +5,7 @@ export type {
   MatchLineupPlayer,
   MatchListItem,
   MatchPlayerStat,
+  MatchTeamStat,
   MatchesGlobalFilters,
   MatchesListData,
   MatchesListFilters,

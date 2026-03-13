@@ -4,6 +4,7 @@ type InsightBadgeProps = {
   count: number;
   highestSeverity?: InsightSeverity | null;
   className?: string;
+  label?: string;
 };
 
 const SEVERITY_CLASSES: Record<InsightSeverity, string> = {
@@ -12,7 +13,7 @@ const SEVERITY_CLASSES: Record<InsightSeverity, string> = {
   critical: "border-rose-300 bg-rose-50 text-rose-700",
 };
 
-export function InsightBadge({ count, highestSeverity = "info", className }: InsightBadgeProps) {
+export function InsightBadge({ count, highestSeverity = "info", className, label }: InsightBadgeProps) {
   if (count <= 0) {
     return null;
   }
@@ -26,7 +27,7 @@ export function InsightBadge({ count, highestSeverity = "info", className }: Ins
     .filter(Boolean)
     .join(" ");
 
-  const label = count === 1 ? "1 insight" : `${count} insights`;
+  const resolvedLabel = label?.trim() || (count === 1 ? "1 insight" : `${count} insights`);
 
-  return <span className={classes}>{label}</span>;
+  return <span className={classes}>{resolvedLabel}</span>;
 }

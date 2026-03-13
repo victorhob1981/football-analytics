@@ -24,9 +24,29 @@ CREATE TABLE raw.match_events (
     FOREIGN KEY (fixture_id) REFERENCES raw.fixtures (fixture_id)
 ) PARTITION BY LIST (season);
 
+CREATE TABLE IF NOT EXISTS raw.match_events_2020
+  PARTITION OF raw.match_events
+  FOR VALUES IN (2020);
+
+CREATE TABLE IF NOT EXISTS raw.match_events_2021
+  PARTITION OF raw.match_events
+  FOR VALUES IN (2021);
+
+CREATE TABLE IF NOT EXISTS raw.match_events_2022
+  PARTITION OF raw.match_events
+  FOR VALUES IN (2022);
+
+CREATE TABLE IF NOT EXISTS raw.match_events_2023
+  PARTITION OF raw.match_events
+  FOR VALUES IN (2023);
+
 CREATE TABLE IF NOT EXISTS raw.match_events_2024
   PARTITION OF raw.match_events
   FOR VALUES IN (2024);
+
+CREATE TABLE IF NOT EXISTS raw.match_events_2025
+  PARTITION OF raw.match_events
+  FOR VALUES IN (2025);
 
 CREATE INDEX IF NOT EXISTS idx_raw_match_events_fixture_id
   ON raw.match_events (fixture_id);

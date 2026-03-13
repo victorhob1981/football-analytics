@@ -2,12 +2,21 @@ with
 teams as (
     select team_sk, team_id, team_name from {{ ref('dim_team') }}
 ),
+competition as (
+    select competition_sk, competition_name from {{ ref('dim_competition') }}
+),
 team_rows as (
     select * from {{ ref('int_team_match_rows') }}
 ),
 aggregated as (
     select
+        tr.provider,
+        tr.provider_league_id,
+        tr.competition_key,
+        tr.competition_sk,
+        c.competition_name,
         tr.season,
+        tr.season_label,
         tr.year,
         tr.month,
         tr.team_sk,
@@ -24,6 +33,20 @@ aggregated as (
     from team_rows tr
     left join teams t
       on t.team_sk = tr.team_sk
-    group by tr.season, tr.year, tr.month, tr.team_sk, tr.team_id, t.team_name
+    left join competition c
+      on c.competition_sk = tr.competition_sk
+    group by
+        tr.provider,
+        tr.provider_league_id,
+        tr.competition_key,
+        tr.competition_sk,
+        c.competition_name,
+        tr.season,
+        tr.season_label,
+        tr.year,
+        tr.month,
+        tr.team_sk,
+        tr.team_id,
+        t.team_name
 )
 select * from aggregated

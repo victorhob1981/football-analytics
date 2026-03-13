@@ -16,13 +16,50 @@ describe("useTimeRange", () => {
     expect(result.current.hasTimeRange).toBe(false);
     expect(result.current.params).toEqual({
       roundId: null,
+      monthKey: null,
       lastN: null,
       dateRangeStart: null,
       dateRangeEnd: null,
     });
   });
 
-  it("retorna modo lastN com dateRange limpo", () => {
+  it("retorna modo round quando roundId e definido", () => {
+    const { result } = renderHook(() => useTimeRange());
+
+    act(() => {
+      useGlobalFiltersStore.getState().setRoundId("8");
+    });
+
+    expect(result.current.activeMode).toBe("round");
+    expect(result.current.hasTimeRange).toBe(true);
+    expect(result.current.params).toEqual({
+      roundId: "8",
+      monthKey: null,
+      lastN: null,
+      dateRangeStart: null,
+      dateRangeEnd: null,
+    });
+  });
+
+  it("retorna modo month quando monthKey e definido", () => {
+    const { result } = renderHook(() => useTimeRange());
+
+    act(() => {
+      useGlobalFiltersStore.getState().setMonthKey("2026-02");
+    });
+
+    expect(result.current.activeMode).toBe("month");
+    expect(result.current.hasTimeRange).toBe(true);
+    expect(result.current.params).toEqual({
+      roundId: null,
+      monthKey: "2026-02",
+      lastN: null,
+      dateRangeStart: null,
+      dateRangeEnd: null,
+    });
+  });
+
+  it("retorna modo lastN com os demais recortes limpos", () => {
     const { result } = renderHook(() => useTimeRange());
 
     act(() => {
@@ -30,13 +67,13 @@ describe("useTimeRange", () => {
         mode: "lastN",
         lastN: 6,
       });
-      useGlobalFiltersStore.getState().setRoundId("8");
     });
 
     expect(result.current.activeMode).toBe("lastN");
     expect(result.current.hasTimeRange).toBe(true);
     expect(result.current.params).toEqual({
-      roundId: "8",
+      roundId: null,
+      monthKey: null,
       lastN: 6,
       dateRangeStart: null,
       dateRangeEnd: null,
@@ -62,6 +99,7 @@ describe("useTimeRange", () => {
     expect(result.current.hasTimeRange).toBe(true);
     expect(result.current.params).toEqual({
       roundId: null,
+      monthKey: null,
       lastN: null,
       dateRangeStart: "2026-02-01",
       dateRangeEnd: "2026-02-21",

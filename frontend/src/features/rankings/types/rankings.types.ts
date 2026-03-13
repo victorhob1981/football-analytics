@@ -6,6 +6,8 @@ export interface RankingTableRow extends Record<string, string | number | boolea
   entityName?: string | null;
   rank?: number | null;
   metricValue?: number | null;
+  isOutlier?: boolean;
+  outlierZScore?: number | null;
 }
 
 export interface RankingTableData {
@@ -19,6 +21,7 @@ export interface RankingsGlobalFilters {
   competitionId?: string | null;
   seasonId?: string | null;
   roundId?: string | null;
+  monthKey?: string | null;
   venue?: VenueFilter;
   lastN?: number | null;
   dateRangeStart?: string | null;

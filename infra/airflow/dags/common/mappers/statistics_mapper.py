@@ -5,6 +5,8 @@ from typing import Any
 
 import pandas as pd
 
+from common.discard_guardrails import drop_duplicates_with_threshold, dropna_with_threshold
+
 
 def _to_metric_column(stat_type: str | None) -> str | None:
     if not stat_type:
@@ -83,5 +85,6 @@ def build_statistics_dataframe(payloads: list[dict[str, Any]]) -> pd.DataFrame:
     df["fixture_id"] = pd.to_numeric(df["fixture_id"], errors="coerce").astype("Int64")
     df["team_id"] = pd.to_numeric(df["team_id"], errors="coerce").astype("Int64")
     df["team_name"] = df["team_name"].astype("string")
-    df = df.dropna(subset=["fixture_id", "team_id"]).drop_duplicates(subset=["fixture_id", "team_id"], keep="last")
+    df = dropna_with_threshold(df, subset=["fixture_id", "team_id"], context_label="statistics")
+    df = drop_duplicates_with_threshold(df, subset=["fixture_id", "team_id"], context_label="statistics")
     return df

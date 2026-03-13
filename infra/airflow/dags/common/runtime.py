@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 import os
 
+from common.competition_identity import derive_season_label
 from common.providers import get_default_league_id, get_default_provider, normalize_provider_name, provider_env_prefix
 
 
@@ -18,6 +19,18 @@ DEFAULT_FIXTURE_WINDOWS_BY_SEASON: dict[int, list[tuple[str, str]]] = {
     ]
 }
 
+MIN_OPERATIONAL_SEASON_YEAR = 1900
+MAX_OPERATIONAL_SEASON_YEAR = 2100
+
+
+def _generic_fixture_windows(season: int) -> list[tuple[str, str]]:
+    # Default generic window covers both year-calendar and cross-year competitions.
+    return [
+        (f"{season}-01-01", f"{season}-06-30"),
+        (f"{season}-07-01", f"{season}-12-31"),
+        (f"{season + 1}-01-01", f"{season + 1}-06-30"),
+    ]
+
 
 def _safe_int(value: Any, default_value: int, field_name: str) -> int:
     if value is None:
@@ -26,6 +39,42 @@ def _safe_int(value: Any, default_value: int, field_name: str) -> int:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Parametro invalido para {field_name}: {value}") from exc
+
+
+def _optional_int(value: Any, field_name: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Parametro invalido para {field_name}: {value}") from exc
+
+
+def _validate_operational_season_year(season: int, field_name: str) -> int:
+    if season < MIN_OPERATIONAL_SEASON_YEAR or season > MAX_OPERATIONAL_SEASON_YEAR:
+        raise ValueError(
+            f"Parametro invalido para {field_name}: {season}. "
+            "Use o ano da temporada (ex.: 2024), nao o season_id numerico do provider."
+        )
+    return season
+
+
+def _resolve_runtime_season(raw_value: Any, default_value: int, field_name: str) -> tuple[int, str | None]:
+    if raw_value is None:
+        return default_value, None
+    if isinstance(raw_value, str):
+        candidate = raw_value.strip()
+        if not candidate:
+            return default_value, None
+        if candidate.isdigit():
+            return _validate_operational_season_year(int(candidate), field_name), None
+        season_label = derive_season_label(season_name=candidate)
+        if season_label is None:
+            raise ValueError(f"Parametro invalido para {field_name}: {raw_value}")
+        return _validate_operational_season_year(int(season_label.split("_", 1)[0]), field_name), season_label
+    return _validate_operational_season_year(_safe_int(raw_value, default_value, field_name), field_name), None
 
 
 def _raw_runtime_inputs(context: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -57,14 +106,33 @@ def resolve_runtime_params(context: dict[str, Any]) -> dict[str, Any]:
         default_league,
         "league_id",
     )
-    season = _safe_int(
-        conf.get("season", conf.get("season_id", params.get("season", params.get("season_id", default_season)))),
-        default_season,
-        "season",
+    raw_season = conf.get("season", conf.get("season_id", params.get("season", params.get("season_id", default_season))))
+    season, derived_season_label = _resolve_runtime_season(raw_season, default_season, "season")
+    season = _validate_operational_season_year(season, "season")
+    raw_season_label = conf.get("season_label", params.get("season_label"))
+    season_label = None
+    if raw_season_label is not None:
+        season_label = derive_season_label(season_name=str(raw_season_label))
+        if season_label is None:
+            raise ValueError(f"Parametro invalido para season_label: {raw_season_label}")
+    if season_label is None:
+        season_label = derived_season_label
+    if season_label is not None:
+        season_from_label = int(season_label.split("_", 1)[0])
+        if season != season_from_label:
+            raise ValueError(
+                "Parametros inconsistentes para temporada: "
+                f"season={season} e season_label={season_label}."
+            )
+    provider_season_id = _optional_int(
+        conf.get("provider_season_id", params.get("provider_season_id")),
+        "provider_season_id",
     )
     return {
         "league_id": league_id,
         "season": season,
+        "season_label": season_label,
+        "provider_season_id": provider_season_id,
         "provider": provider,
     }
 
@@ -96,4 +164,4 @@ def resolve_fixture_windows(context: dict[str, Any], season: int) -> list[tuple[
 
     if season in DEFAULT_FIXTURE_WINDOWS_BY_SEASON:
         return DEFAULT_FIXTURE_WINDOWS_BY_SEASON[season]
-    return [(f"{season}-01-01", f"{season}-12-31")]
+    return _generic_fixture_windows(season)

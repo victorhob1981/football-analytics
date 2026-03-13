@@ -18,16 +18,19 @@ export function useMatchesList(localFilters: MatchesListLocalFilters = {}) {
   const mergedFilters = useMemo<MatchesListFilters>(() => {
     const search = localFilters.search?.trim();
     const status = localFilters.status?.trim();
+    const teamScope = localFilters.teamScope ?? "any";
 
     return {
       competitionId,
       seasonId,
       roundId: timeRangeParams.roundId,
+      monthKey: timeRangeParams.monthKey,
       venue,
       lastN: timeRangeParams.lastN,
       dateRangeStart: timeRangeParams.dateRangeStart,
       dateRangeEnd: timeRangeParams.dateRangeEnd,
       search: search && search.length > 0 ? search : undefined,
+      teamScope: search && search.length > 0 ? teamScope : "any",
       status: status && status.length > 0 ? status : undefined,
       page: localFilters.page,
       pageSize: localFilters.pageSize,
@@ -39,6 +42,7 @@ export function useMatchesList(localFilters: MatchesListLocalFilters = {}) {
     localFilters.page,
     localFilters.pageSize,
     localFilters.search,
+    localFilters.teamScope,
     localFilters.sortBy,
     localFilters.sortDirection,
     localFilters.status,
@@ -46,6 +50,7 @@ export function useMatchesList(localFilters: MatchesListLocalFilters = {}) {
     timeRangeParams.dateRangeEnd,
     timeRangeParams.dateRangeStart,
     timeRangeParams.lastN,
+    timeRangeParams.monthKey,
     timeRangeParams.roundId,
     venue,
   ]);
@@ -55,6 +60,6 @@ export function useMatchesList(localFilters: MatchesListLocalFilters = {}) {
     queryFn: () => fetchMatchesList(mergedFilters),
     staleTime: MATCHES_LIST_STALE_TIME_MS,
     gcTime: MATCHES_LIST_GC_TIME_MS,
-    isDataEmpty: (data) => data.items.length === 0,
+    isDataEmpty: (data) => !Array.isArray(data.items) || data.items.length === 0,
   });
 }

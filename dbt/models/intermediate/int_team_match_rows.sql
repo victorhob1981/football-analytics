@@ -2,7 +2,12 @@ with matches as (
     select * from {{ ref('int_matches_enriched') }}
 )
 select
+    provider,
+    provider_league_id,
+    competition_key,
+    md5(concat(provider, ':competition:', coalesce(competition_key, league_id::text))) as competition_sk,
     season,
+    season_label,
     extract(year from date_day)::int as year,
     lpad(extract(month from date_day)::int::text, 2, '0') as month,
     coalesce((regexp_match(round, '([0-9]+)'))[1]::int, 0) as round_number,
@@ -25,7 +30,12 @@ from matches
 union all
 
 select
+    provider,
+    provider_league_id,
+    competition_key,
+    md5(concat(provider, ':competition:', coalesce(competition_key, league_id::text))) as competition_sk,
     season,
+    season_label,
     extract(year from date_day)::int as year,
     lpad(extract(month from date_day)::int::text, 2, '0') as month,
     coalesce((regexp_match(round, '([0-9]+)'))[1]::int, 0) as round_number,

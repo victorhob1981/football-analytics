@@ -41,6 +41,7 @@ function resolveRankingFreshnessClass(
     mergedFilters.lastN !== null ||
     mergedFilters.dateRangeStart !== null ||
     mergedFilters.dateRangeEnd !== null ||
+    mergedFilters.monthKey !== null ||
     mergedFilters.roundId !== null;
 
   return isFastById || isFastByTimeRange ? "fast" : "season";
@@ -63,6 +64,7 @@ export function useRankingTable(rankingDefinition: RankingDefinition, options: U
       competitionId,
       seasonId,
       roundId: timeRangeParams.roundId,
+      monthKey: timeRangeParams.monthKey,
       venue,
       lastN: timeRangeParams.lastN,
       dateRangeStart: timeRangeParams.dateRangeStart,
@@ -88,6 +90,7 @@ export function useRankingTable(rankingDefinition: RankingDefinition, options: U
     timeRangeParams.dateRangeEnd,
     timeRangeParams.dateRangeStart,
     timeRangeParams.lastN,
+    timeRangeParams.monthKey,
     timeRangeParams.roundId,
     venue,
   ]);
@@ -107,7 +110,7 @@ export function useRankingTable(rankingDefinition: RankingDefinition, options: U
     enabled,
     staleTime: cacheProfile.staleTimeMs,
     gcTime: cacheProfile.gcTimeMs,
-    isDataEmpty: (data) => data.rows.length === 0,
+    isDataEmpty: (data) => !Array.isArray(data.rows) || data.rows.length === 0,
   });
 
   return {

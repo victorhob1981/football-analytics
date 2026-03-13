@@ -1,0 +1,302 @@
+﻿# Relatorio de Conformidade - PAGE_PLAN vs Implementacao
+
+> Analise por pagina e secao. Legenda: Conforme | Parcial | Faltando | Fora do escopo
+
+---
+
+## PAGINA 1 - Home Executiva (`/`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S0 - GlobalFilterBar | Conforme | Implementada com `competitionId`, `seasonId`, `round/month/lastN/dateRange`, `venue`, com estados parciais por pagina via config |
+| S1 - KPIs da temporada | Conforme | Cards de partidas, gols, media de gols/jogo e times |
+| S2 - Top ataques e defesas | Conforme | Listas lado a lado, sparklines e links para clube |
+| S3 - Pontos acumulados | Conforme | LineChart com selecao interativa de series |
+| S4 - Top jogadores do momento | Parcial | Tabela com gols/assist/rating existe, mas sem coluna explicita de variacao vs periodo anterior |
+| S5 - InsightFeed da rodada | Conforme | Integrado com `useInsights` |
+| S6 - Painel de cobertura resumo | Conforme | Implementado com 4 indicadores e link para `/audit` |
+
+**Divergencias:** Home esta majoritariamente conforme; gap principal em S4 (variacao vs periodo anterior).
+
+---
+
+## PAGINA 2 - Competicao (`/competition`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Navegador de rodadas | Conforme | Seletor de rodada presente |
+| S2 - Tabela de classificacao | Conforme | Colunas principais, zona e forma recente presentes |
+| S3 - Curva de pontos acumulados | Faltando | Nao ha LineChart de evolucao na pagina atual |
+| S4 - Calendario da rodada | Conforme | Lista de partidas da rodada com link para match center |
+| S5 - Filtro por fase (stage) | Faltando | Dropdown de stage e CoverageBadge de `stage_id` ausentes |
+
+**Divergencias:** S3 e S5 ausentes; toggle "pontos acumulados vs posicao" tambem nao implementado.
+
+---
+
+## PAGINA 3 - Lista de Partidas (`/matches`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Filtros locais (time, status, view toggle) | Parcial | Busca por time e filtro por status existem; nao ha seletor dedicado casa/fora; toggle e lista/grade (nao calendario mensal) |
+| S2 - Modo lista | Conforme | Cards agrupados por rodada, com paginacao |
+| S2 - Modo calendario | Faltando | Grade mensal de calendario nao existe |
+| S2 - Fallback venue/referee | Parcial | Fallback de venue presente; referee nao e exibido na lista |
+
+**Divergencias:** modo calendario ausente e implementacao do toggle diverge do plano (grade em vez de calendario mensal).
+
+---
+
+## PAGINA 4 - Match Center (`/matches/[matchId]`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Header da partida | Conforme | Times (com badge de logo), placar, data, rodada, venue e fallbacks de referee/publico/weather |
+| S2 - Team Stats comparativo | Conforme | Tabela lado a lado com finalizacoes/posse/passes/escanteios/faltas/cartoes e CoverageBadge por metrica |
+| S3 - Timeline de eventos | Conforme | Timeline com icones por tipo |
+| S4 - Lineups | Conforme | Tabs Time A/Time B, formacao visual, titulares/banco e slots sem `player_id` sem link |
+| S5 - Player Stats da partida | Conforme | DataTable por time com colunas completas, CoverageBadge em baixa cobertura e ordenacao client-side |
+| S6 - InsightFeed da partida | Conforme | Secao implementada por fixture (`entityType=match`) |
+
+**Divergencias:** nenhuma divergencia critica pendente na Pagina 4.
+
+---
+
+## PAGINA 5 - Lista de Clubes (`/clubs`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Busca e filtros | Conforme | Busca por nome e ordenacao por pontos/gols marcados/gols sofridos |
+| S2 - Grid de clubes | Conforme | Cards alimentados por API real (`/api/v1/clubs`) com posicao/pontos/saldo/forma recente e logo |
+| S3 - Botao de comparacao | Conforme | CTA flutuante aparece com 2 clubes selecionados e navega para `/clubs/compare` |
+
+**Divergencias:** nenhuma divergencia critica pendente na Pagina 5.
+
+---
+
+## PAGINA 6 - Perfil do Clube (`/clubs/[clubId]`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Header | Conforme | Nome, posicao, pontos, saldo e botao comparar |
+| S2 - Insights | Parcial | Implementado com dados hardcoded |
+| S3 - Performance geral | Conforme | KPI cards + breakdown V/E/D |
+| S3 - Mini LineChart pontos | Faltando | Nao implementado |
+| S4 - Forma recente | Parcial | Sequencia com badges/oponente/placar presente; grafico de gols por jogo recente ausente |
+| S5 - Casa vs Fora | Conforme | Comparativos de desempenho por contexto |
+| S6 - Gols por mes | Conforme | BarChart agrupado (pro/contra) |
+| S7 - Estatisticas mensais agregadas | Faltando | Secao nao implementada |
+| S8 - Top contribuidores | Conforme | Lista com gols/assistencias e links para perfil |
+| S9 - Disciplina | Parcial | Totais de cartoes/faltas presentes; timeline disciplinar ausente |
+| S10 - Elenco | Conforme | Lista de jogadores com fallback para sem `player_id` |
+
+**Divergencias criticas:** S3 mini-linechart, S4 grafico de gols recentes e S7 estatisticas mensais.
+
+---
+
+## PAGINA 7 - Comparativo Clube vs Clube (`/clubs/compare`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Seletor de clubes | Conforme | Dois seletores com prefill via comparison.store |
+| S1 - Seletor de recorte | Faltando | Nao implementado |
+| S2 - KPI comparativo com delta | Conforme | Layout bilateral com diferencas por metrica |
+| S3 - Tendencia temporal | Conforme | LineChart com duas series |
+| S3 - Toggle de metrica | Faltando | Toggle pontos vs saldo nao implementado |
+| S4 - RadarChart | Conforme | Dimensoes comparativas presentes |
+| S5 - Contribuidores de cada clube | Conforme | Top contribuidores por clube |
+| S6 - H2H mini-resumo | Conforme | Resumo com link para `/head-to-head` |
+
+**Divergencias:** seletor de recorte e toggle de metrica ausentes.
+
+---
+
+## PAGINA 8 - Lista de Jogadores (`/players`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Filtros locais | Parcial | Busca e minimo de minutos funcionam; filtro por posicao esta visivel, porem desabilitado |
+| S2 - Grid de jogadores | Conforme | Cards com metricas principais e comparacao |
+| S2 - Acao de comparacao | Parcial | CTA de comparacao existe (header), mas nao como botao flutuante |
+| API real | Conforme | Hook `usePlayersList` com prefetch de perfil |
+
+**Divergencias:** filtro de posicao ainda nao concluido.
+
+---
+
+## PAGINA 9 - Perfil do Jogador (`/players/[playerId]`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Header | Conforme | Nome, posicao, clube, nacionalidade, comparar |
+| S2 - Insights | Conforme | `useInsights` real com tratamento de loading/erro/parcial |
+| S3 - Season Summary KPIs | Conforme | Partidas, minutos, gols, assistencias |
+| S3 - Metricas secundarias | Conforme | Chutes, rating, precisao de passe |
+| S4 - Radar por 90 | Conforme | Radar comparativo |
+| S5 - Match history | Conforme | Tabela com link para match center |
+| S6 - Lineup participation | Parcial | Placeholder |
+| S7 - Impact events | Parcial | Placeholder |
+| S8 - Transfers | Parcial | Placeholder |
+| S9 - Unavailability | Faltando | Secao nao implementada |
+
+**Divergencias:** S6-S8 estao em placeholder e S9 ausente.
+
+---
+
+## PAGINA 10 - Comparativo Jogador vs Jogador (`/players/compare`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Seletor (dropdowns + comparison.store) | Conforme | Preenchimento via store e seletores funcionais |
+| S1 - Seletor de modo | Faltando | Modo temporada/lastN/por90/por clube nao implementado |
+| S1 - PartialDataBanner | Faltando | Banner nao implementado |
+| S2 - KPI comparativo | Conforme | Comparativo bilateral com delta |
+| S2 - Passes-chave | Faltando | Metrica nao esta presente nas linhas de KPI |
+| S3 - Radar | Conforme | Radar com duas entidades |
+| S4 - Forma recente (rating/gols) | Parcial | Serie de rating existe; toggle para gols nao existe |
+| S5 - Contexto de lineup | Parcial | Minutos/jogos/% titular presentes; aproveitamento do time no periodo ausente |
+
+**Divergencias:** faltam seletor de modo, PartialDataBanner, passes-chave e parte do contexto de lineup.
+
+---
+
+## PAGINA 11 - Central de Rankings (`/rankings/[rankingType]`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| NavBar de categorias | Conforme | Tabs por entidade e pills por ranking |
+| Header com entidade/descricao | Conforme | Label, titulo e descricao renderizados |
+| DataTable dinamica | Conforme | Tabela orientada por registry |
+| Filtros locais | Conforme | Busca, ordenacao e minimo de amostra |
+| CoverageBadge | Conforme | Presente |
+| InsightBadge em outliers | Conforme | Badge exibida nas linhas classificadas como outlier (+2 desvios-padrao) |
+| Rankings planejados de jogadores | Conforme | Registry ampliado com ranking de totais e versoes `/90 min` planejadas |
+| Rota base `/rankings` | Conforme | Rota base implementada como entrada da central, com redirecionamento para ranking padrao |
+
+**Divergencias:** nenhuma divergencia critica pendente na Pagina 11.
+
+---
+
+## PAGINA 12 - Head-to-Head (`/head-to-head`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Seletor com URL params | Conforme | `?teamA=&teamB=` preenche seletores |
+| S1 - Seletor de recorte | Faltando | Nao implementado |
+| S2 - Resumo agregado | Conforme | V/E/D, dominancia e indicadores |
+| S3 - Recorte por periodo | Faltando | Nao implementado; foi adicionado grafico de gols por ano no lugar |
+| S4 - Timeline de confrontos | Conforme | Tabela cronologica com click para match center quando ha `matchId` |
+| S5 - Desempenho por clube | Conforme | Painel comparativo H2H vs geral |
+
+**Divergencias:** seletor/recorte temporal ausentes.
+
+---
+
+## PAGINA 13 - Mercado e Disponibilidade (`/market`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| Tab Transferencias - Feed | Conforme | Feed cronologico presente |
+| Tab Transferencias - Paginacao server-side | Faltando | Nao implementada |
+| Tab Transferencias - Filtro por clube | Faltando | Nao existe filtro por clube na tab de transferencias |
+| Tab Transferencias - Ranking de entradas | Conforme | Grafico presente |
+| Tab Transferencias - Ranking de saidas | Conforme | Grafico presente |
+| Tab Disponibilidade - Painel de indisponiveis | Conforme | Lista com risco e retorno esperado |
+| Tab Disponibilidade - Ranking de afastamentos | Conforme | Ranking por clube presente |
+| Tab Disponibilidade - Tendencia temporal | Conforme | Grafico temporal presente |
+
+**Divergencias:** faltam paginacao server-side e filtro por clube nas transferencias.
+
+---
+
+## PAGINA 14 - Lista de Tecnicos (`/coaches`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Filtros locais | Conforme | Busca e ordenacao implementadas |
+| S2 - DataTable de tecnicos | Conforme | Colunas principais e links para perfil |
+| S2 - Coluna "periodo no clube" | Parcial | Mostra inicio (`since`), sem data de fim (`to`) |
+| Top 3 destaque | Fora do escopo | Adicao extra em relacao ao PAGE_PLAN |
+
+**Divergencias:** coluna de periodo incompleta.
+
+---
+
+## PAGINA 15 - Perfil do Tecnico (`/coaches/[coachId]`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Header | Conforme | Nome, nacionalidade, clube atual, historico e trofeus |
+| S2 - KPI cards | Conforme | Jogos, aproveitamento, gols/jogo, vitorias |
+| S2 - Detalhamento por clube | Faltando | Nao ha KPI segmentado por clube sob comando |
+| S3 - Mini-ranking comparativo | Conforme | Grafico com destaque do tecnico atual |
+| S4 - Historico de clubes (timeline) | Conforme | Timeline com periodo e V/E/D |
+
+**Divergencias:** falta detalhamento de performance por clube na secao de KPIs.
+
+---
+
+## PAGINA 16 - Auditoria de Cobertura (`/audit`)
+
+| Secao | Status | Observacao |
+|---|---|---|
+| S1 - Cobertura por modulo | Conforme | 5 modulos, com expansao por rodada |
+| S2 - Estado de sincronizacao | Conforme | Tabela com entidade/tabela/sync/status/volume/lag |
+| S2 - Indicador de lag | Conforme | Renderizado e classificado por severidade |
+| S2 - Reconciliacao multi-provider | Conforme | Nota "Em breve" presente |
+| S3 - Metricas problematicas | Conforme | Lista inclui `clean_sheets`, `xg`, lineups sem `player_id`, `team_performance_monthly`, `red_cards` |
+| S4 - Cobertura JSON bruto | Conforme | Tabela com `developerName`, cobertura, modulos e status |
+
+**Nenhuma divergencia critica identificada nesta pagina.**
+
+---
+
+## Resumo Consolidado de Divergencias
+
+### Faltando (alto impacto)
+
+| # | Pagina | Item ausente |
+|---|---|---|
+| 1 | Competicao (`/competition`) | Curva de pontos (S3), filtro por stage (S5) e toggle pontos/posicao |
+| 2 | Matches (`/matches`) | Modo calendario mensal |
+| 3 | Club Profile (`/clubs/[clubId]`) | Mini LineChart de pontos (S3), estatisticas mensais (S7) e grafico de gols recentes (S4) |
+| 4 | Players Compare (`/players/compare`) | Seletor de modo e PartialDataBanner |
+| 5 | Head-to-Head (`/head-to-head`) | Seletor/recorte temporal (S1/S3) |
+| 6 | Market (`/market`) | Paginacao server-side e filtro por clube na tab de transferencias |
+| 7 | Player Profile (`/players/[playerId]`) | Secao S9 (indisponibilidades) |
+
+### Parcialmente conforme (medio impacto)
+
+| # | Pagina | Incompleto |
+|---|---|---|
+| 1 | Home (`/`) | Top jogadores sem variacao vs periodo anterior |
+| 2 | Matches (`/matches`) | Toggle atual e lista/grade (nao lista/calendario); fallback de referee na lista |
+| 3 | Club Profile (`/clubs/[clubId]`) | Insights hardcoded e disciplina sem timeline |
+| 4 | Players (`/players`) | Filtro por posicao desabilitado |
+| 5 | Players Compare | KPI sem passes-chave e lineup sem aproveitamento do time |
+| 6 | Coaches List (`/coaches`) | Coluna de periodo sem data de fim |
+| 7 | Coaches Profile (`/coaches/[coachId]`) | KPI agregado sem quebra por clube |
+
+### Adicoes fora do escopo (nao criticas)
+
+| Pagina | Adicao extra |
+|---|---|
+| Coaches List | Cards de destaque Top 3 |
+| Head-to-Head | Grafico "gols por ano" |
+| Players Compare | Links diretos para perfis individuais |
+| Club Compare | Mini-resumo imediato no seletor |
+| Competition | Rota adicional `/competition/[competitionId]` em placeholder |
+
+---
+
+## Prioridade de Correcao Sugerida
+
+| Prioridade | Item | Esforco estimado |
+|---|---|---|
+| P1 | Club Profile S3/S4/S7 | Medio |
+| P1 | Competicao S3/S5 | Medio |
+| P2 | Matches modo calendario mensal | Medio/Alto |
+| P2 | Head-to-Head recorte temporal | Medio |
+| P2 | Market (paginacao + filtro por clube) | Medio |
+| P3 | Players Compare (modo + PartialDataBanner) | Medio |
+| P3 | Players/Profile: filtro de posicao e S9 indisponibilidade | Medio |

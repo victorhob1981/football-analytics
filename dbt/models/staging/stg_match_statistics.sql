@@ -4,6 +4,11 @@ with source_statistics as (
 select
     fixture_id,
     team_id,
+    provider,
+    provider_league_id,
+    competition_key,
+    season_label,
+    provider_season_id,
     team_name,
     shots_on_goal,
     shots_off_goal,
@@ -21,6 +26,8 @@ select
     total_passes,
     passes_accurate,
     passes_pct,
+    ingested_at,
+    source_run_id,
     ingested_run,
     updated_at
 from source_statistics

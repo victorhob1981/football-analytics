@@ -3,9 +3,18 @@ with snapshots as (
 ),
 competition as (
     select
-        league_id,
+        provider,
+        competition_key,
         competition_sk
     from {{ ref('dim_competition') }}
+),
+seasons as (
+    select
+        provider,
+        competition_key,
+        season_label,
+        season_sk
+    from {{ ref('dim_season') }}
 ),
 teams as (
     select
@@ -37,9 +46,14 @@ select
         )
     ) as standings_snapshot_id,
     s.provider,
+    s.competition_key,
     c.competition_sk,
+    season_dim.season_sk,
+    s.provider_league_id,
     s.league_id,
+    s.season_label,
     s.season_id,
+    s.provider_season_id,
     s.stage_id,
     r.stage_sk,
     s.round_id,
@@ -61,7 +75,12 @@ select
     coalesce(s.updated_at, now()) as updated_at
 from snapshots s
 left join competition c
-  on c.league_id = s.league_id
+  on c.provider = s.provider
+ and c.competition_key = s.competition_key
+left join seasons season_dim
+  on season_dim.provider = s.provider
+ and season_dim.competition_key = s.competition_key
+ and season_dim.season_label = s.season_label
 left join teams t
   on t.team_id = s.team_id
 left join rounds r

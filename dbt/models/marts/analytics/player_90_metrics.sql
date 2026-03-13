@@ -2,14 +2,20 @@ with season_summary as (
     select * from {{ ref('player_season_summary') }}
 )
 select
+    provider,
+    competition_key,
     competition_sk,
+    season_sk,
     season,
+    season_label,
     player_sk,
     player_id,
     player_name,
     team_sk,
     team_id,
     team_name,
+    provider_league_id,
+    provider_season_id,
     matches,
     minutes_played,
     goals,
@@ -30,5 +36,6 @@ select
     case when minutes_played > 0 then tackles * 90.0 / minutes_played else null end as tackles_per_90,
     case when minutes_played > 0 then interceptions * 90.0 / minutes_played else null end as interceptions_per_90,
     case when minutes_played > 0 then xg * 90.0 / minutes_played else null end as xg_per_90,
+    source_run_id,
     updated_at
 from season_summary

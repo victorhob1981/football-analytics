@@ -4,6 +4,8 @@
 .env
 .env.*
 *.env
+!.env.example
+!frontend/.env.example
 *.key
 *.pem
 *.crt

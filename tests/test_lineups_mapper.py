@@ -14,43 +14,34 @@ from common.mappers.lineups_mapper import build_fixture_lineups_dataframe
 
 
 def test_build_fixture_lineups_dataframe_keeps_null_player_id_and_dedupes_by_lineup_id():
+    base_row = {
+        "fixture_id": 1001,
+        "team": {"id": 10},
+        "player": {"id": None, "name": "Sem ID"},
+        "position": {"id": 24, "name": "Goalkeeper"},
+        "lineup_type_id": 11,
+        "formation_field": "1:1",
+        "formation_position": 1,
+        "details": [],
+    }
     payload = {
         "provider": "sportmonks",
         "response": [
-            {
-                "fixture_id": 1001,
-                "team": {"id": 10},
-                "player": {"id": None, "name": "Sem ID"},
-                "lineup_id": 999001,
-                "position": {"id": 24, "name": "Goalkeeper"},
-                "lineup_type_id": 11,
-                "formation_field": "1:1",
-                "formation_position": 1,
-                "jersey_number": 1,
-                "details": [],
-            },
-            {
-                "fixture_id": 1001,
-                "team": {"id": 10},
-                "player": {"id": None, "name": "Sem ID"},
-                "lineup_id": 999001,
-                "position": {"id": 24, "name": "Goalkeeper"},
-                "lineup_type_id": 11,
-                "formation_field": "1:1",
-                "formation_position": 1,
-                "jersey_number": 12,
-                "details": [],
-            },
+            {**base_row, "lineup_id": 999001 + idx, "jersey_number": idx}
+            for idx in range(1, 11)
+        ]
+        + [
+            {**base_row, "lineup_id": 999010, "jersey_number": 12},
         ],
     }
 
     df = build_fixture_lineups_dataframe([payload])
 
-    assert len(df) == 1
-    row = df.iloc[0]
-    assert int(row["lineup_id"]) == 999001
+    assert len(df) == 10
+    row = df.loc[df["lineup_id"] == 999010].iloc[0]
     assert pd.isna(row["player_id"])
     assert int(row["jersey_number"]) == 12
+    assert df.attrs["discard_stats"][-1]["dropped"] == 1
 
 
 def test_build_fixture_lineups_dataframe_generates_stable_fallback_lineup_id():

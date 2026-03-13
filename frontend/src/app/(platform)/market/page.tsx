@@ -1,8 +1,15 @@
+"use client";
+
+import { ArrowRightLeft } from "lucide-react";
+
+import { ComingSoonPage } from "@/shared/components/feedback/ComingSoonPage";
+
 export default function MarketPage() {
   return (
-    <main>
-      <h1>Rota: /market</h1>
-      <p>TODO: Placeholder Market.</p>
-    </main>
+    <ComingSoonPage
+      description="Transferências, afastamentos e painel de disponibilidade"
+      icon={ArrowRightLeft}
+      title="Mercado e Disponibilidade"
+    />
   );
 }

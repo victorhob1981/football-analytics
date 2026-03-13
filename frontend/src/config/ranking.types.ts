@@ -8,6 +8,7 @@ export type RankingAvailableFilter =
   | "competitionId"
   | "seasonId"
   | "roundId"
+  | "month"
   | "venue"
   | "lastN"
   | "dateRange";

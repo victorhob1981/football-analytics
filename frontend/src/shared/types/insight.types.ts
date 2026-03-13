@@ -18,6 +18,7 @@ export interface InsightFilters {
   competitionId?: string | null;
   seasonId?: string | null;
   roundId?: string | null;
+  monthKey?: string | null;
   venue?: VenueFilter;
   lastN?: number | null;
   dateRangeStart?: string | null;

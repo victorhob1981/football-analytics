@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 
 import {
   flexRender,
+  functionalUpdate,
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -30,6 +31,12 @@ type DataTableProps<TData extends object> = {
   virtualizerMaxHeight?: number;
   virtualizerEstimateSize?: number;
   virtualizerOverscan?: number;
+  manualPagination?: boolean;
+  pageIndex?: number;
+  pageSize?: number;
+  totalCount?: number;
+  onPageChange?: (pageIndex: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 };
 
 function normalizePageSizeOptions(pageSizeOptions: number[], fallbackPageSize: number): number[] {
@@ -57,29 +64,63 @@ export function DataTable<TData extends object>({
   virtualizerMaxHeight = 480,
   virtualizerEstimateSize = 44,
   virtualizerOverscan = 6,
+  manualPagination = false,
+  pageIndex,
+  pageSize,
+  totalCount,
+  onPageChange,
+  onPageSizeChange,
 }: DataTableProps<TData>) {
   const safeInitialPageSize = Number.isInteger(initialPageSize) && initialPageSize > 0 ? initialPageSize : 10;
-  const resolvedPageSizeOptions = useMemo(
-    () => normalizePageSizeOptions(pageSizeOptions, safeInitialPageSize),
-    [pageSizeOptions, safeInitialPageSize],
-  );
+  const fallbackPageSize = Number.isInteger(pageSize) && (pageSize ?? 0) > 0 ? (pageSize as number) : safeInitialPageSize;
+  const resolvedPageSizeOptions = useMemo(() => {
+    const options = normalizePageSizeOptions(pageSizeOptions, fallbackPageSize);
+    if (manualPagination && Number.isInteger(pageSize) && (pageSize ?? 0) > 0 && !options.includes(pageSize as number)) {
+      return [...options, pageSize as number].sort((a, b) => a - b);
+    }
+    return options;
+  }, [fallbackPageSize, manualPagination, pageSize, pageSizeOptions]);
 
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [pagination, setPagination] = useState<PaginationState>({
+  const [localPagination, setLocalPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: resolvedPageSizeOptions.includes(safeInitialPageSize) ? safeInitialPageSize : resolvedPageSizeOptions[0],
   });
   const virtualizerScrollRef = useRef<HTMLDivElement>(null);
+  const effectivePagination: PaginationState = manualPagination
+    ? {
+        pageIndex: Number.isInteger(pageIndex) && (pageIndex ?? 0) >= 0 ? (pageIndex as number) : 0,
+        pageSize: Number.isInteger(pageSize) && (pageSize ?? 0) > 0 ? (pageSize as number) : resolvedPageSizeOptions[0],
+      }
+    : localPagination;
+  const resolvedTotalCount = manualPagination ? Math.max(totalCount ?? data.length, 0) : data.length;
+  const resolvedPageCount = Math.max(Math.ceil(resolvedTotalCount / Math.max(effectivePagination.pageSize, 1)), 1);
 
   const table = useReactTable({
     data,
     columns,
     state: {
       sorting,
-      pagination,
+      pagination: effectivePagination,
     },
     onSortingChange: setSorting,
-    onPaginationChange: setPagination,
+    onPaginationChange: (updater) => {
+      const nextPagination = functionalUpdate(updater, effectivePagination);
+      if (!manualPagination) {
+        setLocalPagination(nextPagination);
+        return;
+      }
+      if (nextPagination.pageSize !== effectivePagination.pageSize) {
+        onPageSizeChange?.(nextPagination.pageSize);
+        onPageChange?.(0);
+        return;
+      }
+      if (nextPagination.pageIndex !== effectivePagination.pageIndex) {
+        onPageChange?.(nextPagination.pageIndex);
+      }
+    },
+    manualPagination,
+    pageCount: manualPagination ? resolvedPageCount : undefined,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -88,6 +129,9 @@ export function DataTable<TData extends object>({
   const tableRows = table.getRowModel().rows;
   const visibleColumnsCount = Math.max(table.getVisibleLeafColumns().length, 1);
   const shouldVirtualize = enableVirtualization && tableRows.length > 0;
+  const currentPage = effectivePagination.pageIndex + 1;
+  const canPreviousPage = manualPagination ? effectivePagination.pageIndex > 0 : table.getCanPreviousPage();
+  const canNextPage = manualPagination ? currentPage < resolvedPageCount : table.getCanNextPage();
 
   const rowVirtualizer = useVirtualizer({
     count: shouldVirtualize ? tableRows.length : 0,
@@ -211,16 +255,28 @@ export function DataTable<TData extends object>({
         <div className="flex items-center gap-2">
           <button
             className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!table.getCanPreviousPage()}
-            onClick={() => table.previousPage()}
+            disabled={!canPreviousPage}
+            onClick={() => {
+              if (manualPagination) {
+                onPageChange?.(Math.max(effectivePagination.pageIndex - 1, 0));
+                return;
+              }
+              table.previousPage();
+            }}
             type="button"
           >
             Anterior
           </button>
           <button
             className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!table.getCanNextPage()}
-            onClick={() => table.nextPage()}
+            disabled={!canNextPage}
+            onClick={() => {
+              if (manualPagination) {
+                onPageChange?.(Math.min(effectivePagination.pageIndex + 1, resolvedPageCount - 1));
+                return;
+              }
+              table.nextPage();
+            }}
             type="button"
           >
             Proximo
@@ -228,7 +284,7 @@ export function DataTable<TData extends object>({
         </div>
 
         <span className="text-slate-600">
-          Pagina {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
+          Pagina {currentPage} de {manualPagination ? resolvedPageCount : table.getPageCount()}
         </span>
 
         <label className="flex items-center gap-2 text-slate-600">
@@ -236,9 +292,15 @@ export function DataTable<TData extends object>({
           <select
             className="rounded border border-slate-300 bg-white px-2 py-1"
             onChange={(event) => {
-              table.setPageSize(Number(event.target.value));
+              const nextPageSize = Number(event.target.value);
+              if (manualPagination) {
+                onPageSizeChange?.(nextPageSize);
+                onPageChange?.(0);
+                return;
+              }
+              table.setPageSize(nextPageSize);
             }}
-            value={table.getState().pagination.pageSize}
+            value={effectivePagination.pageSize}
           >
             {resolvedPageSizeOptions.map((pageSizeOption) => (
               <option key={pageSizeOption} value={pageSizeOption}>

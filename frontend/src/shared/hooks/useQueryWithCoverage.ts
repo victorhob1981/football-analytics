@@ -5,6 +5,7 @@ import { useQuery, type QueryKey, type UseQueryOptions } from "@tanstack/react-q
 import type { ApiResponse } from "@/shared/types/api-response.types";
 import type { CoverageState } from "@/shared/types/coverage.types";
 import type { ApiError } from "@/shared/types/error.types";
+import type { Pagination } from "@/shared/types/pagination.types";
 
 const UNKNOWN_COVERAGE: CoverageState = { status: "unknown" };
 
@@ -24,6 +25,7 @@ export type QueryWithCoverageResult<TData> = {
   isEmpty: boolean;
   isPartial: boolean;
   coverage: CoverageState;
+  pagination?: Pagination;
 };
 
 function isEmptyData(value: unknown): boolean {
@@ -64,6 +66,7 @@ export function useQueryWithCoverage<TData, TQueryKey extends QueryKey = QueryKe
 
   return useMemo(() => {
     const coverage = query.data?.meta?.coverage ?? UNKNOWN_COVERAGE;
+    const pagination = query.data?.meta?.pagination;
     const data = query.data?.data;
     const emptyByCoverage = coverage.status === "empty";
     const emptyByData = data !== undefined ? (isDataEmpty ? isDataEmpty(data) : isEmptyData(data)) : false;
@@ -76,6 +79,7 @@ export function useQueryWithCoverage<TData, TQueryKey extends QueryKey = QueryKe
       isEmpty: emptyByCoverage || emptyByData,
       isPartial: coverage.status === "partial",
       coverage,
+      pagination,
     };
   }, [isDataEmpty, query.data, query.error, query.isError, query.isLoading]);
 }

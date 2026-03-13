@@ -5,6 +5,10 @@ enriched as (
     select
         l.provider,
         l.fixture_id,
+        l.provider_league_id,
+        l.competition_key,
+        l.season_label,
+        l.provider_season_id,
         l.team_id,
         l.player_id,
         nullif(
@@ -26,6 +30,8 @@ enriched as (
         l.jersey_number,
         l.details,
         l.payload,
+        l.ingested_at,
+        l.source_run_id,
         l.ingested_run,
         l.updated_at,
         stats.minutes_played
@@ -65,6 +71,10 @@ enriched as (
 select
     provider,
     fixture_id,
+    provider_league_id,
+    competition_key,
+    season_label,
+    provider_season_id,
     team_id,
     player_id,
     player_name,
@@ -83,6 +93,8 @@ select
     minutes_played,
     details,
     payload,
+    ingested_at,
+    source_run_id,
     ingested_run,
     updated_at
 from enriched
