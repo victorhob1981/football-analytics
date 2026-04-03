@@ -1,4 +1,5 @@
 from .competition_structure_mapper import build_competition_structure_dataframes
+from .coaches_mapper import build_coaches_dataframe
 from .events_mapper import build_match_events_dataframe
 from .fixtures_mapper import build_fixtures_dataframe
 from .fixture_player_statistics_mapper import build_fixture_player_statistics_dataframe
@@ -13,6 +14,7 @@ from .team_sidelined_mapper import build_team_sidelined_dataframe
 
 __all__ = [
     "build_competition_structure_dataframes",
+    "build_coaches_dataframe",
     "build_fixtures_dataframe",
     "build_statistics_dataframe",
     "build_match_events_dataframe",

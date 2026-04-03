@@ -14,9 +14,10 @@ ALTER TABLE raw.match_statistics
 ALTER TABLE raw.match_events
   ALTER COLUMN event_id SET NOT NULL,
   ALTER COLUMN season SET NOT NULL,
-  ALTER COLUMN fixture_id SET NOT NULL;
+  ALTER COLUMN fixture_id SET NOT NULL,
+  ALTER COLUMN provider SET NOT NULL;
 
--- Garantia de PK no grao natural (somente se ausente).
+-- Garantia de PK no grao canonico do runtime (somente se ausente).
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -52,7 +53,7 @@ BEGIN
       AND contype = 'p'
   ) THEN
     ALTER TABLE raw.match_events
-      ADD CONSTRAINT pk_raw_match_events PRIMARY KEY (event_id, season);
+      ADD CONSTRAINT pk_match_events PRIMARY KEY (provider, season, fixture_id, event_id);
   END IF;
 END $$;
 
@@ -69,7 +70,11 @@ CREATE INDEX IF NOT EXISTS idx_raw_fixtures_league_season
 CREATE INDEX IF NOT EXISTS idx_raw_match_events_assist_id
   ON raw.match_events (assist_id);
 
+CREATE INDEX IF NOT EXISTS idx_raw_match_events_competition_season_label
+  ON raw.match_events (competition_key, season_label);
+
 -- migrate:down
+DROP INDEX IF EXISTS idx_raw_match_events_competition_season_label;
 DROP INDEX IF EXISTS idx_raw_match_events_assist_id;
 DROP INDEX IF EXISTS idx_raw_fixtures_league_season;
 DROP INDEX IF EXISTS idx_raw_fixtures_season;
@@ -79,6 +84,6 @@ ALTER TABLE raw.fixtures
   ALTER COLUMN league_id DROP NOT NULL,
   ALTER COLUMN season DROP NOT NULL;
 
-ALTER TABLE raw.match_events DROP CONSTRAINT IF EXISTS pk_raw_match_events;
+ALTER TABLE raw.match_events DROP CONSTRAINT IF EXISTS pk_match_events;
 ALTER TABLE raw.match_statistics DROP CONSTRAINT IF EXISTS pk_raw_match_statistics;
 ALTER TABLE raw.fixtures DROP CONSTRAINT IF EXISTS pk_raw_fixtures;

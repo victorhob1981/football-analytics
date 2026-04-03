@@ -8,20 +8,30 @@ test.describe("Fluxo critico: filtro global -> players", () => {
 
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "Home da Plataforma" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Entrada principal do produto" })).toBeVisible();
+    await expect(page.locator('[aria-label="Filtros do produto"]')).toHaveAttribute(
+      "data-url-hydrated",
+      "true",
+    );
 
-    await page.locator("#global-filter-competition-id").fill("648");
-    await page.locator("#global-filter-season-id").fill("2024");
+    await page.locator("#global-filter-competition-id").selectOption("8");
+    await expect(page.locator("#global-filter-competition-id")).toHaveValue("8");
+    await expect.poll(() => page.url()).toContain("competitionId=8");
 
-    await expect.poll(() => page.url()).toContain("competitionId=648");
+    await page.locator("#global-filter-season-id").selectOption("2024");
+    await expect(page.locator("#global-filter-season-id")).toHaveValue("2024");
+
     await expect.poll(() => page.url()).toContain("seasonId=2024");
 
-    await page.getByRole("link", { name: "Players" }).click();
+    await page
+      .getByLabel("Navegação principal")
+      .getByRole("link", { exact: true, name: "Jogadores" })
+      .click();
 
     await expect(page).toHaveURL(/\/players/);
-    await expect.poll(() => page.url()).toContain("competitionId=648");
-    await expect(page.getByRole("heading", { name: "Jogadores" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Arrascaeta" })).toBeVisible();
-    await expect(page.getByText("Falha ao carregar lista de jogadores.")).toHaveCount(0);
+    await expect.poll(() => page.url()).toContain("competitionId=8");
+    await expect(page.getByRole("heading", { exact: true, name: "Jogadores" })).toBeVisible();
+    await expect(page.getByRole("link", { exact: true, name: "Arrascaeta" })).toBeVisible();
+    await expect(page.getByText("Falha ao carregar a lista")).toHaveCount(0);
   });
 });

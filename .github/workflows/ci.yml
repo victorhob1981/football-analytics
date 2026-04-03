@@ -96,10 +96,10 @@ jobs:
           FOOTBALL_PG_DSN=postgresql+psycopg2://football:football@postgres/football_dw
           ACTIVE_PROVIDER=sportmonks
           SPORTMONKS_DEFAULT_LEAGUE_ID=71
-          SPORTMONKS_DEFAULT_SEASON=2024
+          SPORTMONKS_DEFAULT_SEASON=2025
           APIFOOTBALL_DEFAULT_LEAGUE_ID=71
-          APIFOOTBALL_DEFAULT_SEASON=2024
-          API_KEY_SPORTMONKS=
+          APIFOOTBALL_DEFAULT_SEASON=2025
+          API_KEY_SPORTMONKS=${API_KEY_SPORTMONKS:-}
           SPORTMONKS_BASE_URL=https://api.sportmonks.com/v3/football
           APIFOOTBALL_API_KEY=
           APIFOOTBALL_BASE_URL=https://v3.football.api-sports.io

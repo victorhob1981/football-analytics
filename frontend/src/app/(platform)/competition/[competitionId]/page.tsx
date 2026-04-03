@@ -1,14 +1,21 @@
+import { redirect } from "next/navigation";
+
+import { getCompetitionById } from "@/config/competitions.registry";
+import {
+  buildCompetitionHubPath,
+  buildPassthroughSearchParamsQueryString,
+} from "@/shared/utils/context-routing";
+
 type CompetitionPageProps = {
   params: Promise<{ competitionId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function CompetitionPage({ params }: CompetitionPageProps) {
+export default async function CompetitionPage({ params, searchParams }: CompetitionPageProps) {
   const { competitionId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const competition = getCompetitionById(competitionId);
+  const queryString = buildPassthroughSearchParamsQueryString(resolvedSearchParams);
 
-  return (
-    <main>
-      <h1>Rota: /competition/{competitionId}</h1>
-      <p>TODO: Placeholder Competition.</p>
-    </main>
-  );
+  redirect(competition ? `${buildCompetitionHubPath(competition.key)}${queryString}` : `/competitions${queryString}`);
 }

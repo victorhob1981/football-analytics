@@ -8,9 +8,16 @@ export interface RankingTableRow extends Record<string, string | number | boolea
   metricValue?: number | null;
 }
 
+export interface RankingStageContext {
+  stageId: string;
+  stageName?: string | null;
+  stageFormat?: string | null;
+}
+
 export interface RankingTableData {
   rankingId: string;
   metricKey: string;
+  stage?: RankingStageContext | null;
   rows: RankingTableRow[];
   updatedAt?: string | null;
 }
@@ -19,6 +26,8 @@ export interface RankingsGlobalFilters {
   competitionId?: string | null;
   seasonId?: string | null;
   roundId?: string | null;
+  stageId?: string | null;
+  stageFormat?: string | null;
   venue?: VenueFilter;
   lastN?: number | null;
   dateRangeStart?: string | null;
@@ -33,6 +42,8 @@ export interface RankingLocalFilters {
   pageSize?: number;
   sortDirection?: RankingSortDirection;
   minSampleValue?: number | null;
+  stageId?: string | null;
+  stageFormat?: string | null;
   freshnessClass?: RankingFreshnessClass;
 }
 

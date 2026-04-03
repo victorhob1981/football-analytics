@@ -1,8 +1,14 @@
-export default function ClubsPage() {
-  return (
-    <main>
-      <h1>Rota: /clubs</h1>
-      <p>TODO: Placeholder lista de clubes.</p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+import { buildPassthroughSearchParamsQueryString } from "@/shared/utils/context-routing";
+
+type ClubsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ClubsPage({ searchParams }: ClubsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const queryString = buildPassthroughSearchParamsQueryString(resolvedSearchParams);
+
+  redirect(`/teams${queryString}`);
 }

@@ -1,4 +1,11 @@
-{{ config(materialized='incremental', unique_key='fixture_lineup_id', on_schema_change='sync_all_columns') }}
+{{ config(
+    materialized='incremental',
+    unique_key='fixture_lineup_id',
+    on_schema_change='sync_all_columns',
+    indexes=[
+        {'columns': ['match_id', 'team_id'], 'type': 'btree'}
+    ]
+) }}
 {% set lookback_hours = var('fact_fixture_lineups_incremental_lookback_hours', 24) %}
 
 with lineups as (

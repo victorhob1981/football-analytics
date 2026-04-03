@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import atexit
 from contextlib import contextmanager
 from decimal import Decimal
 from datetime import date, datetime
 from typing import Any, Iterator, Sequence
 
-import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from ..core.config import get_settings
 
@@ -27,12 +28,24 @@ def _json_safe(value: Any) -> Any:
 
 class DatabaseClient:
     def __init__(self) -> None:
-        self._dsn = get_settings().pg_dsn
+        settings = get_settings()
+        self._pool = ConnectionPool(
+            conninfo=settings.pg_dsn,
+            min_size=settings.pg_pool_min_size,
+            max_size=settings.pg_pool_max_size,
+            timeout=settings.pg_pool_timeout_s,
+            kwargs={"row_factory": dict_row},
+            open=True,
+        )
+        atexit.register(self.close)
 
     @contextmanager
-    def _connection(self) -> Iterator[psycopg.Connection[Any]]:
-        with psycopg.connect(self._dsn, row_factory=dict_row) as conn:
+    def _connection(self) -> Iterator[Any]:
+        with self._pool.connection() as conn:
             yield conn
+
+    def close(self) -> None:
+        self._pool.close()
 
     def fetch_all(self, query: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
         with self._connection() as conn:

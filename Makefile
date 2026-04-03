@@ -1,4 +1,4 @@
-.PHONY: db-up db-status migrate-up lint test test-unit test-integration test-all quality-p1 p2-verify dbt-docs
+.PHONY: db-up db-status migrate-up lint test test-unit test-integration test-all quality-p1 p2-verify dbt-docs frontend-release frontend-release-full backend-data-gate backend-data-gate-full
 
 db-up:
 	docker compose run --rm dbmate --migrations-dir /db/migrations up
@@ -32,3 +32,15 @@ p2-verify:
 dbt-docs:
 	docker compose exec -T airflow-webserver dbt deps --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
 	docker compose exec -T airflow-webserver dbt docs generate --empty-catalog --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt
+
+frontend-release:
+	python tools/frontend_release_gate.py
+
+frontend-release-full:
+	python tools/frontend_release_gate.py --mode full
+
+backend-data-gate:
+	python tools/backend_data_readiness_gate.py
+
+backend-data-gate-full:
+	python tools/backend_data_readiness_gate.py --mode full

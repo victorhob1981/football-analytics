@@ -125,13 +125,20 @@ export function PlayerComparisonPanel() {
   const entityType = useComparisonStore((state) => state.entityType);
   const selectedIds = useComparisonStore((state) => state.selectedIds);
   const activeMetrics = useComparisonStore((state) => state.activeMetrics);
-  const removeSelectedId = useComparisonStore((state) => state.remove);
   const clearSelection = useComparisonStore((state) => state.clear);
 
   const leftPlayerId = selectedIds[0] ?? null;
   const rightPlayerId = selectedIds[1] ?? null;
-  const leftProfileQuery = usePlayerProfile(leftPlayerId, { includeRecentMatches: false });
-  const rightProfileQuery = usePlayerProfile(rightPlayerId, { includeRecentMatches: false });
+  const leftProfileQuery = usePlayerProfile(leftPlayerId, {
+    includeRecentMatches: false,
+    includeHistory: false,
+    includeStats: false,
+  });
+  const rightProfileQuery = usePlayerProfile(rightPlayerId, {
+    includeRecentMatches: false,
+    includeHistory: false,
+    includeStats: false,
+  });
 
   const metricKeys = useMemo(() => resolveMetricKeys(activeMetrics), [activeMetrics]);
   const canRenderComparison = entityType === "player" && selectedIds.length === 2;
@@ -152,14 +159,18 @@ export function PlayerComparisonPanel() {
   const rightProfile = rightProfileQuery.data;
   const leftDisplayName = toDisplayName(leftPlayerId ?? "?", leftProfile?.player.playerName);
   const rightDisplayName = toDisplayName(rightPlayerId ?? "?", rightProfile?.player.playerName);
+  const selectionLabel =
+    selectedIds.length === 1 ? "1 jogador selecionado" : `${selectedIds.length} jogadores selecionados`;
 
   return (
-    <aside className="space-y-3 border-t border-slate-200 bg-slate-100 px-4 py-4">
+    <aside className="mt-6 space-y-4 rounded-[1.75rem] border border-white/60 bg-[rgba(255,255,255,0.84)] p-5 shadow-[0_24px_60px_-48px_rgba(17,28,45,0.32)] backdrop-blur-xl">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-slate-900">Player Comparison</h2>
+          <h2 className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
+            Comparativo de jogadores
+          </h2>
           <button
-            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+            className="rounded-full border border-[rgba(112,121,116,0.28)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#1f2d40]"
             onClick={() => {
               clearSelection();
             }}
@@ -169,22 +180,9 @@ export function PlayerComparisonPanel() {
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {selectedIds.map((selectedId) => (
-            <span className="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-2 py-1 text-slate-700" key={selectedId}>
-              ID: {selectedId}
-              <button
-                className="rounded border border-slate-300 px-1 py-0.5 text-[11px] text-slate-600"
-                onClick={() => {
-                  removeSelectedId(selectedId);
-                }}
-                type="button"
-              >
-                remover
-              </button>
-            </span>
-          ))}
-        </div>
+        <p className="text-sm text-[#57657a]">
+          {selectionLabel}. Selecione ate dois nomes na lista para abrir a leitura lado a lado.
+        </p>
       </header>
 
       {!canRenderComparison ? (
@@ -202,14 +200,14 @@ export function PlayerComparisonPanel() {
       ) : null}
 
       {canRenderComparison && hasErrorState ? (
-        <section className="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
+        <section className="rounded-[1.2rem] border border-[#ffdcc3] bg-[#fff3e8] p-4 text-sm text-[#6e3900]">
           <p>Falha ao carregar dados de comparacao.</p>
           <p>{leftProfileQuery.error?.message ?? rightProfileQuery.error?.message}</p>
         </section>
       ) : null}
 
       {canRenderComparison && hasEmptyState ? (
-        <EmptyState description="Um dos jogadores nao possui dados para o recorte atual." title="Comparativo sem dados" />
+        <EmptyState description="Um dos jogadores nao possui dados suficientes para esta comparacao." title="Comparativo sem dados" />
       ) : null}
 
       {canRenderComparison && !hasLoadingState && !hasErrorState && !hasEmptyState ? (
@@ -219,20 +217,20 @@ export function PlayerComparisonPanel() {
           ) : null}
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600">Cobertura:</span>
+            <span className="text-sm text-[#57657a]">Cobertura:</span>
             <CoverageBadge coverage={combinedCoverage} />
           </div>
 
           <ComparisonLayout
-            description="Conjunto inicial de metricas para comparacao rapida."
+            description="Leitura rapida lado a lado das metricas principais."
             left={{
               title: leftDisplayName,
-              subtitle: `ID: ${leftPlayerId}`,
+              subtitle: "Jogador 1",
               content: <ComparisonColumnMetrics metricKeys={metricKeys} summary={leftProfile?.summary} />,
             }}
             right={{
               title: rightDisplayName,
-              subtitle: `ID: ${rightPlayerId}`,
+              subtitle: "Jogador 2",
               content: <ComparisonColumnMetrics metricKeys={metricKeys} summary={rightProfile?.summary} />,
             }}
             title="Comparativo de jogadores"

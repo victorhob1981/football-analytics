@@ -234,6 +234,32 @@ make lint
 make test
 ```
 
+## Backend/BFF + dados release/demo readiness
+Instalacao minima local:
+```powershell
+python -m pip install -r requirements-dev.txt -r api/requirements.txt
+```
+
+Gate minimo local a partir da raiz do repo:
+```powershell
+python tools/backend_data_readiness_gate.py
+```
+
+Gate completo com stack live:
+```powershell
+docker compose up -d postgres dbmate airflow-init airflow-webserver
+python tools/backend_data_readiness_gate.py --mode full
+```
+
+Atalhos `make`:
+```powershell
+make backend-data-gate
+make backend-data-gate-full
+```
+
+Checklist curto de validacao/release tecnica:
+- `docs/BACKEND_DATA_RELEASE_READINESS.md`
+
 ## Frontend local (BFF)
 No diretorio `frontend/`:
 
@@ -252,6 +278,28 @@ pnpm run test:e2e
 ```
 
 Os cenarios E2E usam interceptacao de `/api/*` para nao depender de backend real.
+
+## Frontend release/demo readiness
+Gate minimo local a partir da raiz do repo:
+```powershell
+python tools/frontend_release_gate.py
+```
+
+Gate completo com regressao E2E:
+```powershell
+python tools/frontend_release_gate.py --mode full
+```
+
+Atalhos `make`:
+```powershell
+make frontend-release
+make frontend-release-full
+```
+
+O gate minimo executa `pnpm validate:release` + `pnpm build` dentro de `frontend/` e grava um resumo em `artifacts/frontend_release_gate_<timestamp_utc>/summary.txt`.
+
+Checklist curto de demo/release e bloqueantes reais:
+- `docs/FRONTEND_RELEASE_READINESS.md`
 
 ## Como validar P1
 Comando unico:
@@ -318,8 +366,9 @@ Versionamento de dashboards:
 
 ## Referencias
 - Contratos de dados: `docs/contracts/data_contracts.md`
-- Arquitetura: `docs/ARCHITECTURE.md`
-- Roadmap: `docs/ROADMAP.md`
+- Inventario de dados: `docs/INVENTARIO_DADOS_DO_PROJETO.md`
+- Contratos frontend/BFF: `docs/MART_FRONTEND_BFF_CONTRACTS.md`
+- Arquitetura de frontend: `docs/FRONTEND_ARCHITECTURE.md`
 - DDL legado (somente referencia): `warehouse/ddl/`
 
 

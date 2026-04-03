@@ -221,12 +221,21 @@ models:
       - name: coach_id
         tests:
           - not_null
+      - name: coach_name
+        tests:
+          - not_null
       - name: team_id
         tests:
           - not_null
       - name: matches
         tests:
           - not_null
+      - name: has_real_photo
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false
 
   - name: head_to_head_summary
     description: "Resumo historico de confrontos diretos por par de times."

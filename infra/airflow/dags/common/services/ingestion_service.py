@@ -10,6 +10,7 @@ import boto3
 from airflow.operators.python import get_current_context
 from sqlalchemy import create_engine, text
 
+from common.fixture_status import FINAL_STATUSES, FINAL_STATUSES_SQL
 from common.observability import StepMetrics, log_event
 from common.providers import get_provider, provider_env_prefix
 from common.raw_writer import write_raw_payload
@@ -17,8 +18,6 @@ from common.runtime import resolve_fixture_windows, resolve_runtime_params
 
 
 BRONZE_BUCKET = "football-bronze"
-FINAL_STATUSES = ("FT", "PEN", "AET")
-FIXTURE_KEY_PATTERN = re.compile(r"/fixture_id=(\d+)/")
 
 
 def _get_required_env(name: str) -> str:
@@ -144,7 +143,12 @@ def _s3_client():
 
 
 def _list_ingested_fixture_ids(s3_client, *, prefix: str) -> set[int]:
-    fixture_ids: set[int] = set()
+    return _list_ingested_numeric_ids(s3_client, prefix=prefix, id_name="fixture_id")
+
+
+def _list_ingested_numeric_ids(s3_client, *, prefix: str, id_name: str) -> set[int]:
+    key_pattern = re.compile(rf"/{re.escape(id_name)}=(\d+)/")
+    item_ids: set[int] = set()
     continuation_token = None
 
     while True:
@@ -155,15 +159,15 @@ def _list_ingested_fixture_ids(s3_client, *, prefix: str) -> set[int]:
         response = s3_client.list_objects_v2(**kwargs)
         for item in response.get("Contents", []):
             key = item.get("Key", "")
-            match = FIXTURE_KEY_PATTERN.search(key)
+            match = key_pattern.search(key)
             if match:
-                fixture_ids.add(int(match.group(1)))
+                item_ids.add(int(match.group(1)))
 
         if not response.get("IsTruncated"):
             break
         continuation_token = response.get("NextContinuationToken")
 
-    return fixture_ids
+    return item_ids
 
 
 def _is_fatal_api_error(exc: Exception) -> bool:
@@ -187,13 +191,13 @@ def _is_daily_limit_error(exc: Exception) -> bool:
 
 def _fetch_finished_fixture_ids(engine, league_id: int, season: int) -> list[int]:
     sql = text(
-        """
+        f"""
         SELECT DISTINCT fixture_id
         FROM raw.fixtures
         WHERE league_id = :league_id
           AND season = :season
           AND fixture_id IS NOT NULL
-          AND status_short IN ('FT', 'PEN', 'AET')
+          AND status_short IN ({FINAL_STATUSES_SQL})
         ORDER BY fixture_id
         """
     )
@@ -406,6 +410,53 @@ def _resolve_pending_fixture_ids(
     return pending_fixture_ids, ingested_fixture_ids, "full_scan_s3"
 
 
+def _list_completed_fixture_ids_for_prefixes(
+    *,
+    s3_client,
+    required_s3_prefixes: list[str],
+) -> set[int]:
+    completed_fixture_ids: set[int] | None = None
+    for prefix in required_s3_prefixes:
+        prefix_fixture_ids = _list_ingested_fixture_ids(s3_client, prefix=prefix)
+        if completed_fixture_ids is None:
+            completed_fixture_ids = set(prefix_fixture_ids)
+        else:
+            completed_fixture_ids &= prefix_fixture_ids
+        if not completed_fixture_ids:
+            return set()
+    return completed_fixture_ids or set()
+
+
+def _resolve_pending_fixture_ids_for_complete_artifacts(
+    *,
+    s3_client,
+    fixture_ids: list[int],
+    skip_ingested: bool,
+    required_s3_prefixes: list[str],
+    cursor: int | None,
+) -> tuple[list[int], set[int], str]:
+    if not skip_ingested:
+        return fixture_ids, set(), "skip_ingested=false"
+
+    completed_fixture_ids = _list_completed_fixture_ids_for_prefixes(
+        s3_client=s3_client,
+        required_s3_prefixes=required_s3_prefixes,
+    )
+    pending_fixture_ids = [fixture_id for fixture_id in fixture_ids if fixture_id not in completed_fixture_ids]
+    if cursor is not None:
+        return pending_fixture_ids, completed_fixture_ids, f"required_prefixes_full_scan+cursor={cursor}"
+    return pending_fixture_ids, completed_fixture_ids, "required_prefixes_full_scan"
+
+
+def _missing_fixture_ids_from_multi_enrichments(
+    *,
+    requested_fixture_ids: list[int],
+    enrichments_map: dict[int, dict[str, Any]],
+) -> list[int]:
+    returned_fixture_ids = {int(fixture_id) for fixture_id in enrichments_map}
+    return [fixture_id for fixture_id in requested_fixture_ids if fixture_id not in returned_fixture_ids]
+
+
 def _calculate_next_cursor(
     *,
     current_cursor: int | None,
@@ -436,7 +487,7 @@ def ingest_fixtures_raw():
     league_id = runtime["league_id"]
     season = runtime["season"]
     provider_name = runtime["provider"]
-    windows = resolve_fixture_windows(context, season)
+    windows = resolve_fixture_windows(context, season, provider_name=provider_name, league_id=league_id)
 
     requests_per_minute = _get_int_env(
         "INGEST_FIXTURES_REQUESTS_PER_MINUTE",
@@ -1046,6 +1097,128 @@ def _fetch_player_ids_for_scope(engine, *, league_id: int, season: int) -> list[
     return [int(row[0]) for row in rows]
 
 
+def _fetch_coach_ids_for_scope(engine, *, provider_name: str, league_id: int, season: int) -> list[int]:
+    sql = text(
+        """
+        SELECT DISTINCT tc.coach_id
+        FROM raw.team_coaches tc
+        WHERE tc.provider = :provider
+          AND tc.coach_id IS NOT NULL
+        ORDER BY tc.coach_id
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(
+            sql,
+            {"provider": provider_name, "league_id": league_id, "season": season},
+        ).fetchall()
+    return [int(row[0]) for row in rows]
+
+
+def _resolve_catalog_season_scope(
+    engine,
+    *,
+    provider_name: str,
+    league_id: int,
+    season: int,
+) -> dict[str, Any] | None:
+    sql = text(
+        """
+        SELECT
+          cpm.competition_key,
+          sc.season_label,
+          sc.provider_season_id,
+          sc.season_start_date,
+          sc.season_end_date
+        FROM control.competition_provider_map cpm
+        JOIN control.season_catalog sc
+          ON sc.provider = cpm.provider
+         AND sc.competition_key = cpm.competition_key
+        WHERE cpm.provider = :provider
+          AND cpm.provider_league_id = :league_id
+          AND LEFT(sc.season_label, 4) = :season_prefix
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(
+            sql,
+            {
+                "provider": provider_name,
+                "league_id": league_id,
+                "season_prefix": str(season),
+            },
+        ).mappings().all()
+
+    if not rows:
+        return None
+    if len(rows) > 1:
+        sample = [dict(row) for row in rows[:10]]
+        raise RuntimeError(
+            "Catalogo de seasons ambiguo para ingestao "
+            f"provider={provider_name} league_id={league_id} season={season}. Escopos: {sample}"
+        )
+
+    scope = dict(rows[0])
+    provider_season_id = scope.get("provider_season_id")
+    if provider_season_id is not None:
+        scope["provider_season_id"] = int(provider_season_id)
+    for field_name in ("season_start_date", "season_end_date"):
+        raw_value = scope.get(field_name)
+        if raw_value is not None:
+            scope[field_name] = raw_value.isoformat() if hasattr(raw_value, "isoformat") else str(raw_value)
+    return scope
+
+
+def _resolve_fixture_scope_identity(
+    engine,
+    *,
+    provider_name: str,
+    league_id: int,
+    season: int,
+) -> dict[str, Any]:
+    sql = text(
+        """
+        SELECT DISTINCT
+          f.source_provider AS provider,
+          f.league_id AS provider_league_id,
+          f.competition_key,
+          f.season_label,
+          f.provider_season_id
+        FROM raw.fixtures f
+        JOIN control.season_catalog sc
+          ON sc.provider = f.source_provider
+         AND sc.competition_key = f.competition_key
+         AND sc.season_label = f.season_label
+         AND sc.provider_season_id = f.provider_season_id
+        WHERE f.source_provider = :provider
+          AND f.league_id = :league_id
+          AND f.season = :season
+          AND f.competition_key IS NOT NULL
+          AND f.season_label IS NOT NULL
+          AND f.provider_season_id IS NOT NULL
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(
+            sql,
+            {"provider": provider_name, "league_id": league_id, "season": season},
+        ).mappings().all()
+
+    if not rows:
+        raise RuntimeError(
+            "Nao foi possivel resolver identidade semantica do escopo "
+            f"via raw.fixtures + control.season_catalog para provider={provider_name} "
+            f"league_id={league_id} season={season}."
+        )
+    if len(rows) > 1:
+        sample = [dict(row) for row in rows[:10]]
+        raise RuntimeError(
+            "Escopo semantico ambiguo em raw.fixtures para ingestao "
+            f"provider={provider_name} league_id={league_id} season={season}. Escopos: {sample}"
+        )
+    return dict(rows[0])
+
+
 def _fetch_team_pairs(engine, *, league_id: int, season: int) -> list[tuple[int, int]]:
     sql = text(
         """
@@ -1084,6 +1257,8 @@ def _ingest_entity_by_numeric_ids(
     scope_key: str,
     fail_on_partial: bool,
     max_consecutive_failures: int,
+    force_reingest_ids: bool = False,
+    use_cursor_state: bool = True,
 ) -> None:
     sorted_ids = sorted(set(target_ids))
     if not sorted_ids:
@@ -1108,7 +1283,14 @@ def _ingest_entity_by_numeric_ids(
         entity_type=entity_type,
         scope_key=scope_key,
     )
-    if current_cursor is None:
+    if force_reingest_ids:
+        pending_ids = sorted_ids
+        pending_strategy = "explicit_fixture_ids_reingest"
+    elif not use_cursor_state:
+        ingested_ids = _list_ingested_numeric_ids(s3_client, prefix=f"{key_prefix}/", id_name=id_name)
+        pending_ids = [item_id for item_id in sorted_ids if item_id not in ingested_ids]
+        pending_strategy = f"full_scan_s3/{id_name}"
+    elif current_cursor is None:
         pending_ids = sorted_ids
         pending_strategy = "full_scope"
     else:
@@ -1262,8 +1444,33 @@ def ingest_competition_structure_raw():
     )
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
+    engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
     run_utc = datetime.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
-    payload, headers = provider.get_competition_structure(league_id=league_id, season=season)
+    catalog_scope = _resolve_catalog_season_scope(
+        engine,
+        provider_name=provider_name,
+        league_id=league_id,
+        season=season,
+    )
+    provider_kwargs = {"league_id": league_id, "season": season}
+    source_params = {"league_id": league_id, "season": season}
+    if catalog_scope:
+        provider_kwargs.update(
+            {
+                "season_label": catalog_scope["season_label"],
+                "provider_season_id": catalog_scope["provider_season_id"],
+                "season_start_date": catalog_scope["season_start_date"],
+                "season_end_date": catalog_scope["season_end_date"],
+            }
+        )
+        source_params.update(
+            {
+                "competition_key": catalog_scope["competition_key"],
+                "season_label": catalog_scope["season_label"],
+                "provider_season_id": catalog_scope["provider_season_id"],
+            }
+        )
+    payload, headers = provider.get_competition_structure(**provider_kwargs)
     key = f"competition_structure/league={league_id}/season={season}/run={run_utc}/data.json"
     write_result = write_raw_payload(
         s3_client=s3_client,
@@ -1272,7 +1479,7 @@ def ingest_competition_structure_raw():
         payload=payload,
         provider=provider.name,
         endpoint="competition/structure",
-        source_params={"league_id": league_id, "season": season},
+        source_params=source_params,
         entity_type="competition_structure",
     )
     rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
@@ -1307,8 +1514,33 @@ def ingest_standings_raw():
     )
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
+    engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
     run_utc = datetime.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
-    payload, headers = provider.get_standings(league_id=league_id, season=season)
+    catalog_scope = _resolve_catalog_season_scope(
+        engine,
+        provider_name=provider_name,
+        league_id=league_id,
+        season=season,
+    )
+    provider_kwargs = {"league_id": league_id, "season": season}
+    source_params = {"league_id": league_id, "season": season}
+    if catalog_scope:
+        provider_kwargs.update(
+            {
+                "season_label": catalog_scope["season_label"],
+                "provider_season_id": catalog_scope["provider_season_id"],
+                "season_start_date": catalog_scope["season_start_date"],
+                "season_end_date": catalog_scope["season_end_date"],
+            }
+        )
+        source_params.update(
+            {
+                "competition_key": catalog_scope["competition_key"],
+                "season_label": catalog_scope["season_label"],
+                "provider_season_id": catalog_scope["provider_season_id"],
+            }
+        )
+    payload, headers = provider.get_standings(**provider_kwargs)
     key = f"standings/league={league_id}/season={season}/run={run_utc}/data.json"
     write_result = write_raw_payload(
         s3_client=s3_client,
@@ -1317,7 +1549,7 @@ def ingest_standings_raw():
         payload=payload,
         provider=provider.name,
         endpoint="standings",
-        source_params={"league_id": league_id, "season": season},
+        source_params=source_params,
         entity_type="standings",
     )
     rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
@@ -1489,6 +1721,7 @@ def ingest_fixture_player_statistics_raw():
         scope_key=scope_key,
         fail_on_partial=fail_on_partial,
         max_consecutive_failures=max_consecutive_failures,
+        force_reingest_ids=bool(explicit_scope_fixture_ids),
     )
 
 
@@ -1519,6 +1752,12 @@ def ingest_player_season_statistics_raw():
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
     engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
+    scope_identity = _resolve_fixture_scope_identity(
+        engine,
+        provider_name=provider_name,
+        league_id=league_id,
+        season=season,
+    )
     player_ids = _fetch_player_ids_for_scope(engine, league_id=league_id, season=season)
     scope_key = _sync_scope_key(league_id=league_id, season=season) + "/entity=player_season_statistics"
 
@@ -1539,10 +1778,15 @@ def ingest_player_season_statistics_raw():
             player_id=player_id,
             season=season,
             league_id=league_id,
+            season_label=scope_identity["season_label"],
+            provider_season_id=int(scope_identity["provider_season_id"]),
         ),
         source_params_fn=lambda player_id: {
             "league_id": league_id,
             "season": season,
+            "competition_key": scope_identity["competition_key"],
+            "season_label": scope_identity["season_label"],
+            "provider_season_id": int(scope_identity["provider_season_id"]),
             "player_id": player_id,
         },
         scope_key=scope_key,
@@ -1716,6 +1960,67 @@ def ingest_team_coaches_raw():
     )
 
 
+def ingest_coaches_raw():
+    context = get_current_context()
+    runtime = resolve_runtime_params(context)
+    league_id = runtime["league_id"]
+    season = runtime["season"]
+    provider_name = runtime["provider"]
+    requests_per_minute = _get_int_env(
+        "INGEST_COACH_IDENTITIES_REQUESTS_PER_MINUTE",
+        provider_name=provider_name,
+        provider_suffix="COACH_IDENTITIES_REQUESTS_PER_MINUTE",
+        default="0",
+    )
+    fail_on_partial = _get_bool_env(
+        "INGEST_COACH_IDENTITIES_FAIL_ON_PARTIAL",
+        provider_name=provider_name,
+        provider_suffix="COACH_IDENTITIES_FAIL_ON_PARTIAL",
+        default="true",
+    )
+    max_consecutive_failures = _get_int_env(
+        "INGEST_COACH_IDENTITIES_MAX_CONSECUTIVE_FAILURES",
+        provider_name=provider_name,
+        provider_suffix="COACH_IDENTITIES_MAX_CONSECUTIVE_FAILURES",
+        default="5",
+    )
+    provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
+    s3_client = _s3_client()
+    engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
+    coach_ids = _fetch_coach_ids_for_scope(
+        engine,
+        provider_name=provider_name,
+        league_id=league_id,
+        season=season,
+    )
+    scope_key = _sync_scope_key(league_id=league_id, season=season) + "/entity=coaches"
+
+    _ingest_entity_by_numeric_ids(
+        context=context,
+        provider_name=provider_name,
+        provider=provider,
+        engine=engine,
+        s3_client=s3_client,
+        league_id=league_id,
+        season=season,
+        entity_type="coaches",
+        endpoint="coaches",
+        target_ids=coach_ids,
+        key_prefix=f"coaches/league={league_id}/season={season}",
+        id_name="coach_id",
+        fetch_fn=lambda coach_id: provider.get_coach(coach_id=coach_id),
+        source_params_fn=lambda coach_id: {
+            "league_id": league_id,
+            "season": season,
+            "coach_id": coach_id,
+        },
+        scope_key=scope_key,
+        fail_on_partial=fail_on_partial,
+        max_consecutive_failures=max_consecutive_failures,
+        use_cursor_state=False,
+    )
+
+
 def ingest_head_to_head_raw():
     context = get_current_context()
     runtime = resolve_runtime_params(context)
@@ -1743,6 +2048,12 @@ def ingest_head_to_head_raw():
     provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
     s3_client = _s3_client()
     engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
+    scope_identity = _resolve_fixture_scope_identity(
+        engine,
+        provider_name=provider_name,
+        league_id=league_id,
+        season=season,
+    )
     team_pairs = _fetch_team_pairs(engine, league_id=league_id, season=season)
     if not team_pairs:
         log_event(
@@ -1777,10 +2088,17 @@ def ingest_head_to_head_raw():
         fetch_fn=lambda pair_index: provider.get_head_to_head(
             team_id=pair_map[pair_index][0],
             opponent_id=pair_map[pair_index][1],
+            league_id=league_id,
+            season=season,
+            season_label=scope_identity["season_label"],
+            provider_season_id=int(scope_identity["provider_season_id"]),
         ),
         source_params_fn=lambda pair_index: {
             "league_id": league_id,
             "season": season,
+            "competition_key": scope_identity["competition_key"],
+            "season_label": scope_identity["season_label"],
+            "provider_season_id": int(scope_identity["provider_season_id"]),
             "pair_team_id": pair_map[pair_index][0],
             "pair_opponent_id": pair_map[pair_index][1],
         },
@@ -1788,3 +2106,280 @@ def ingest_head_to_head_raw():
         fail_on_partial=fail_on_partial,
         max_consecutive_failures=max_consecutive_failures,
     )
+
+
+def ingest_fixture_enrichments_raw():
+    context = get_current_context()
+    runtime = resolve_runtime_params(context)
+    default_league_id = runtime["league_id"]
+    default_season = runtime["season"]
+    provider_name = runtime["provider"]
+    requests_per_minute = _get_int_env(
+        "INGEST_ENRICHMENTS_REQUESTS_PER_MINUTE",
+        provider_name=provider_name,
+        provider_suffix="ENRICHMENTS_REQUESTS_PER_MINUTE",
+        default="0",
+    )
+    fail_on_partial = _get_bool_env(
+        "INGEST_ENRICHMENTS_FAIL_ON_PARTIAL",
+        provider_name=provider_name,
+        provider_suffix="ENRICHMENTS_FAIL_ON_PARTIAL",
+        default="true",
+    )
+    max_consecutive_failures = _get_int_env(
+        "INGEST_ENRICHMENTS_MAX_CONSECUTIVE_FAILURES",
+        provider_name=provider_name,
+        provider_suffix="ENRICHMENTS_MAX_CONSECUTIVE_FAILURES",
+        default="5",
+    )
+    chunk_size = _get_int_env(
+        "INGEST_ENRICHMENTS_CHUNK_SIZE",
+        provider_name=provider_name,
+        provider_suffix="ENRICHMENTS_CHUNK_SIZE",
+        default="30",
+    )
+    
+    provider = get_provider(provider_name, requests_per_minute=requests_per_minute)
+    s3_client = _s3_client()
+    engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
+
+    targets = _resolve_statistics_targets(
+        context=context,
+        default_league_id=default_league_id,
+        default_season=default_season,
+        fetch_finished_fixture_ids=lambda league, year: _fetch_finished_fixture_ids(engine, league, year),
+    )
+    mode = targets["mode"]
+    league_id = targets["league_id"]
+    season = targets["season"]
+    fixture_ids = targets["fixture_ids"]
+    target_source = targets["target_source"]
+    explicit_scope_fixture_ids = fixture_ids if (mode == "backfill" and target_source == "explicit_fixture_ids") else None
+
+    entity_type = "fixture_enrichments"
+    scope_key = _sync_scope_key(
+        league_id=league_id,
+        season=season,
+        mode=mode,
+        fixture_ids=explicit_scope_fixture_ids,
+    )
+
+    if not fixture_ids:
+        log_event(
+            service="airflow",
+            module="ingestion_service",
+            step="ingest_fixture_enrichments_raw",
+            status="success",
+            context=context,
+            dataset="fixture_enrichments",
+            row_count=0,
+            message=(
+                "Nenhum fixture finalizado encontrado para enriquecimento"
+                f"| provider={provider_name} | mode={mode} | league_id={league_id} | season={season} "
+                f"| source={target_source} | statuses={FINAL_STATUSES}"
+            ),
+        )
+        return
+
+    current_cursor = _read_sync_cursor(
+        engine,
+        provider_name=provider_name,
+        entity_type=entity_type,
+        scope_key=scope_key,
+    )
+
+    required_s3_prefixes = [
+        f"events/league={league_id}/season={season}/",
+        f"statistics/league={league_id}/season={season}/",
+        f"lineups/league={league_id}/season={season}/",
+        f"fixture_player_statistics/league={league_id}/season={season}/",
+    ]
+
+    pending_fixture_ids, ingested_fixture_ids, pending_strategy = _resolve_pending_fixture_ids_for_complete_artifacts(
+        s3_client=s3_client,
+        fixture_ids=fixture_ids,
+        skip_ingested=True
+        if mode == "backfill"
+        else _get_bool_env(
+            "INGEST_ENRICHMENTS_SKIP_INGESTED",
+            provider_name=provider_name,
+            provider_suffix="ENRICHMENTS_SKIP_INGESTED",
+            default="true",
+        ),
+        required_s3_prefixes=required_s3_prefixes,
+        cursor=current_cursor,
+    )
+
+    if not pending_fixture_ids:
+        bootstrap_cursor = fixture_ids[-1] if (current_cursor is None and fixture_ids) else current_cursor
+        _upsert_sync_state(
+            engine,
+            provider_name=provider_name,
+            entity_type=entity_type,
+            scope_key=scope_key,
+            league_id=league_id,
+            season=season,
+            cursor=bootstrap_cursor,
+            status="idle",
+            update_last_successful_sync=bootstrap_cursor is not None and bootstrap_cursor != current_cursor,
+        )
+        log_event(
+            service="airflow",
+            module="ingestion_service",
+            step="ingest_fixture_enrichments_raw",
+            status="success",
+            context=context,
+            dataset="fixture_enrichments",
+            row_count=0,
+            rows_in=len(fixture_ids),
+            rows_out=0,
+            message=(
+                "Todos os fixtures alvo ja possuem dados de enriquecimento no bronze "
+                f"| provider={provider_name} | mode={mode} | source={target_source} "
+                f"| total={len(fixture_ids)} | ingeridos_previamente={len(ingested_fixture_ids)} "
+                f"| estrategia={pending_strategy} | cursor_atual={current_cursor} | cursor_persistido={bootstrap_cursor}"
+            ),
+        )
+        return
+
+    run_utc = datetime.utcnow().strftime("%Y-%m-%dT%H%M%SZ")
+    succeeded = 0
+    failed = 0
+    attempted = 0
+    attempt_success_flags: list[bool] = []
+    consecutive_failures = 0
+    daily_limit_reached = False
+    stop_reason = ""
+
+    chunks = [pending_fixture_ids[i:i + chunk_size] for i in range(0, len(pending_fixture_ids), chunk_size)]
+
+    with StepMetrics(
+        service="airflow",
+        module="ingestion_service",
+        step="ingest_fixture_enrichments_raw",
+        context=context,
+        dataset="fixture_enrichments",
+        table="football-bronze",
+    ) as metric:
+        for idx, chunk in enumerate(chunks, start=1):
+            try:
+                attempted += len(chunk)
+                enrichments_map, headers = provider.get_fixtures_multi_enrichments(fixture_ids=chunk)
+                missing_fixture_ids = _missing_fixture_ids_from_multi_enrichments(
+                    requested_fixture_ids=chunk,
+                    enrichments_map=enrichments_map,
+                )
+                if missing_fixture_ids:
+                    returned_fixture_ids = sorted(int(fixture_id) for fixture_id in enrichments_map)
+                    raise RuntimeError(
+                        "Payload multi incompleto para fixture_enrichments "
+                        f"| requested={chunk} | returned={returned_fixture_ids} | missing={missing_fixture_ids}"
+                    )
+
+                for fid in chunk:
+                    fixture_enrichment = enrichments_map.get(fid)
+                    if not fixture_enrichment:
+                        continue
+                    
+                    for sub_entity, payload in fixture_enrichment.items():
+                        if sub_entity == "match_events":
+                            prefix = "events"
+                            endpoint_name = "fixtures/events"
+                        elif sub_entity == "statistics":
+                            prefix = "statistics"
+                            endpoint_name = "fixtures/statistics"
+                        elif sub_entity == "fixture_lineups":
+                            prefix = "lineups"
+                            endpoint_name = "fixtures/lineups"
+                        else:
+                            prefix = "fixture_player_statistics"
+                            endpoint_name = "fixtures/player_statistics"
+
+                        key = f"{prefix}/league={league_id}/season={season}/fixture_id={fid}/run={run_utc}/data.json"
+                        write_raw_payload(
+                            s3_client=s3_client,
+                            bucket=BRONZE_BUCKET,
+                            key=key,
+                            payload=payload,
+                            provider=provider.name,
+                            endpoint=endpoint_name,
+                            source_params={"fixture": fid, "league_id": league_id, "season": season},
+                            entity_type=sub_entity,
+                        )
+                
+                succeeded += len(chunk)
+                attempt_success_flags.extend([True] * len(chunk))
+                consecutive_failures = 0
+
+                rate_headers = {k: v for k, v in headers.items() if "rate" in k.lower() or "limit" in k.lower()}
+                print(
+                    f"[{idx}/{len(chunks)}] chunk_size={len(chunk)} provider={provider.name} "
+                    f"salvo no s3 com sucesso | rate_headers={rate_headers}"
+                )
+            except Exception as exc:
+                failed += len(chunk)
+                attempt_success_flags.extend([False] * len(chunk))
+                consecutive_failures += 1
+                if _is_fatal_api_error(exc):
+                    stop_reason = f"erro_fatal_api={exc}"
+                    break
+                if _is_daily_limit_error(exc):
+                    daily_limit_reached = True
+                    stop_reason = f"limite_diario={exc}"
+                    break
+                stop_reason = str(exc)
+                print(f"[{idx}/{len(chunks)}] erro no chunk: {exc}")
+
+            if consecutive_failures >= max_consecutive_failures:
+                stop_reason = f"falhas_consecutivas={consecutive_failures}"
+                break
+
+        metric.set_counts(rows_in=attempted, rows_out=succeeded, row_count=succeeded)
+
+        next_cursor = _calculate_next_cursor(
+            current_cursor=current_cursor,
+            pending_fixture_ids=pending_fixture_ids,
+            attempt_success_flags=attempt_success_flags,
+        )
+        sync_status = "success" if succeeded == len(pending_fixture_ids) else ("failed" if succeeded == 0 else "partial")
+        _upsert_sync_state(
+            engine,
+            provider_name=provider_name,
+            entity_type=entity_type,
+            scope_key=scope_key,
+            league_id=league_id,
+            season=season,
+            cursor=next_cursor,
+            status=sync_status,
+            update_last_successful_sync=next_cursor is not None and next_cursor != current_cursor,
+        )
+
+        log_event(
+            service="airflow",
+            module="ingestion_service",
+            step="summary",
+            status=sync_status,
+            context=context,
+            dataset="fixture_enrichments",
+            rows_in=attempted,
+            rows_out=succeeded,
+            row_count=succeeded,
+            message=(
+                "Raw fixture_enrichments concluido "
+                f"| provider={provider_name} | mode={mode} | source={target_source} "
+                f"| league_id={league_id} | season={season} "
+                f"| fixtures_total={len(fixture_ids)} | pendentes={len(pending_fixture_ids)} "
+                f"| tentativas={attempted} | sucesso={succeeded} | falhas={failed} "
+                f"| limite_diario={daily_limit_reached} | motivo={stop_reason} "
+                f"| estrategia={pending_strategy} "
+                f"| cursor_anterior={current_cursor} | cursor_novo={next_cursor}"
+            ),
+        )
+
+        if fail_on_partial and succeeded < len(pending_fixture_ids):
+            raise RuntimeError(
+                "Ingestao raw fixture_enrichments parcial. "
+                f"mode={mode} | source={target_source} | "
+                f"pendentes={len(pending_fixture_ids)} | tentativas={attempted} | sucesso={succeeded} | falhas={failed} | "
+                f"limite_diario={daily_limit_reached}."
+            )

@@ -1,8 +1,41 @@
 with fps as (
     select * from {{ ref('stg_fixture_player_statistics') }}
 ),
+lineups_ranked as (
+    select
+        l.*,
+        row_number() over (
+            partition by l.provider, l.fixture_id, l.team_id, l.player_id
+            order by
+                coalesce(l.is_starter, false) desc,
+                coalesce(l.minutes_played, -1) desc,
+                l.updated_at desc nulls last,
+                l.lineup_id desc nulls last
+        ) as rn
+    from {{ ref('stg_fixture_lineups') }} l
+),
 lineups as (
-    select * from {{ ref('stg_fixture_lineups') }}
+    select
+        provider,
+        fixture_id,
+        team_id,
+        player_id,
+        player_name,
+        lineup_id,
+        position_id,
+        position_name,
+        lineup_type_id,
+        is_starter,
+        formation_field,
+        formation_position,
+        jersey_number,
+        minutes_played,
+        details,
+        payload,
+        ingested_run,
+        updated_at
+    from lineups_ranked
+    where rn = 1
 ),
 events as (
     select * from {{ ref('stg_match_events') }}

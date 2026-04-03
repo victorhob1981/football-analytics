@@ -68,23 +68,32 @@ DO $$
 BEGIN
   IF to_regclass('raw.match_events') IS NULL THEN
     CREATE TABLE raw.match_events (
-      event_id      TEXT NOT NULL,
-      season        INT NOT NULL,
-      fixture_id    BIGINT NOT NULL,
-      time_elapsed  INT,
-      time_extra    INT,
-      team_id       BIGINT,
-      team_name     TEXT,
-      player_id     BIGINT,
-      player_name   TEXT,
-      assist_id     BIGINT,
-      assist_name   TEXT,
-      type          TEXT,
-      detail        TEXT,
-      comments      TEXT,
-      ingested_run  TEXT,
-      updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-      CONSTRAINT pk_match_events PRIMARY KEY (event_id, season),
+      event_id                   TEXT NOT NULL,
+      season                     INT NOT NULL,
+      fixture_id                 BIGINT NOT NULL,
+      time_elapsed               INT,
+      time_extra                 INT,
+      team_id                    BIGINT,
+      team_name                  TEXT,
+      player_id                  BIGINT,
+      player_name                TEXT,
+      assist_id                  BIGINT,
+      assist_name                TEXT,
+      type                       TEXT,
+      detail                     TEXT,
+      comments                   TEXT,
+      ingested_run               TEXT,
+      updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+      is_time_elapsed_anomalous  BOOLEAN NOT NULL DEFAULT FALSE,
+      provider                   TEXT NOT NULL,
+      provider_league_id         BIGINT,
+      competition_key            TEXT,
+      season_label               TEXT,
+      provider_season_id         BIGINT,
+      provider_event_id          TEXT,
+      ingested_at                TIMESTAMPTZ,
+      source_run_id              TEXT,
+      CONSTRAINT pk_match_events PRIMARY KEY (provider, season, fixture_id, event_id),
       CONSTRAINT fk_match_events_fixture
         FOREIGN KEY (fixture_id) REFERENCES raw.fixtures (fixture_id)
     ) PARTITION BY LIST (season);
@@ -94,6 +103,10 @@ END $$;
 CREATE TABLE IF NOT EXISTS raw.match_events_2024
   PARTITION OF raw.match_events
   FOR VALUES IN (2024);
+
+CREATE TABLE IF NOT EXISTS raw.match_events_default
+  PARTITION OF raw.match_events
+  DEFAULT;
 
 CREATE INDEX IF NOT EXISTS idx_raw_match_events_fixture_id
   ON raw.match_events (fixture_id);

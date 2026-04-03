@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from typing import Any
+import unicodedata
 
 import pandas as pd
 
@@ -25,9 +26,18 @@ def normalize_time_elapsed(value: Any) -> tuple[int | None, bool]:
 
 
 def _raw_component(value: Any) -> str:
-    if value is None:
+    normalized = _normalize_text(value)
+    if normalized is None:
         return ""
-    return str(value).strip()
+    return normalized
+
+
+def _normalize_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = unicodedata.normalize("NFKC", str(value))
+    collapsed = " ".join(normalized.split())
+    return collapsed or None
 
 
 def _event_id(
@@ -35,10 +45,13 @@ def _event_id(
     time_elapsed_raw: Any,
     time_extra_raw: Any,
     team_id: int | None,
+    team_name: str | None,
     event_type: str | None,
     detail: str | None,
     player_id: int | None,
+    player_name: str | None,
     assist_id: int | None,
+    assist_name: str | None,
     comments: str | None,
     provider_event_id: Any = None,
 ) -> str:
@@ -52,10 +65,13 @@ def _event_id(
             _raw_component(time_elapsed_raw),
             _raw_component(time_extra_raw),
             str(team_id or ""),
+            _raw_component(team_name),
             str(event_type or ""),
             str(detail or ""),
             str(player_id or ""),
+            _raw_component(player_name),
             str(assist_id or ""),
+            _raw_component(assist_name),
             str(comments or ""),
         ]
     )
@@ -96,11 +112,14 @@ def _flatten_events_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
         raw_time_extra = time_info.get("extra")
         time_extra = _as_int(time_info.get("extra"))
         team_id = _as_int(team.get("id"))
+        team_name = _normalize_text(team.get("name"))
         player_id = _as_int(player.get("id"))
+        player_name = _normalize_text(player.get("name"))
         assist_id = _as_int(assist.get("id"))
-        event_type = (event or {}).get("type")
-        detail = (event or {}).get("detail")
-        comments = (event or {}).get("comments")
+        assist_name = _normalize_text(assist.get("name"))
+        event_type = _normalize_text((event or {}).get("type"))
+        detail = _normalize_text((event or {}).get("detail"))
+        comments = _normalize_text((event or {}).get("comments"))
         provider_event_id = (event or {}).get("provider_event_id") or (event or {}).get("id")
 
         rows.append(
@@ -110,10 +129,13 @@ def _flatten_events_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
                     raw_time_elapsed,
                     raw_time_extra,
                     team_id,
+                    team_name,
                     event_type,
                     detail,
                     player_id,
+                    player_name,
                     assist_id,
+                    assist_name,
                     comments,
                     provider_event_id=provider_event_id,
                 ),
@@ -122,11 +144,11 @@ def _flatten_events_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "time_extra": time_extra,
                 "is_time_elapsed_anomalous": is_time_elapsed_anomalous,
                 "team_id": team_id,
-                "team_name": team.get("name"),
+                "team_name": team_name,
                 "player_id": player_id,
-                "player_name": player.get("name"),
+                "player_name": player_name,
                 "assist_id": assist_id,
-                "assist_name": assist.get("name"),
+                "assist_name": assist_name,
                 "type": event_type,
                 "detail": detail,
                 "comments": comments,

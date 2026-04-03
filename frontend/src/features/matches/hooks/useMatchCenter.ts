@@ -27,11 +27,13 @@ export function useMatchCenter(matchId: string | null | undefined, localFilters:
       dateRangeEnd: timeRangeParams.dateRangeEnd,
       includeTimeline: localFilters.includeTimeline,
       includeLineups: localFilters.includeLineups,
+      includeTeamStats: localFilters.includeTeamStats,
       includePlayerStats: localFilters.includePlayerStats,
     }),
     [
       competitionId,
       localFilters.includeLineups,
+      localFilters.includeTeamStats,
       localFilters.includePlayerStats,
       localFilters.includeTimeline,
       seasonId,

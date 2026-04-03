@@ -129,6 +129,13 @@ class ProviderAdapter(ABC):
     ) -> tuple[JsonDict, dict[str, str]]:
         raise NotImplementedError(f"Provider '{self.name}' nao implementa get_team_coaches.")
 
+    def get_coach(
+        self,
+        *,
+        coach_id: int,
+    ) -> tuple[JsonDict, dict[str, str]]:
+        raise NotImplementedError(f"Provider '{self.name}' nao implementa get_coach.")
+
     def get_head_to_head(
         self,
         *,

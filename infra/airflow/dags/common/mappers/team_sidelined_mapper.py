@@ -5,6 +5,22 @@ from typing import Any
 import pandas as pd
 
 
+TEAM_SIDELINED_COLUMNS = [
+    "provider",
+    "sidelined_id",
+    "team_id",
+    "player_id",
+    "season_id",
+    "category",
+    "type_id",
+    "start_date",
+    "end_date",
+    "games_missed",
+    "completed",
+    "payload",
+]
+
+
 def _as_int(value: Any) -> int | None:
     if value is None:
         return None
@@ -40,10 +56,9 @@ def build_team_sidelined_dataframe(payloads: list[dict[str, Any]]) -> pd.DataFra
                 }
             )
 
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(rows, columns=TEAM_SIDELINED_COLUMNS)
     if df.empty:
-        raise RuntimeError("Nenhuma linha de team_sidelined gerada a partir dos payloads raw.")
+        return df
     df = df.dropna(subset=["sidelined_id", "team_id", "player_id"]).copy()
     df = df.drop_duplicates(subset=["provider", "sidelined_id"], keep="last").copy()
     return df
-

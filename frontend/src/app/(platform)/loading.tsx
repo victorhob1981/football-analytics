@@ -1,8 +1,11 @@
+import { PlatformStateSurface } from "@/shared/components/feedback/PlatformStateSurface";
+
 export default function PlatformLoading() {
   return (
-    <section>
-      <p>Loading da plataforma...</p>
-    </section>
+    <PlatformStateSurface
+      description="Estamos abrindo a próxima área e preservando o recorte atual da navegação."
+      loading
+      title="Preparando a próxima área"
+    />
   );
 }
-

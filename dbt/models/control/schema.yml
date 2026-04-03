@@ -1,0 +1,73 @@
+version: 2
+
+models:
+  - name: competition_season_config
+    description: "Configuracao macro de competicao-temporada com boundary restrito a identidade da edicao."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - competition_key
+            - season_label
+    columns:
+      - name: competition_key
+        tests:
+          - not_null
+      - name: season_label
+        tests:
+          - not_null
+      - name: format_family
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['league', 'knockout', 'hybrid']
+      - name: season_format_code
+        tests:
+          - not_null
+      - name: participant_scope
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['club', 'national_team']
+      - name: group_ranking_rule_code
+        tests:
+          - not_null
+      - name: tie_rule_code
+        tests:
+          - not_null
+
+  - name: stage_progression_config
+    description: "Configuracao de progressao entre fases, separada do boundary de fase."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - season_format_code
+            - rule_order
+    columns:
+      - name: season_format_code
+        tests:
+          - not_null
+      - name: rule_order
+        tests:
+          - not_null
+      - name: from_stage_code
+        tests:
+          - not_null
+      - name: from_stage_format
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['group_table', 'league_table', 'knockout', 'qualification_knockout']
+      - name: progression_scope
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['group_position', 'table_position', 'tie_outcome']
+      - name: tie_outcome
+        tests:
+          - accepted_values:
+              values: ['winner', 'loser']
+      - name: progression_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['qualified', 'eliminated', 'repechage']

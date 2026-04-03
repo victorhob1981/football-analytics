@@ -14,6 +14,7 @@ export type {
   MatchLineupPlayer,
   MatchListItem,
   MatchPlayerStat,
+  MatchStageFormat,
   MatchesGlobalFilters,
   MatchesListData,
   MatchesListFilters,

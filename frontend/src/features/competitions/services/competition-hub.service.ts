@@ -1,0 +1,72 @@
+import { apiRequest, type QueryParams } from "@/shared/services/api-client";
+import type { ApiResponse } from "@/shared/types/api-response.types";
+
+import type {
+  CompetitionAnalyticsData,
+  CompetitionAnalyticsFilters,
+  CompetitionStructureData,
+  CompetitionStructureFilters,
+  StageTiesData,
+  StageTiesFilters,
+  TeamJourneyHistoryData,
+  TeamJourneyHistoryFilters,
+} from "@/features/competitions/types/competition-structure.types";
+
+const COMPETITION_STRUCTURE_ENDPOINT = "/api/v1/competition-structure";
+const COMPETITION_ANALYTICS_ENDPOINT = "/api/v1/competition-analytics";
+const STAGE_TIES_ENDPOINT = "/api/v1/ties";
+const TEAM_JOURNEY_HISTORY_ENDPOINT = "/api/v1/team-journey-history";
+
+function toQueryParams(filters: Record<string, unknown>): QueryParams {
+  const queryParams: QueryParams = {};
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    if (typeof value === "string" && value.trim().length === 0) {
+      continue;
+    }
+
+    queryParams[key] = value as string | number | boolean;
+  }
+
+  return queryParams;
+}
+
+export async function fetchCompetitionStructure(
+  filters: CompetitionStructureFilters,
+): Promise<ApiResponse<CompetitionStructureData>> {
+  return apiRequest<ApiResponse<CompetitionStructureData>>(COMPETITION_STRUCTURE_ENDPOINT, {
+    method: "GET",
+    params: toQueryParams(filters as Record<string, unknown>),
+  });
+}
+
+export async function fetchCompetitionAnalytics(
+  filters: CompetitionAnalyticsFilters,
+): Promise<ApiResponse<CompetitionAnalyticsData>> {
+  return apiRequest<ApiResponse<CompetitionAnalyticsData>>(COMPETITION_ANALYTICS_ENDPOINT, {
+    method: "GET",
+    params: toQueryParams(filters as Record<string, unknown>),
+  });
+}
+
+export async function fetchStageTies(
+  filters: StageTiesFilters,
+): Promise<ApiResponse<StageTiesData>> {
+  return apiRequest<ApiResponse<StageTiesData>>(STAGE_TIES_ENDPOINT, {
+    method: "GET",
+    params: toQueryParams(filters as Record<string, unknown>),
+  });
+}
+
+export async function fetchTeamJourneyHistory(
+  filters: TeamJourneyHistoryFilters,
+): Promise<ApiResponse<TeamJourneyHistoryData>> {
+  return apiRequest<ApiResponse<TeamJourneyHistoryData>>(TEAM_JOURNEY_HISTORY_ENDPOINT, {
+    method: "GET",
+    params: toQueryParams(filters as Record<string, unknown>),
+  });
+}

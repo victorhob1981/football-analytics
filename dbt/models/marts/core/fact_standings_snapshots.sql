@@ -1,6 +1,17 @@
 with snapshots as (
     select * from {{ ref('stg_standings_snapshots') }}
 ),
+groups as (
+    select
+        provider,
+        competition_key,
+        season_label,
+        stage_id,
+        team_id,
+        group_id,
+        group_sk
+    from {{ ref('int_group_memberships') }}
+),
 competition as (
     select
         league_id,
@@ -37,6 +48,10 @@ select
         )
     ) as standings_snapshot_id,
     s.provider,
+    s.provider_league_id,
+    s.competition_key,
+    s.season_label,
+    s.provider_season_id,
     c.competition_sk,
     s.league_id,
     s.season_id,
@@ -45,6 +60,8 @@ select
     s.round_id,
     r.round_sk,
     coalesce(r.round_key, 0) as round_key,
+    g.group_id,
+    g.group_sk,
     t.team_sk,
     s.team_id,
     s.position,
@@ -60,6 +77,12 @@ select
     s.ingested_run,
     coalesce(s.updated_at, now()) as updated_at
 from snapshots s
+left join groups g
+  on g.provider = s.provider
+ and g.competition_key = s.competition_key
+ and g.season_label = s.season_label
+ and g.stage_id = s.stage_id
+ and g.team_id = s.team_id
 left join competition c
   on c.league_id = s.league_id
 left join teams t

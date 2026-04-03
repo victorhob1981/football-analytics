@@ -22,6 +22,7 @@ type DataTableProps<TData extends object> = {
   columns: Array<ColumnDef<TData, unknown>>;
   loading?: boolean;
   className?: string;
+  variant?: "default" | "profile";
   initialPageSize?: number;
   pageSizeOptions?: number[];
   emptyTitle?: string;
@@ -49,6 +50,7 @@ export function DataTable<TData extends object>({
   columns,
   loading = false,
   className,
+  variant = "default",
   initialPageSize = 10,
   pageSizeOptions = [10, 20, 50],
   emptyTitle,
@@ -103,7 +105,35 @@ export function DataTable<TData extends object>({
       ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
       : 0;
 
-  const classes = ["overflow-hidden rounded-lg border border-slate-200 bg-white", className].filter(Boolean).join(" ");
+  const isProfileVariant = variant === "profile";
+  const classes = [
+    isProfileVariant
+      ? "overflow-hidden rounded-[1.6rem] border border-white/65 bg-[rgba(255,255,255,0.72)] shadow-[0_28px_72px_-54px_rgba(17,28,45,0.26)] backdrop-blur-xl"
+      : "overflow-hidden rounded-lg border border-slate-200 bg-white",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const headClasses = isProfileVariant ? "bg-[rgba(240,243,255,0.84)]" : "bg-slate-50";
+  const headerCellClasses = isProfileVariant
+    ? "border-b border-[rgba(216,227,251,0.76)] px-4 py-3 text-left text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]"
+    : "border-b border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-700";
+  const rowClasses = isProfileVariant
+    ? "border-b border-[rgba(216,227,251,0.68)] last:border-b-0 hover:bg-white/62"
+    : "border-b border-slate-100 last:border-b-0";
+  const bodyCellClasses = isProfileVariant
+    ? "px-4 py-3 text-sm text-[#1f2d40]"
+    : "px-3 py-2 text-sm text-slate-700";
+  const footerClasses = isProfileVariant
+    ? "flex flex-wrap items-center justify-between gap-3 border-t border-[rgba(216,227,251,0.68)] bg-[rgba(240,243,255,0.7)] px-4 py-3 text-sm text-[#57657a]"
+    : "flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-3 py-2 text-sm";
+  const buttonClasses = isProfileVariant
+    ? "rounded-full border border-[rgba(112,121,116,0.22)] bg-white/84 px-3 py-1.5 font-medium text-[#1f2d40] disabled:cursor-not-allowed disabled:opacity-50"
+    : "rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50";
+  const selectClasses = isProfileVariant
+    ? "rounded-full border border-[rgba(112,121,116,0.22)] bg-white/88 px-3 py-1.5 text-[#1f2d40]"
+    : "rounded border border-slate-300 bg-white px-2 py-1";
+  const footerTextClasses = isProfileVariant ? "text-[#57657a]" : "text-slate-600";
 
   if (loading) {
     return (
@@ -137,7 +167,7 @@ export function DataTable<TData extends object>({
           style={shouldVirtualize ? { maxHeight: `${virtualizerMaxHeight}px` } : undefined}
         >
           <table className="min-w-full border-collapse">
-            <thead className="bg-slate-50">
+            <thead className={headClasses}>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
@@ -145,10 +175,7 @@ export function DataTable<TData extends object>({
                     const sortedState = header.column.getIsSorted();
 
                     return (
-                      <th
-                        className="border-b border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-700"
-                        key={header.id}
-                      >
+                      <th className={headerCellClasses} key={header.id}>
                         {header.isPlaceholder ? null : (
                           <button
                             className={`inline-flex items-center gap-1 ${canSort ? "cursor-pointer select-none" : "cursor-default"}`}
@@ -178,9 +205,9 @@ export function DataTable<TData extends object>({
                     const row = tableRows[virtualRow.index];
 
                     return (
-                      <tr className="border-b border-slate-100 last:border-b-0" key={`${row.id}-${virtualRow.index}`}>
+                      <tr className={rowClasses} key={`${row.id}-${virtualRow.index}`}>
                         {row.getVisibleCells().map((cell) => (
-                          <td className="px-3 py-2 text-sm text-slate-700" key={cell.id}>
+                          <td className={bodyCellClasses} key={cell.id}>
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         ))}
@@ -188,9 +215,9 @@ export function DataTable<TData extends object>({
                     );
                   })
                 : tableRows.map((row) => (
-                    <tr className="border-b border-slate-100 last:border-b-0" key={row.id}>
+                    <tr className={rowClasses} key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <td className="px-3 py-2 text-sm text-slate-700" key={cell.id}>
+                        <td className={bodyCellClasses} key={cell.id}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -207,10 +234,10 @@ export function DataTable<TData extends object>({
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+      <footer className={footerClasses}>
         <div className="flex items-center gap-2">
           <button
-            className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+            className={buttonClasses}
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
             type="button"
@@ -218,7 +245,7 @@ export function DataTable<TData extends object>({
             Anterior
           </button>
           <button
-            className="rounded border border-slate-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+            className={buttonClasses}
             disabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
             type="button"
@@ -227,14 +254,14 @@ export function DataTable<TData extends object>({
           </button>
         </div>
 
-        <span className="text-slate-600">
+        <span className={footerTextClasses}>
           Pagina {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
         </span>
 
-        <label className="flex items-center gap-2 text-slate-600">
+        <label className={`flex items-center gap-2 ${footerTextClasses}`}>
           Linhas
           <select
-            className="rounded border border-slate-300 bg-white px-2 py-1"
+            className={selectClasses}
             onChange={(event) => {
               table.setPageSize(Number(event.target.value));
             }}

@@ -1,3 +1,5 @@
+{{ config(materialized='table') }}
+
 with source_stats as (
     select * from {{ source('postgres_raw', 'player_season_statistics') }}
 ),
@@ -6,6 +8,7 @@ named_rows as (
         s.provider,
         s.player_id,
         nullif(trim(coalesce(s.payload -> 'player' ->> 'name', s.payload ->> 'player_name')), '') as player_name,
+        nullif(trim(coalesce(s.player_nationality, s.payload -> 'player' ->> 'nationality')), '') as player_nationality,
         s.season_id,
         s.league_id,
         s.team_id,
@@ -25,20 +28,52 @@ expanded_metrics as (
         n.season_id,
         n.team_id,
         lower(coalesce(metric.item ->> 'type', metric.item ->> 'developer_name', metric.item ->> 'raw_type_name', '')) as metric_name,
-        nullif(
-            regexp_replace(
-                coalesce(
-                    metric.item ->> 'value',
-                    metric.item -> 'raw_value' ->> 'value',
-                    metric.item ->> 'raw_value',
+        case
+            when jsonb_typeof(metric.item -> 'value') = 'number'
+             and (metric.item ->> 'value') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                then (metric.item ->> 'value')::numeric
+            when jsonb_typeof(metric.item -> 'value') = 'string'
+             and nullif(trim(metric.item ->> 'value'), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                then nullif(trim(metric.item ->> 'value'), '')::numeric
+            when jsonb_typeof(metric.item -> 'value') = 'object'
+             and nullif(
+                 trim(
+                     case
+                         when lower(coalesce(metric.item ->> 'type', metric.item ->> 'developer_name', metric.item ->> 'raw_type_name', ''))
+                              in ('rating', 'player_rating', 'average_points_per_game')
+                             then coalesce(metric.item -> 'value' ->> 'average', metric.item -> 'value' ->> 'total')
+                         else coalesce(
+                             metric.item -> 'value' ->> 'total',
+                             metric.item -> 'value' ->> 'goals',
+                             metric.item -> 'value' ->> 'average',
+                             metric.item -> 'value' ->> 'value'
+                         )
+                     end
+                 ),
+                 ''
+             ) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                then nullif(
+                    trim(
+                        case
+                            when lower(coalesce(metric.item ->> 'type', metric.item ->> 'developer_name', metric.item ->> 'raw_type_name', ''))
+                                 in ('rating', 'player_rating', 'average_points_per_game')
+                                then coalesce(metric.item -> 'value' ->> 'average', metric.item -> 'value' ->> 'total')
+                            else coalesce(
+                                metric.item -> 'value' ->> 'total',
+                                metric.item -> 'value' ->> 'goals',
+                                metric.item -> 'value' ->> 'average',
+                                metric.item -> 'value' ->> 'value'
+                            )
+                        end
+                    ),
                     ''
-                ),
-                '[^0-9\\.-]',
-                '',
-                'g'
-            ),
-            ''
-        )::numeric as metric_value
+                )::numeric
+            when nullif(trim(metric.item -> 'raw_value' ->> 'value'), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                then nullif(trim(metric.item -> 'raw_value' ->> 'value'), '')::numeric
+            when nullif(trim(metric.item ->> 'raw_value'), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                then nullif(trim(metric.item ->> 'raw_value'), '')::numeric
+            else null
+        end as metric_value
     from named_rows n
     left join lateral jsonb_array_elements(
         case jsonb_typeof(n.statistics)
@@ -67,6 +102,7 @@ select
     n.provider,
     n.player_id,
     n.player_name,
+    n.player_nationality,
     n.season_id,
     n.league_id,
     n.team_id,

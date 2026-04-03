@@ -10,6 +10,7 @@ import type {
 const selectGlobalFiltersState = (state: GlobalFiltersStore): GlobalFiltersState => ({
   competitionId: state.competitionId,
   seasonId: state.seasonId,
+  teamId: state.teamId,
   roundId: state.roundId,
   dateRangeStart: state.dateRangeStart,
   dateRangeEnd: state.dateRangeEnd,
@@ -20,6 +21,7 @@ const selectGlobalFiltersState = (state: GlobalFiltersStore): GlobalFiltersState
 const selectGlobalFiltersActions = (state: GlobalFiltersStore): GlobalFiltersActions => ({
   setCompetitionId: state.setCompetitionId,
   setSeasonId: state.setSeasonId,
+  setTeamId: state.setTeamId,
   setRoundId: state.setRoundId,
   setVenue: state.setVenue,
   setTimeRange: state.setTimeRange,

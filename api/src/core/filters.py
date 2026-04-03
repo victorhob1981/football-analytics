@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any
 
 from .errors import AppError
+from .context_registry import expand_competition_ids_for_query
 
 
 class VenueFilter(str, Enum):
@@ -14,11 +15,22 @@ class VenueFilter(str, Enum):
     all = "all"
 
 
+class StageFormatFilter(str, Enum):
+    league_table = "league_table"
+    group_table = "group_table"
+    knockout = "knockout"
+    qualification_knockout = "qualification_knockout"
+    placement_match = "placement_match"
+
+
 @dataclass(frozen=True)
 class GlobalFilters:
     competition_id: int | None
+    competition_ids: tuple[int, ...]
     season_id: int | None
     round_id: int | None
+    stage_id: int | None
+    stage_format: StageFormatFilter | None
     venue: VenueFilter
     last_n: int | None
     date_start: date | None
@@ -55,6 +67,32 @@ def _coalesce_date_aliases(
     return normalized_start, normalized_end
 
 
+def _to_optional_stage_format(
+    raw_value: str | StageFormatFilter | None,
+    *,
+    field_name: str,
+) -> StageFormatFilter | None:
+    if raw_value is None:
+        return None
+
+    if isinstance(raw_value, StageFormatFilter):
+        return raw_value
+
+    normalized_value = raw_value.strip()
+    if normalized_value == "":
+        return None
+
+    try:
+        return StageFormatFilter(normalized_value)
+    except ValueError as exc:
+        raise AppError(
+            message=f"Invalid value for '{field_name}'. Expected supported stage format.",
+            code="INVALID_QUERY_PARAM",
+            status=400,
+            details={field_name: raw_value},
+        ) from exc
+
+
 def validate_and_build_global_filters(
     *,
     competition_id: str | int | None,
@@ -66,11 +104,16 @@ def validate_and_build_global_filters(
     date_end: date | None,
     date_range_start: date | None,
     date_range_end: date | None,
+    stage_id: str | int | None = None,
+    stage_format: str | StageFormatFilter | None = None,
 ) -> GlobalFilters:
     normalized_venue = VenueFilter(venue) if venue else VenueFilter.all
     normalized_competition = _to_optional_int(competition_id, field_name="competitionId")
+    normalized_competition_ids = expand_competition_ids_for_query(normalized_competition)
     normalized_season = _to_optional_int(season_id, field_name="seasonId")
     normalized_round = _to_optional_int(round_id, field_name="roundId")
+    normalized_stage_id = _to_optional_int(stage_id, field_name="stageId")
+    normalized_stage_format = _to_optional_stage_format(stage_format, field_name="stageFormat")
     normalized_date_start, normalized_date_end = _coalesce_date_aliases(
         date_start=date_start,
         date_end=date_end,
@@ -130,8 +173,11 @@ def validate_and_build_global_filters(
 
     return GlobalFilters(
         competition_id=normalized_competition,
+        competition_ids=normalized_competition_ids,
         season_id=normalized_season,
         round_id=normalized_round,
+        stage_id=normalized_stage_id,
+        stage_format=normalized_stage_format,
         venue=normalized_venue,
         last_n=last_n,
         date_start=normalized_date_start,
@@ -149,10 +195,13 @@ def append_fact_match_filters(
     league_column: str = "league_id",
     season_column: str = "season",
     round_column: str = "round_number",
+    stage_column: str = "stage_id",
+    competition_key_column: str = "competition_key",
+    season_label_column: str = "season_label",
 ) -> None:
-    if filters.competition_id is not None:
-        clauses.append(f"{alias}.{league_column} = %s")
-        params.append(filters.competition_id)
+    if filters.competition_ids:
+        clauses.append(f"{alias}.{league_column} = any(%s)")
+        params.append(list(filters.competition_ids))
 
     if filters.season_id is not None:
         clauses.append(f"{alias}.{season_column} = %s")
@@ -161,6 +210,25 @@ def append_fact_match_filters(
     if filters.round_id is not None:
         clauses.append(f"{alias}.{round_column} = %s")
         params.append(filters.round_id)
+
+    if filters.stage_id is not None:
+        clauses.append(f"{alias}.{stage_column} = %s")
+        params.append(filters.stage_id)
+
+    if filters.stage_format is not None:
+        clauses.append(
+            f"""
+            exists (
+                select 1
+                from mart.dim_stage stage_filter_scope
+                where stage_filter_scope.stage_id = {alias}.{stage_column}
+                  and stage_filter_scope.competition_key = {alias}.{competition_key_column}
+                  and stage_filter_scope.season_label = {alias}.{season_label_column}
+                  and stage_filter_scope.stage_format = %s
+            )
+            """.strip()
+        )
+        params.append(filters.stage_format.value)
 
     if filters.date_start is not None:
         clauses.append(f"{alias}.{date_column} >= %s")

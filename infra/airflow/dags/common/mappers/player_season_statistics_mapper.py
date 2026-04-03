@@ -29,6 +29,7 @@ def build_player_season_statistics_dataframe(payloads: list[dict[str, Any]]) -> 
                 {
                     "provider": provider,
                     "player_id": _as_int(player.get("id")),
+                    "player_nationality": player.get("nationality"),
                     "season_id": _as_int(season_info.get("id")),
                     "team_id": _as_int(team.get("id")) or 0,
                     "league_id": _as_int(season_info.get("league_id")),

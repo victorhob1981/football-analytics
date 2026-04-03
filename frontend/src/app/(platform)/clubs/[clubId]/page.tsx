@@ -1,3 +1,5 @@
+import { TeamRouteResolver } from "@/app/(platform)/teams/[teamId]/TeamRouteResolver";
+
 type ClubDetailsPageProps = {
   params: Promise<{ clubId: string }>;
 };
@@ -5,10 +7,5 @@ type ClubDetailsPageProps = {
 export default async function ClubDetailsPage({ params }: ClubDetailsPageProps) {
   const { clubId } = await params;
 
-  return (
-    <main>
-      <h1>Rota: /clubs/{clubId}</h1>
-      <p>TODO: Placeholder detalhe de clube.</p>
-    </main>
-  );
+  return <TeamRouteResolver teamId={clubId} />;
 }

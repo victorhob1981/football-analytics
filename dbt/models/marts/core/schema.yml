@@ -36,6 +36,8 @@ models:
         description: "Nome do jogador."
         tests:
           - not_null
+      - name: nationality
+        description: "Nacionalidade canônica do jogador quando disponível na origem de identidade."
       - name: updated_at
         description: "Timestamp de atualizacao da dimensao."
         tests:
@@ -133,6 +135,10 @@ models:
           - relationships:
               to: ref('dim_competition')
               field: competition_sk
+      - name: provider
+        description: "Provider canonico da partida."
+        tests:
+          - not_null
       - name: date_sk
         description: "Chave substituta da data da partida."
         tests:
@@ -165,6 +171,34 @@ models:
         description: "Temporada da partida."
         tests:
           - not_null
+      - name: stage_sk
+        description: "Chave substituta da fase da partida quando o provider fornece contexto de stage."
+        tests:
+          - relationships:
+              to: ref('dim_stage')
+              field: stage_sk
+              where: "stage_sk is not null"
+      - name: round_sk
+        description: "Chave substituta da rodada da partida quando o provider fornece contexto de round."
+        tests:
+          - relationships:
+              to: ref('dim_round')
+              field: round_sk
+              where: "round_sk is not null"
+      - name: group_id
+        description: "Identificador canonico do grupo quando a partida pertence a uma fase com multiplas tabelas paralelas."
+        tests:
+          - relationships:
+              to: ref('dim_group')
+              field: group_id
+              where: "group_id is not null"
+      - name: tie_id
+        description: "Identificador canonico do confronto eliminatorio quando a partida pertence a um tie."
+        tests:
+          - relationships:
+              to: ref('dim_tie')
+              field: tie_id
+              where: "tie_id is not null"
       - name: date_day
         description: "Data da partida."
         tests:
@@ -245,6 +279,163 @@ models:
       - name: provider
         tests:
           - not_null
+      - name: stage_format
+        description: "Formato semantico da fase quando conhecido via configuracao de temporada e nome da fase."
+      - name: stage_code
+        description: "Slug tecnico derivado de stage_name para suporte a mapeamentos auditaveis."
+
+  - name: dim_tie
+    description: "Entidade canonica de confrontos eliminatorios derivada do dominio estrutural."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - competition_key
+            - season_label
+            - stage_id
+            - tie_order
+    columns:
+      - name: tie_sk
+        tests:
+          - not_null
+          - unique
+      - name: tie_id
+        tests:
+          - not_null
+          - unique
+      - name: winner_team_id
+        description: "Time classificado no confronto quando o resultado ja fecha vencedor oficial."
+      - name: resolution_type
+        description: "Modo de resolucao do confronto: match unico, agregado, extra time, penaltis ou regra estrutural."
+      - name: is_inferred
+        tests:
+          - not_null
+
+  - name: dim_group
+    description: "Entidade canonica de grupos derivada de standings scoping por stage."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - competition_key
+            - season_label
+            - stage_id
+            - group_order
+    columns:
+      - name: group_sk
+        tests:
+          - not_null
+          - unique
+      - name: group_id
+        tests:
+          - not_null
+          - unique
+      - name: source_group_id
+        description: "Identificador bruto do grupo vindo da origem quando disponivel."
+      - name: group_name
+        tests:
+          - not_null
+      - name: group_order
+        tests:
+          - not_null
+      - name: is_inferred
+        tests:
+          - not_null
+
+  - name: fact_tie_results
+    description: "Resultados agregados por confronto eliminatorio."
+    columns:
+      - name: tie_id
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_tie')
+              field: tie_id
+      - name: winner_team_id
+        tests:
+          - not_null
+      - name: resolution_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['aggregate', 'extra_time', 'penalties', 'single_match', 'stage_rule']
+      - name: next_stage_id
+        description: "Stage estrutural de destino do classificado quando houver fase seguinte."
+
+  - name: competition_structure_hub
+    description: "Hub estrutural minimo de competicao-temporada com regras de progressao entre fases."
+    columns:
+      - name: competition_structure_rule_id
+        tests:
+          - not_null
+          - unique
+      - name: from_stage_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_stage')
+              field: stage_id
+      - name: to_stage_id
+        tests:
+          - relationships:
+              to: ref('dim_stage')
+              field: stage_id
+              where: "to_stage_id is not null"
+      - name: progression_scope
+        tests:
+          - not_null
+      - name: progression_type
+        tests:
+          - not_null
+      - name: is_inferred
+        tests:
+          - not_null
+
+  - name: fact_stage_progression
+    description: "Progressao de times entre fases de uma competicao-temporada."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - competition_key
+            - season_label
+            - team_id
+            - from_stage_id
+            - progression_type
+            - tie_outcome
+            - source_position
+    columns:
+      - name: stage_progression_id
+        tests:
+          - not_null
+          - unique
+      - name: from_stage_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_stage')
+              field: stage_id
+      - name: to_stage_id
+        tests:
+          - relationships:
+              to: ref('dim_stage')
+              field: stage_id
+              where: "to_stage_id is not null"
+      - name: group_id
+        tests:
+          - relationships:
+              to: ref('dim_group')
+              field: group_id
+              where: "group_id is not null"
+      - name: progression_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['qualified', 'eliminated', 'repechage']
+      - name: is_inferred
+        tests:
+          - not_null
 
   - name: dim_round
     description: "Dimensao de rodadas com chave sequencial por temporada."
@@ -289,6 +480,21 @@ models:
       - name: provider
         tests:
           - not_null
+      - name: coach_name
+        tests:
+          - not_null
+      - name: has_real_photo
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false
+      - name: is_placeholder_image
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+              quote: false
 
   - name: fact_fixture_lineups
     description: "Fato de lineups no grao provider/fixture/team/lineup (com player conhecido)."
@@ -357,6 +563,59 @@ models:
         tests:
           - not_null
           - unique
+      - name: group_id
+        description: "Identificador canonico do grupo quando o snapshot pertence a uma fase de grupos."
+        tests:
+          - relationships:
+              to: ref('dim_group')
+              field: group_id
+              where: "group_id is not null"
+      - name: group_sk
+        description: "Chave substituta do grupo quando o snapshot pertence a uma fase de grupos."
+        tests:
+          - relationships:
+              to: ref('dim_group')
+              field: group_sk
+              where: "group_sk is not null"
+      - name: team_id
+        tests:
+          - not_null
+
+  - name: fact_group_standings
+    description: "Snapshots de classificacao por rodada particionados explicitamente por grupo."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - provider
+            - competition_key
+            - season_label
+            - stage_id
+            - group_id
+            - round_id
+            - team_id
+    columns:
+      - name: standings_snapshot_id
+        tests:
+          - not_null
+          - unique
+      - name: group_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_group')
+              field: group_id
+      - name: group_sk
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_group')
+              field: group_sk
+      - name: group_name
+        tests:
+          - not_null
+      - name: group_order
+        tests:
+          - not_null
       - name: team_id
         tests:
           - not_null

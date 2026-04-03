@@ -3,6 +3,7 @@ export type VenueFilter = "home" | "away" | "all";
 export interface GlobalFiltersState {
   competitionId: string | null;
   seasonId: string | null;
+  teamId: string | null;
   roundId: string | null;
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
@@ -24,6 +25,7 @@ export type TimeRangeInput =
 export interface GlobalFiltersActions {
   setCompetitionId: (competitionId: string | null) => void;
   setSeasonId: (seasonId: string | null) => void;
+  setTeamId: (teamId: string | null) => void;
   setRoundId: (roundId: string | null) => void;
   setVenue: (venue: VenueFilter) => void;
   setTimeRange: (timeRange: TimeRangeInput) => void;

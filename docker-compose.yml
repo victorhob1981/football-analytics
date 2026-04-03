@@ -3,6 +3,14 @@
   postgres:
     image: postgres:16
     container_name: football_postgres
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_stat_statements.max=10000
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -81,6 +89,7 @@
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       FOOTBALL_PG_DSN: ${FOOTBALL_PG_DSN}
+      WORLD_CUP_DATA_MOUNT_ROOT: /opt/airflow/data
 
 
 
@@ -140,6 +149,7 @@
       - ./warehouse:/opt/airflow/warehouse
       - ./dbt:/opt/airflow/dbt
       - ./quality:/opt/airflow/quality
+      - ./data:/opt/airflow/data
     ports:
       - "8080:8080"
     command: webserver
@@ -173,6 +183,7 @@
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       FOOTBALL_PG_DSN: ${FOOTBALL_PG_DSN}
+      WORLD_CUP_DATA_MOUNT_ROOT: /opt/airflow/data
 
 
 
@@ -182,6 +193,7 @@
       - ./warehouse:/opt/airflow/warehouse
       - ./dbt:/opt/airflow/dbt
       - ./quality:/opt/airflow/quality
+      - ./data:/opt/airflow/data
     command: scheduler
 
 

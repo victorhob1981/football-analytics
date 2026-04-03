@@ -16,13 +16,17 @@ export function PartialDataBanner({
   }
 
   const coverageSuffix = typeof coverage.percentage === "number" ? ` Cobertura atual: ${coverage.percentage.toFixed(1)}%.` : "";
-  const classes = ["rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800", className]
+  const classes = [
+    "rounded-[1.15rem] border border-[#ffdcc3] bg-[#fff3e8] px-4 py-3 text-sm text-[#6e3900] shadow-[0_18px_48px_-44px_rgba(110,57,0,0.35)]",
+    className,
+  ]
     .filter(Boolean)
     .join(" ");
 
   return (
     <section aria-live="polite" className={classes}>
-      <strong>Dados parciais.</strong> {message}
+      <strong className="font-semibold uppercase tracking-[0.12em]">Dados parciais.</strong>{" "}
+      {message}
       {coverageSuffix}
     </section>
   );

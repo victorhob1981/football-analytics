@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 import os
 
@@ -17,6 +18,7 @@ DEFAULT_FIXTURE_WINDOWS_BY_SEASON: dict[int, list[tuple[str, str]]] = {
         ("2024-10-01", "2024-12-08"),
     ]
 }
+CATALOG_SPLIT_YEAR_CHUNK_DAYS = 90
 
 
 def _safe_int(value: Any, default_value: int, field_name: str) -> int:
@@ -69,7 +71,90 @@ def resolve_runtime_params(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def resolve_fixture_windows(context: dict[str, Any], season: int) -> list[tuple[str, str]]:
+def _chunk_fixture_windows(
+    season_start_date: str,
+    season_end_date: str,
+    *,
+    chunk_days: int = CATALOG_SPLIT_YEAR_CHUNK_DAYS,
+) -> list[tuple[str, str]]:
+    start = date.fromisoformat(season_start_date)
+    end = date.fromisoformat(season_end_date)
+    if end < start:
+        raise ValueError(
+            f"Intervalo de season invalido no catalogo: start={season_start_date} end={season_end_date}"
+        )
+
+    windows: list[tuple[str, str]] = []
+    current_start = start
+    while current_start <= end:
+        current_end = min(current_start + timedelta(days=chunk_days - 1), end)
+        windows.append((current_start.isoformat(), current_end.isoformat()))
+        current_start = current_end + timedelta(days=1)
+    return windows
+
+
+def _resolve_catalog_fixture_scope(
+    *,
+    provider_name: str,
+    league_id: int,
+    season: int,
+) -> dict[str, str] | None:
+    dsn = os.getenv("FOOTBALL_PG_DSN")
+    if not dsn:
+        return None
+
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(dsn)
+    sql = text(
+        """
+        SELECT
+          sc.season_label,
+          sc.season_start_date,
+          sc.season_end_date
+        FROM control.competition_provider_map cpm
+        JOIN control.season_catalog sc
+          ON sc.provider = cpm.provider
+         AND sc.competition_key = cpm.competition_key
+        WHERE cpm.provider = :provider
+          AND cpm.provider_league_id = :league_id
+          AND LEFT(sc.season_label, 4) = :season_prefix
+        """
+    )
+    with engine.begin() as conn:
+        rows = conn.execute(
+            sql,
+            {
+                "provider": provider_name,
+                "league_id": league_id,
+                "season_prefix": str(season),
+            },
+        ).mappings().all()
+
+    if not rows:
+        return None
+    if len(rows) > 1:
+        sample = [dict(row) for row in rows[:10]]
+        raise RuntimeError(
+            "Catalogo de seasons ambiguo para fixture windows "
+            f"provider={provider_name} league_id={league_id} season={season}. Escopos: {sample}"
+        )
+
+    scope = dict(rows[0])
+    for field_name in ("season_start_date", "season_end_date"):
+        raw_value = scope.get(field_name)
+        if raw_value is not None:
+            scope[field_name] = raw_value.isoformat() if hasattr(raw_value, "isoformat") else str(raw_value)
+    return scope
+
+
+def resolve_fixture_windows(
+    context: dict[str, Any],
+    season: int,
+    *,
+    provider_name: str | None = None,
+    league_id: int | None = None,
+) -> list[tuple[str, str]]:
     params, conf = _raw_runtime_inputs(context)
     if season < 1900 or season > 2100:
         raise ValueError(
@@ -93,6 +178,21 @@ def resolve_fixture_windows(context: dict[str, Any], season: int) -> list[tuple[
             windows.append((date_from, date_to))
         if windows:
             return windows
+
+    if provider_name is not None and league_id is not None:
+        catalog_scope = _resolve_catalog_fixture_scope(
+            provider_name=provider_name,
+            league_id=league_id,
+            season=season,
+        )
+        if catalog_scope:
+            season_label = str(catalog_scope.get("season_label") or "").strip()
+            season_start_date = str(catalog_scope.get("season_start_date") or "").strip()
+            season_end_date = str(catalog_scope.get("season_end_date") or "").strip()
+            if season_start_date and season_end_date:
+                if provider_name == "sportmonks" or "_" in season_label:
+                    return _chunk_fixture_windows(season_start_date, season_end_date)
+                return [(season_start_date, season_end_date)]
 
     if season in DEFAULT_FIXTURE_WINDOWS_BY_SEASON:
         return DEFAULT_FIXTURE_WINDOWS_BY_SEASON[season]

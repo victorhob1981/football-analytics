@@ -1,0 +1,50 @@
+**Diagnóstico Curto**
+A correção pendente da `Sudamericana 2025` era real e localizada: o raw já tinha o shootout, mas [int_tie_results.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/intermediate/int_tie_results.sql) ignorava eventos de pênaltis e só resolvia vencedor por gols/agregado ou por presença no próximo estágio. Em final única com `FTP` e sem próximo estágio, `winner_team_id` ficava `null`. O fix entrou. O único blocker que restou nesta rodada apareceu no smoke real do frontend: `hydration mismatch` na rota `/competitions/sudamericana`.
+
+**Bloco 1 — COMPLETO**
+Alterações realizadas: diagnóstico de causa raiz da final `fixture_id=19596686`.  
+Arquivos alterados: nenhum.  
+Jobs executados: leitura de [int_tie_results.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/intermediate/int_tie_results.sql), [fact_stage_progression.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/marts/core/fact_stage_progression.sql), query em `raw.fixtures`, `raw.match_events`, `mart.fact_tie_results`, `mart.int_tie_matches`.  
+Validações: conferi raw, mart intermediário e mart final.  
+Evidência objetiva: `raw.fixtures` tinha `19596686 | FTP | 0-0`; `raw.match_events` tinha shootout completo com comentários até `5-4`; `mart.int_tie_matches` marcava `has_penalties_status=true`; [int_tie_results.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/intermediate/int_tie_results.sql) não tinha branch para resolver `penalty_winner_team_id`.
+
+**Bloco 2 — COMPLETO**
+Alterações realizadas: correção mínima para derivar vencedor do shootout a partir do último placar válido de pênaltis em `stg_match_events` e usar esse vencedor antes do fallback por próximo estágio.  
+Arquivos alterados: [int_tie_results.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/intermediate/int_tie_results.sql).  
+Jobs executados: patch cirúrgico no modelo dbt.  
+Validações: revisão do diff e rastreabilidade dos pontos alterados.  
+Evidência objetiva: novo fluxo em [int_tie_results.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/intermediate/int_tie_results.sql) adicionou `penalty_shootout_events`, `penalty_shootout_outcomes` e o uso de `penalty_winner_team_id` na resolução final.
+
+**Bloco 3 — COMPLETO**
+Alterações realizadas: rematerialização mínima.  
+Arquivos alterados: nenhum além do modelo já citado.  
+Jobs executados: `docker compose exec -T airflow-webserver dbt run --project-dir /opt/airflow/dbt --profiles-dir /opt/airflow/dbt --select int_tie_results fact_tie_results fact_stage_progression`.  
+Validações: execução dbt terminou `PASS=3 WARN=0 ERROR=0`.  
+Evidência objetiva: somente `mart.int_tie_results`, `mart.fact_tie_results` e `mart.fact_stage_progression` foram rematerializados.
+
+**Bloco 4 — COMPLETO**
+Alterações realizadas: validação pós-fix da final 2025 e regressão curta em `Sudamericana 2024` e `Intercontinental 2024`.  
+Arquivos alterados: nenhum novo.  
+Jobs executados: queries diretas em `mart.fact_tie_results` e `mart.fact_stage_progression`.  
+Validações: campeão correto da final 2025; progressão terminal preenchida; `Sudamericana 2024` e `Intercontinental 2024` preservadas.  
+Evidência objetiva: `Sudamericana 2025 Final -> winner_team_id=9878, resolution_type=penalties`; `fact_stage_progression` da final 2025 agora tem `winner | qualified | <terminal>` e `loser | eliminated | <terminal>`. Regressão: `Sudamericana 2024 Final -> winner_team_id=3608`; `Intercontinental 2024 Final -> winner_team_id=3468`; ambos continuaram com `winner/loser` terminais.
+
+**Bloco 5 — BLOQUEADO**
+Alterações realizadas: subi Docker Desktop, restaurei `postgres/minio/airflow-webserver`, subi BFF local em `8000` e Next em `3001`, e rodei smoke real de API/frontend.  
+Arquivos alterados: nenhum.  
+Jobs executados: `docker compose up -d postgres minio dbmate airflow-init airflow-webserver`; BFF via `uvicorn`; frontend via `pnpm dev -p 3001`; smoke headless com Playwright.  
+Validações: API runtime passou; frontend SSR respondeu `200` nas rotas principais; browser runtime falhou na primeira rota de competição.  
+Evidência objetiva: BFF `GET /health = 200`; `/api/v1/matches` retornou `3` linhas para `Sud 2024`, `Sud 2025`, `FIC 2024`; `/api/v1/rankings/player-goals` retornou `3` linhas para os três escopos; `/api/v1/group-standings` retornou `4` linhas para `Sud 2024` e `Sud 2025`; frontend respondeu `200` para `/competitions/sudamericana`, `/competitions/sudamericana/seasons/2024`, `/competitions/sudamericana/seasons/2025`, `/competitions/fifa_intercontinental_cup`, `/competitions/fifa_intercontinental_cup/seasons/2024`. Blocker real: Playwright capturou `Hydration failed because the server rendered HTML didn't match the client` em `/competitions/sudamericana`.
+
+**Bloco 6 — COMPLETO**
+Status final da Sul-Americana: o gap técnico de dados/mart foi fechado; a `Sudamericana 2025` ficou correta no mart para final por pênaltis.  
+Status final da Intercontinental 2024: continua íntegra e operacional no dado/mart.  
+Intercontinental 2025: continua explicitamente fora do escopo desta rodada; não foi reaberta nem overrideada.  
+Classificação honesta: no dado, a `Sudamericana` agora fica operacionalmente completa para o escopo onboardado; no runtime real de frontend, a validação ficou bloqueada por hidratação no hub de competição.
+
+**Fechamento**
+O que entrou nesta rodada: correção cirúrgica do vencedor por pênaltis da final da `Sudamericana 2025` em [int_tie_results.sql](/c:/Users/Vitinho/Desktop/Projetos/football-analytics/dbt/models/intermediate/int_tie_results.sql), rematerialização mínima e validação objetiva de regressão curta.
+
+O que ficou pendente: somente o blocker de frontend runtime. O backend/BFF respondeu bem para `sudamericana 2024`, `sudamericana 2025` e `fifa_intercontinental_cup 2024`; o frontend serviu `200`, mas o browser headless parou no primeiro hub de competição por `hydration mismatch`.
+
+Próximo passo seguro: atacar só o `hydration mismatch` do hub `/competitions/[competitionKey]`, sem tocar novamente na camada de dados e sem reabrir `Intercontinental 2025`.

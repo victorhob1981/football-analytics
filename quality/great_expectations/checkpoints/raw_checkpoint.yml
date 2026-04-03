@@ -65,6 +65,26 @@ validations:
   - batch_request:
       datasource_name: postgres_runtime
       data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_player_season_statistics_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.player_season_statistics"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_player_season_statistics
+    expectation_suite_name: raw_player_season_statistics_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: raw_head_to_head_fixtures_asset
+      runtime_parameters:
+        query: "SELECT * FROM raw.head_to_head_fixtures"
+      batch_identifiers:
+        runtime_batch_identifier_name: raw_head_to_head_fixtures
+    expectation_suite_name: raw_head_to_head_fixtures_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
       data_asset_name: raw_standings_snapshots_asset
       runtime_parameters:
         query: "SELECT * FROM raw.standings_snapshots"

@@ -1,10 +1,12 @@
 import type { ApiResponse } from "@/shared/types/api-response.types";
+import type { CompetitionSeasonContextFilters, CompetitionSeasonContextsData } from "@/shared/types/context.types";
 import { apiRequest, type QueryParams } from "@/shared/services/api-client";
 
 import type { PlayerProfile, PlayerProfileFilters, PlayersListData, PlayersListFilters } from "@/features/players/types";
 
 export const PLAYERS_ENDPOINTS = {
   list: "/api/v1/players",
+  contexts: (playerId: string) => `/api/v1/players/${playerId}/contexts`,
   profile: (playerId: string) => `/api/v1/players/${playerId}`,
 } as const;
 
@@ -43,6 +45,16 @@ export async function fetchPlayerProfile(
   filters: PlayerProfileFilters = {},
 ): Promise<ApiResponse<PlayerProfile>> {
   return apiRequest<ApiResponse<PlayerProfile>>(PLAYERS_ENDPOINTS.profile(playerId), {
+    method: "GET",
+    params: toQueryParams(filters),
+  });
+}
+
+export async function fetchPlayerContexts(
+  playerId: string,
+  filters: CompetitionSeasonContextFilters = {},
+): Promise<ApiResponse<CompetitionSeasonContextsData>> {
+  return apiRequest<ApiResponse<CompetitionSeasonContextsData>>(PLAYERS_ENDPOINTS.contexts(playerId), {
     method: "GET",
     params: toQueryParams(filters),
   });

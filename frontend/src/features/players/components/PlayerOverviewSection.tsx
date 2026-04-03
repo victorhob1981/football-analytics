@@ -1,0 +1,245 @@
+"use client";
+
+import Link from "next/link";
+
+import type { PlayerProfile } from "@/features/players/types";
+import { PartialDataBanner } from "@/shared/components/coverage/PartialDataBanner";
+import { EmptyState } from "@/shared/components/feedback/EmptyState";
+import {
+  ProfileAlert,
+  ProfileCoveragePill,
+  ProfileKpi,
+  ProfileMetricTile,
+  ProfilePanel,
+  ProfileTag,
+} from "@/shared/components/profile/ProfilePrimitives";
+import type { InsightObject } from "@/shared/types/insight.types";
+import type { CoverageState } from "@/shared/types/coverage.types";
+import { formatDate } from "@/shared/utils/formatters";
+
+type PlayerOverviewSectionProps = {
+  coverage: CoverageState;
+  matchesHref: string;
+  profile: PlayerProfile;
+  rankingsHref?: string | null;
+  seasonHubHref?: string | null;
+  teamHref?: string | null;
+  insights: {
+    coverage: CoverageState;
+    errorMessage?: string | null;
+    isError: boolean;
+    isLoading: boolean;
+    isPartial: boolean;
+    items: InsightObject[];
+  };
+};
+
+function formatPercentage(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "-";
+  }
+
+  return `${Math.round(value)}%`;
+}
+
+function formatDecimal(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "-";
+  }
+
+  return value.toFixed(2);
+}
+
+function formatResultLabel(result: string | null | undefined): string {
+  if (result === "win") {
+    return "V";
+  }
+
+  if (result === "draw") {
+    return "E";
+  }
+
+  if (result === "loss") {
+    return "D";
+  }
+
+  return "-";
+}
+
+export function PlayerOverviewSection({
+  coverage,
+  matchesHref,
+  profile,
+  rankingsHref,
+  seasonHubHref,
+  teamHref,
+  insights,
+}: PlayerOverviewSectionProps) {
+  const { player, recentMatches, summary } = profile;
+  const latestMatch = recentMatches?.[0] ?? null;
+  const goalContribution =
+    (typeof summary.goals === "number" ? summary.goals : 0) +
+    (typeof summary.assists === "number" ? summary.assists : 0);
+  const shotsOnTargetPct =
+    typeof summary.shotsOnTarget === "number" &&
+    typeof summary.shotsTotal === "number" &&
+    summary.shotsTotal > 0
+      ? (summary.shotsOnTarget / summary.shotsTotal) * 100
+      : null;
+
+  return (
+    <div className="space-y-6">
+      {coverage.status === "partial" ? <PartialDataBanner coverage={coverage} /> : null}
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <ProfilePanel className="space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <ProfileCoveragePill coverage={coverage} />
+                {player.teamName ? <ProfileTag>{player.teamName}</ProfileTag> : null}
+                {player.position ? <ProfileTag>{player.position}</ProfileTag> : null}
+              </div>
+              <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
+                Resumo competitivo
+              </h2>
+              <p className="text-sm leading-6 text-[#57657a]">
+                Leitura principal do jogador nesta temporada, com atalhos para time, rankings e
+                calendario.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {teamHref ? (
+                <Link
+                  className="inline-flex items-center rounded-full bg-[rgba(216,227,251,0.76)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1f2d40]"
+                  href={teamHref}
+                >
+                  {player.teamName ?? "Time"}
+                </Link>
+              ) : null}
+              {seasonHubHref ? (
+                <Link
+                  className="inline-flex items-center rounded-full bg-[rgba(216,227,251,0.76)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1f2d40]"
+                  href={seasonHubHref}
+                >
+                  Temporada
+                </Link>
+              ) : null}
+              {rankingsHref ? (
+                <Link
+                  className="inline-flex items-center rounded-full bg-[rgba(216,227,251,0.76)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1f2d40]"
+                  href={rankingsHref}
+                >
+                  Rankings
+                </Link>
+              ) : null}
+              <Link
+                className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
+                href={matchesHref}
+              >
+                Ver partidas
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ProfileKpi label="Jogos" value={summary.matchesPlayed ?? "-"} hint={`Min ${summary.minutesPlayed ?? "-"}`} />
+            <ProfileKpi label="G+A" value={goalContribution} hint={`${summary.goals ?? 0} gols · ${summary.assists ?? 0} assist.`} />
+            <ProfileKpi label="Rating" value={formatDecimal(summary.rating)} hint={`No alvo ${formatPercentage(shotsOnTargetPct)}`} />
+            <ProfileKpi label="Finalizações" value={summary.shotsTotal ?? "-"} hint={`${summary.shotsOnTarget ?? 0} no alvo`} />
+          </div>
+        </ProfilePanel>
+
+        <ProfilePanel className="space-y-5" tone="accent">
+          <div className="space-y-2">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-white/65">
+              Última participação consolidada
+            </p>
+            <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-white">
+              {latestMatch?.opponentName ?? "Sem adversário"}
+            </h2>
+            <p className="text-sm leading-6 text-white/75">
+              {latestMatch
+                ? `${formatDate(latestMatch.playedAt)} · ${latestMatch.venue === "home" ? "Casa" : "Fora"}`
+                : "Ainda nao ha ultima partida consolidada para este jogador."}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ProfileMetricTile label="Resultado" value={latestMatch ? formatResultLabel(latestMatch.result) : "-"} />
+            <ProfileMetricTile label="Score" value={latestMatch ? `${latestMatch.goalsFor ?? "-"} - ${latestMatch.goalsAgainst ?? "-"}` : "-"} />
+            <ProfileMetricTile label="Minutos" value={latestMatch?.minutesPlayed ?? "-"} />
+            <ProfileMetricTile label="Nota" value={formatDecimal(latestMatch?.rating)} />
+          </div>
+
+          <div className="rounded-[1.3rem] bg-white/10 p-4">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-white/65">
+              Navegacao conectada
+            </p>
+            <p className="mt-2 text-sm leading-6 text-white/78">
+              Os atalhos mantêm a mesma competição e temporada ao abrir time, rankings e
+              partidas.
+            </p>
+          </div>
+        </ProfilePanel>
+      </section>
+
+      <ProfilePanel className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
+              Insights
+            </p>
+            <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
+              Leituras do jogador
+            </h2>
+          </div>
+          <ProfileCoveragePill coverage={insights.coverage} />
+        </div>
+
+        {insights.isLoading ? (
+          <p className="text-sm text-[#57657a]">Carregando insights do jogador...</p>
+        ) : null}
+
+        {!insights.isLoading && insights.isError && insights.items.length === 0 ? (
+          <ProfileAlert title="Falha ao carregar insights do jogador" tone="critical">
+            <p>{insights.errorMessage ?? "Sem mensagem adicional."}</p>
+          </ProfileAlert>
+        ) : null}
+
+        {!insights.isLoading && insights.isPartial ? <PartialDataBanner coverage={insights.coverage} /> : null}
+
+        {!insights.isLoading && !insights.isError && insights.items.length === 0 ? (
+          <EmptyState
+            title="Sem insights"
+            description="Nao ha leituras adicionais disponiveis para este jogador."
+          />
+        ) : null}
+
+        {!insights.isLoading && insights.items.length > 0 ? (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {insights.items.slice(0, 4).map((insight) => (
+              <article
+                className="rounded-[1.35rem] border border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)] p-4"
+                key={insight.insight_id}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <ProfileTag>{insight.severity}</ProfileTag>
+                  <span className="text-xs text-[#57657a]">{insight.reference_period}</span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[#111c2d]">{insight.explanation}</p>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        {!insights.isLoading && insights.isError && insights.items.length > 0 ? (
+          <ProfileAlert title="Insights carregados com alerta" tone="warning">
+            <p>{insights.errorMessage ?? "Sem mensagem adicional."}</p>
+          </ProfileAlert>
+        ) : null}
+      </ProfilePanel>
+    </div>
+  );
+}

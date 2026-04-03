@@ -14,7 +14,7 @@
       "kwargs": {
         "column": "position",
         "min_value": 1,
-        "max_value": 30
+        "max_value": 80
       },
       "meta": {}
     },
