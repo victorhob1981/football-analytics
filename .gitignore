@@ -77,7 +77,11 @@ docker-compose.override.yml
 *.sqlite
 *.db
 *.sqlite3
-data/
+data/*
+!data/visual_assets/
+data/visual_assets/*
+!data/visual_assets/champions/
+!data/visual_assets/champions/**
 tmp/
 
 # =========================

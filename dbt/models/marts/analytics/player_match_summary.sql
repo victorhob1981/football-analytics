@@ -1,3 +1,9 @@
+{{ config(
+    indexes=[
+        {'columns': ['player_id', 'match_date desc', 'match_id desc'], 'type': 'btree'}
+    ]
+) }}
+
 with fact_player_stats as (
     select * from {{ ref('fact_fixture_player_stats') }}
 ),

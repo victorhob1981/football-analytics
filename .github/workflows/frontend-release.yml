@@ -1,0 +1,58 @@
+name: frontend-release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - "tools/frontend_release_gate.py"
+      - ".github/workflows/frontend-release.yml"
+      - "docs/FRONTEND_RELEASE_READINESS.md"
+      - "docs/FRONTEND_IMPLEMENTATION_STATUS.md"
+      - "README.md"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "tools/frontend_release_gate.py"
+      - ".github/workflows/frontend-release.yml"
+      - "docs/FRONTEND_RELEASE_READINESS.md"
+      - "docs/FRONTEND_IMPLEMENTATION_STATUS.md"
+      - "README.md"
+  workflow_dispatch:
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run frontend release gate
+        run: python tools/frontend_release_gate.py --mode full

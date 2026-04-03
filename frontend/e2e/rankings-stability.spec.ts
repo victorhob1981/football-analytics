@@ -21,7 +21,8 @@ test.describe("Fluxo critico: rankings estavel com filtros globais", () => {
     await expect.poll(() => page.url()).not.toContain("lastN=5");
 
     await expect(page.getByRole("heading", { name: "Artilharia" })).toBeVisible();
-    await expect(page.getByText("RankingMetricSelector: placeholder")).toBeVisible();
+    await expect(page.getByText("Refine o recorte sem sair da pagina")).toBeVisible();
+    await expect(page.getByText("Arrascaeta").first()).toBeVisible();
     await expect(page.getByText("Falha ao carregar ranking.")).toHaveCount(0);
   });
 });

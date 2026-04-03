@@ -10,6 +10,7 @@ import type {
 const INITIAL_GLOBAL_FILTERS_STATE: GlobalFiltersState = {
   competitionId: null,
   seasonId: null,
+  teamId: null,
   roundId: null,
   dateRangeStart: null,
   dateRangeEnd: null,
@@ -54,6 +55,12 @@ export const useGlobalFiltersStore = create<GlobalFiltersStore>((set) => ({
     set((state) => ({
       ...state,
       seasonId,
+    }));
+  },
+  setTeamId: (teamId) => {
+    set((state) => ({
+      ...state,
+      teamId,
     }));
   },
   setRoundId: (roundId) => {

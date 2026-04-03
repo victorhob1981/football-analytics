@@ -1,0 +1,691 @@
+.pageRoot {
+  --competitions-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --competitions-ring: 0 0 0 4px rgba(0, 78, 57, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.pageHeader,
+.controlBar,
+.matrixShell,
+.noteGrid {
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+.breadcrumbRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7d889e;
+}
+
+.breadcrumbLink {
+  color: #7d889e;
+  transition: color 180ms var(--competitions-ease-out);
+}
+
+.breadcrumbDivider {
+  color: #b1bccf;
+}
+
+.breadcrumbCurrent {
+  color: #0b6a56;
+}
+
+.headerGrid {
+  display: grid;
+  gap: 1rem;
+  align-items: end;
+}
+
+.headerCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 42rem;
+}
+
+.headerEyebrow,
+.metricLabel,
+.filterLabel,
+.matrixEyebrow,
+.noteEyebrow,
+.mobileMetaLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #69778d;
+}
+
+.headerTitle {
+  margin: 0;
+  font-family: var(--font-app-headline);
+  font-size: clamp(2.45rem, 2.1rem + 1vw, 3.25rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+  color: #003526;
+}
+
+.headerLead {
+  margin: 0;
+  max-width: 40rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #57657a;
+}
+
+.headerTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.headerTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border-radius: 999px;
+  background: rgba(216, 227, 251, 0.68);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #33425b;
+}
+
+.metricsGrid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.metricCard {
+  display: flex;
+  min-height: 7rem;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgba(240, 243, 255, 0.94), rgba(248, 251, 255, 0.88));
+  padding: 1rem 1.15rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 18px 38px -34px rgba(17, 28, 45, 0.2);
+}
+
+.metricCardHighlight {
+  background: linear-gradient(135deg, #003526 0%, #004e39 100%);
+}
+
+.metricValue {
+  margin: 0;
+  font-family: var(--font-app-headline);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  color: #0f2035;
+}
+
+.metricLabel {
+  margin-top: 0.75rem;
+}
+
+.metricDetail {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #6b7890;
+}
+
+.metricCardHighlight .metricValue,
+.metricCardHighlight .metricLabel,
+.metricCardHighlight .metricDetail {
+  color: #f8fbff;
+}
+
+.controlBar {
+  display: grid;
+  gap: 0.85rem;
+  border-radius: 1.35rem;
+  background: linear-gradient(180deg, rgba(240, 243, 255, 0.82), rgba(248, 251, 255, 0.92));
+  padding: 1rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 16px 36px -34px rgba(17, 28, 45, 0.18);
+}
+
+.searchField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 3.4rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 14px 32px -30px rgba(17, 28, 45, 0.2);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 1rem;
+  color: #8d9ab0;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.95rem 1rem 0.95rem 2.95rem;
+  font-size: 0.96rem;
+  color: #162235;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: #97a4b7;
+}
+
+.filterGroup {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.filterSelect {
+  min-height: 2.9rem;
+  border: none;
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #162235;
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 14px 32px -30px rgba(17, 28, 45, 0.2);
+}
+
+.clearButton,
+.inlineResetButton,
+.tableAction,
+.mobileCard,
+.breadcrumbLink {
+  transition:
+    transform 180ms var(--competitions-ease-out),
+    background-color 180ms var(--competitions-ease-out),
+    color 180ms var(--competitions-ease-out),
+    border-color 180ms var(--competitions-ease-out),
+    box-shadow 180ms var(--competitions-ease-out);
+}
+
+.clearButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
+  border: none;
+  border-radius: 0.95rem;
+  background: linear-gradient(135deg, #003526 0%, #004e39 100%);
+  padding: 0.7rem 1rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffffff;
+  box-shadow: 0 16px 34px -28px rgba(0, 53, 38, 0.45);
+}
+
+.clearButton:disabled {
+  background: rgba(222, 228, 237, 0.88);
+  color: #93a0b4;
+  box-shadow: none;
+}
+
+.matrixShell {
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 24px 52px -42px rgba(17, 28, 45, 0.18);
+}
+
+.matrixHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 1.15rem 1.2rem 1rem;
+}
+
+.matrixTitle {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-app-headline);
+  font-size: clamp(1.65rem, 1.48rem + 0.45vw, 1.95rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: #111c2d;
+}
+
+.matrixDescription {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #6a778e;
+}
+
+.matrixSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.matrixSummaryBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border-radius: 999px;
+  background: rgba(216, 227, 251, 0.78);
+  padding: 0.42rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #33425b;
+}
+
+.matrixSummaryText {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #687790;
+}
+
+.desktopMatrix {
+  display: none;
+  border-top: 1px solid rgba(222, 228, 237, 0.86);
+}
+
+.matrixTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.matrixTable thead th {
+  padding: 0.95rem 1.2rem;
+  background: rgba(240, 243, 255, 0.92);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-align: left;
+  text-transform: uppercase;
+  color: #6a778e;
+}
+
+.matrixTable thead th:nth-child(5),
+.matrixTable thead th:nth-child(6),
+.matrixTable thead th:nth-child(7) {
+  text-align: center;
+}
+
+.matrixRow {
+  border-top: 1px solid rgba(226, 231, 239, 0.72);
+}
+
+.matrixCell,
+.matrixCellMuted,
+.matrixCellNumeric,
+.matrixCellAction {
+  padding: 1.05rem 1.2rem;
+  font-size: 0.92rem;
+  vertical-align: middle;
+}
+
+.matrixCell {
+  font-weight: 600;
+  color: #162235;
+}
+
+.matrixCellMuted {
+  font-weight: 500;
+  color: #57657a;
+}
+
+.matrixCellNumeric {
+  font-weight: 700;
+  text-align: center;
+  color: #162235;
+}
+
+.matrixCellAction {
+  text-align: center;
+}
+
+.competitionIdentity {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.competitionMedia {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 12px 26px -24px rgba(17, 28, 45, 0.24);
+}
+
+.competitionFallback {
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: #003526;
+}
+
+.competitionImage {
+  padding: 0.4rem;
+}
+
+.competitionLead {
+  min-width: 0;
+}
+
+.competitionName {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #003526;
+}
+
+.competitionScope {
+  margin: 0.18rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #8794a8;
+}
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  border-radius: 999px;
+  background: rgba(166, 242, 209, 0.72);
+  padding: 0.36rem 0.7rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #00513b;
+}
+
+.tableAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.8rem;
+  background: rgba(0, 78, 57, 0.08);
+  color: #0b6a56;
+}
+
+.mobileMatrix {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0 1rem 1rem;
+}
+
+.mobileCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  border-radius: 1.2rem;
+  background: rgba(245, 248, 252, 0.92);
+  padding: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+.mobileCardHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.mobileMetaGrid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mobileMetaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mobileMetaValue {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #162235;
+}
+
+.mobileCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(223, 229, 237, 0.82);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #003526;
+}
+
+.matrixFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-top: 1px solid rgba(222, 228, 237, 0.86);
+  padding: 0.95rem 1.2rem 1.15rem;
+}
+
+.matrixFooterText {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #687790;
+}
+
+.inlineResetButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0b6a56;
+}
+
+.emptyState {
+  margin: 0 1rem 1rem;
+}
+
+.noteGrid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.noteCard {
+  border-radius: 1.4rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 254, 0.92));
+  padding: 1.25rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 20px 44px -36px rgba(17, 28, 45, 0.16);
+}
+
+.noteCardPrimary {
+  background: linear-gradient(135deg, #003526 0%, #0b6a56 100%);
+}
+
+.noteTitle {
+  margin: 0.45rem 0 0;
+  font-family: var(--font-app-headline);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: #122035;
+}
+
+.noteDescription {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #617086;
+}
+
+.noteCardPrimary .noteEyebrow,
+.noteCardPrimary .noteTitle,
+.noteCardPrimary .noteDescription {
+  color: #f6fbff;
+}
+
+.breadcrumbLink:focus-visible,
+.searchInput:focus-visible,
+.filterSelect:focus-visible,
+.clearButton:focus-visible,
+.tableAction:focus-visible,
+.mobileCard:focus-visible,
+.inlineResetButton:focus-visible {
+  outline: none;
+  box-shadow: var(--competitions-ring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .breadcrumbLink:hover {
+    color: #0b6a56;
+  }
+
+  .clearButton:not(:disabled):hover,
+  .tableAction:hover,
+  .mobileCard:hover {
+    transform: translateY(-0.12rem);
+  }
+
+  .clearButton:not(:disabled):hover {
+    box-shadow: 0 20px 40px -28px rgba(0, 53, 38, 0.5);
+  }
+
+  .tableAction:hover {
+    background: rgba(0, 78, 57, 0.14);
+  }
+
+  .mobileCard:hover {
+    background: rgba(247, 251, 255, 0.98);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      0 24px 40px -32px rgba(17, 28, 45, 0.16);
+  }
+
+  .matrixRow:hover {
+    background: rgba(240, 246, 255, 0.5);
+  }
+}
+
+@media (min-width: 768px) {
+  .headerGrid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  }
+
+  .metricsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filterGroup {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .noteGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .controlBar {
+    grid-template-columns: minmax(19rem, 1.2fr) minmax(0, 1.6fr) auto;
+    align-items: end;
+  }
+
+  .desktopMatrix {
+    display: block;
+  }
+
+  .mobileMatrix {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .matrixHeader {
+    padding-bottom: 0.9rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .headerTitle {
+    font-size: clamp(2.15rem, 12vw, 2.8rem);
+  }
+
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobileMetaGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clearButton,
+  .inlineResetButton,
+  .tableAction,
+  .mobileCard,
+  .breadcrumbLink {
+    transition-duration: 1ms !important;
+  }
+}

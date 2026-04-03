@@ -3,6 +3,7 @@ with source_matches as (
 )
 select
     fixture_id,
+    coalesce(provider, source_provider) as provider,
     source_provider,
     date_utc,
     "timestamp" as fixture_timestamp,
@@ -16,11 +17,23 @@ select
     status_short,
     status_long,
     league_id,
+    provider_league_id,
+    nullif(trim(competition_key), '') as competition_key,
+    nullif(trim(competition_type), '') as competition_type,
     league_name,
     season,
+    nullif(trim(season_label), '') as season_label,
+    provider_season_id,
+    nullif(trim(season_name), '') as season_name,
+    season_start_date,
+    season_end_date,
     round,
     stage_id,
+    nullif(trim(stage_name), '') as stage_name,
     round_id,
+    nullif(trim(round_name), '') as round_name,
+    nullif(trim(group_name), '') as group_name,
+    leg as leg_number,
     attendance,
     weather_description,
     weather_temperature_c,
@@ -37,5 +50,7 @@ select
     away_goals_ft,
     year,
     month,
-    ingested_run
+    ingested_run,
+    source_run_id,
+    ingested_at
 from source_matches

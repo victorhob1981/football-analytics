@@ -10,6 +10,7 @@ from common.observability import DEFAULT_DAG_ARGS, StepMetrics, log_event
 
 DBT_PROJECT_DIR = "/opt/airflow/dbt"
 DBT_PROFILES_DIR = "/opt/airflow/dbt"
+DBT_SEQUENTIAL_THREADS = "1"
 
 
 def _run_cmd(step: str, cmd: list[str], dataset: str):
@@ -47,7 +48,18 @@ def run_dbt_deps():
 def run_dbt_core():
     _run_cmd(
         step="dbt_run_core",
-        cmd=["dbt", "run", "--select", "+marts.core", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROFILES_DIR],
+        cmd=[
+            "dbt",
+            "run",
+            "--threads",
+            DBT_SEQUENTIAL_THREADS,
+            "--select",
+            "+marts.core",
+            "--project-dir",
+            DBT_PROJECT_DIR,
+            "--profiles-dir",
+            DBT_PROFILES_DIR,
+        ],
         dataset="marts.core",
     )
 
@@ -55,7 +67,18 @@ def run_dbt_core():
 def run_dbt_analytics():
     _run_cmd(
         step="dbt_run_analytics",
-        cmd=["dbt", "run", "--select", "+marts.analytics", "--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROFILES_DIR],
+        cmd=[
+            "dbt",
+            "run",
+            "--threads",
+            DBT_SEQUENTIAL_THREADS,
+            "--select",
+            "+marts.analytics",
+            "--project-dir",
+            DBT_PROJECT_DIR,
+            "--profiles-dir",
+            DBT_PROFILES_DIR,
+        ],
         dataset="marts.analytics",
     )
 

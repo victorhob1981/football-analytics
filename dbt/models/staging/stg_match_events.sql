@@ -9,10 +9,14 @@ select
         when time_elapsed is not null and time_elapsed < 0 then null
         else time_elapsed
     end as time_elapsed,
-    time_extra,
+    case
+        when time_extra is not null and (time_extra < 0 or time_extra > 30) then null
+        else time_extra
+    end as time_extra,
     case
         when coalesce(is_time_elapsed_anomalous, false) then true
         when time_elapsed is not null and time_elapsed < 0 then true
+        when time_extra is not null and (time_extra < 0 or time_extra > 30) then true
         else false
     end as is_time_elapsed_anomalous,
     team_id,

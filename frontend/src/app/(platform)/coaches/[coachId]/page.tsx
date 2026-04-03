@@ -1,3 +1,5 @@
+import { CoachProfileContent } from "@/features/coaches";
+
 type CoachPageProps = {
   params: Promise<{ coachId: string }>;
 };
@@ -5,10 +7,5 @@ type CoachPageProps = {
 export default async function CoachPage({ params }: CoachPageProps) {
   const { coachId } = await params;
 
-  return (
-    <main>
-      <h1>Rota: /coaches/{coachId}</h1>
-      <p>TODO: Placeholder detalhe de tecnico.</p>
-    </main>
-  );
+  return <CoachProfileContent coachId={coachId} />;
 }

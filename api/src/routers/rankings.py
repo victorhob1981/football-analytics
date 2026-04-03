@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Literal
 
@@ -14,6 +15,13 @@ router = APIRouter(prefix="/api/v1/rankings", tags=["rankings"])
 
 SortDirection = Literal["asc", "desc"]
 FreshnessClass = Literal["season", "fast"]
+
+
+@dataclass(frozen=True)
+class RankingStageScope:
+    stage_id: int
+    stage_name: str | None
+    stage_format: str | None
 
 RANKING_CONFIG: dict[str, dict[str, Any]] = {
     "player-goals": {"metricKey": "goals", "domain": "player", "valueColumn": "goals", "defaultSort": "desc"},
@@ -58,6 +66,75 @@ RANKING_CONFIG: dict[str, dict[str, Any]] = {
 
 def _request_id(request: Request) -> str | None:
     return getattr(request.state, "request_id", None)
+
+
+def _resolve_ranking_stage_scope(filters: GlobalFilters) -> RankingStageScope | None:
+    if filters.stage_id is None:
+        return None
+
+    where_clauses = ["fm.stage_id = %s"]
+    params: list[Any] = [filters.stage_id]
+    if filters.competition_ids:
+        where_clauses.append("fm.league_id = any(%s)")
+        params.append(list(filters.competition_ids))
+    if filters.season_id is not None:
+        where_clauses.append("fm.season = %s")
+        params.append(filters.season_id)
+
+    row = db_client.fetch_one(
+        f"""
+        select
+            fm.stage_id,
+            max(ds.stage_name) as stage_name,
+            max(ds.stage_format) as stage_format
+        from mart.fact_matches fm
+        left join mart.dim_stage ds
+          on ds.competition_key = fm.competition_key
+         and ds.season_label = fm.season_label
+         and ds.stage_id = fm.stage_id
+        where {" and ".join(where_clauses)}
+        group by fm.stage_id
+        order by fm.stage_id asc
+        limit 1;
+        """,
+        params,
+    )
+    if row is None:
+        return None
+
+    return RankingStageScope(
+        stage_id=int(row["stage_id"]),
+        stage_name=row.get("stage_name"),
+        stage_format=row.get("stage_format"),
+    )
+
+
+def _validate_ranking_stage_scope(filters: GlobalFilters) -> RankingStageScope | None:
+    stage_scope = _resolve_ranking_stage_scope(filters)
+    if filters.stage_id is None:
+        return stage_scope
+
+    if stage_scope is None:
+        raise AppError(
+            message="Invalid value for 'stageId'. Requested stage does not exist in ranking context.",
+            code="INVALID_QUERY_PARAM",
+            status=400,
+            details={"stageId": filters.stage_id},
+        )
+
+    if filters.stage_format is not None and stage_scope.stage_format != filters.stage_format.value:
+        raise AppError(
+            message="Invalid stage scope. 'stageId' and 'stageFormat' refer to different structural contexts.",
+            code="INVALID_QUERY_PARAM",
+            status=400,
+            details={
+                "stageId": filters.stage_id,
+                "stageFormat": filters.stage_format.value,
+                "resolvedStageFormat": stage_scope.stage_format,
+            },
+        )
+
+    return stage_scope
 
 
 def _get_ranking_config(ranking_type: str) -> dict[str, Any]:
@@ -513,6 +590,8 @@ def get_ranking(
     competitionId: str | None = None,
     seasonId: str | None = None,
     roundId: str | None = None,
+    stageId: str | None = None,
+    stageFormat: str | None = None,
     venue: VenueFilter = VenueFilter.all,
     lastN: int | None = Query(default=None, gt=0),
     dateStart: date | None = None,
@@ -531,6 +610,8 @@ def get_ranking(
         competition_id=competitionId,
         season_id=seasonId,
         round_id=roundId,
+        stage_id=stageId,
+        stage_format=stageFormat,
         venue=venue,
         last_n=lastN,
         date_start=dateStart,
@@ -538,6 +619,7 @@ def get_ranking(
         date_range_start=dateRangeStart,
         date_range_end=dateRangeEnd,
     )
+    stage_scope = _validate_ranking_stage_scope(global_filters)
 
     effective_sort = sortDirection or ranking_config["defaultSort"]
 
@@ -550,6 +632,15 @@ def get_ranking(
             {
                 "rankingId": rankingType,
                 "metricKey": ranking_config["metricKey"],
+                "stage": (
+                    {
+                        "stageId": str(stage_scope.stage_id),
+                        "stageName": stage_scope.stage_name,
+                        "stageFormat": stage_scope.stage_format,
+                    }
+                    if stage_scope is not None
+                    else None
+                ),
                 "rows": [],
                 "updatedAt": None,
             },
@@ -617,6 +708,15 @@ def get_ranking(
     data = {
         "rankingId": rankingType,
         "metricKey": ranking_config["metricKey"],
+        "stage": (
+            {
+                "stageId": str(stage_scope.stage_id),
+                "stageName": stage_scope.stage_name,
+                "stageFormat": stage_scope.stage_format,
+            }
+            if stage_scope is not None
+            else None
+        ),
         "rows": normalized_rows,
         "updatedAt": datetime.now(UTC).isoformat(),
         "freshnessClass": freshnessClass,

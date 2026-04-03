@@ -121,28 +121,22 @@ with DAG(
         run_silver_to_postgres_fixtures = trigger_task("run_silver_to_postgres_fixtures", "silver_to_postgres_fixtures")
         run_ingest_fixtures >> run_bronze_to_silver_fixtures >> run_silver_to_postgres_fixtures
 
-        run_ingest_statistics = trigger_task("run_ingest_statistics_bronze", "ingest_statistics_bronze")
+        run_ingest_fixture_enrichments = trigger_task("run_ingest_fixture_enrichments_bronze", "ingest_fixture_enrichments_bronze")
+        run_silver_to_postgres_fixtures >> run_ingest_fixture_enrichments
+
         run_bronze_to_silver_statistics = trigger_task("run_bronze_to_silver_statistics", "bronze_to_silver_statistics")
         run_silver_to_postgres_statistics = trigger_task("run_silver_to_postgres_statistics", "silver_to_postgres_statistics")
-        run_silver_to_postgres_fixtures >> run_ingest_statistics
-        run_ingest_statistics >> run_bronze_to_silver_statistics >> run_silver_to_postgres_statistics
+        run_ingest_fixture_enrichments >> run_bronze_to_silver_statistics >> run_silver_to_postgres_statistics
 
-        run_ingest_match_events = trigger_task("run_ingest_match_events_bronze", "ingest_match_events_bronze")
         run_bronze_to_silver_match_events = trigger_task("run_bronze_to_silver_match_events", "bronze_to_silver_match_events")
         run_silver_to_postgres_match_events = trigger_task("run_silver_to_postgres_match_events", "silver_to_postgres_match_events")
-        run_silver_to_postgres_fixtures >> run_ingest_match_events
-        run_ingest_match_events >> run_bronze_to_silver_match_events >> run_silver_to_postgres_match_events
+        run_ingest_fixture_enrichments >> run_bronze_to_silver_match_events >> run_silver_to_postgres_match_events
 
     with TaskGroup(group_id="group_player_layer") as group_player_layer:
-        run_ingest_lineups = trigger_task("run_ingest_lineups_bronze", "ingest_lineups_bronze")
         run_bronze_to_silver_lineups = trigger_task("run_bronze_to_silver_lineups", "bronze_to_silver_lineups")
         run_silver_to_postgres_lineups = trigger_task("run_silver_to_postgres_lineups", "silver_to_postgres_lineups")
-        run_ingest_lineups >> run_bronze_to_silver_lineups >> run_silver_to_postgres_lineups
+        run_bronze_to_silver_lineups >> run_silver_to_postgres_lineups
 
-        run_ingest_fixture_player_statistics = trigger_task(
-            "run_ingest_fixture_player_statistics_bronze",
-            "ingest_fixture_player_statistics_bronze",
-        )
         run_bronze_to_silver_fixture_player_statistics = trigger_task(
             "run_bronze_to_silver_fixture_player_statistics",
             "bronze_to_silver_fixture_player_statistics",
@@ -151,7 +145,7 @@ with DAG(
             "run_silver_to_postgres_fixture_player_statistics",
             "silver_to_postgres_fixture_player_statistics",
         )
-        run_ingest_fixture_player_statistics >> run_bronze_to_silver_fixture_player_statistics >> run_silver_to_postgres_fixture_player_statistics
+        run_bronze_to_silver_fixture_player_statistics >> run_silver_to_postgres_fixture_player_statistics
 
         run_ingest_player_season_statistics = trigger_task(
             "run_ingest_player_season_statistics_bronze",
@@ -166,6 +160,7 @@ with DAG(
             "silver_to_postgres_player_season_statistics",
         )
         run_silver_to_postgres_lineups >> run_ingest_player_season_statistics
+        run_silver_to_postgres_fixture_player_statistics >> run_ingest_player_season_statistics
         run_ingest_player_season_statistics >> run_bronze_to_silver_player_season_statistics >> run_silver_to_postgres_player_season_statistics
 
     with TaskGroup(group_id="group_context_extras") as group_context_extras:
@@ -183,6 +178,12 @@ with DAG(
         run_bronze_to_silver_team_coaches = trigger_task("run_bronze_to_silver_team_coaches", "bronze_to_silver_team_coaches")
         run_silver_to_postgres_team_coaches = trigger_task("run_silver_to_postgres_team_coaches", "silver_to_postgres_team_coaches")
         run_ingest_team_coaches >> run_bronze_to_silver_team_coaches >> run_silver_to_postgres_team_coaches
+
+        run_ingest_coaches = trigger_task("run_ingest_coaches_bronze", "ingest_coaches_bronze")
+        run_bronze_to_silver_coaches = trigger_task("run_bronze_to_silver_coaches", "bronze_to_silver_coaches")
+        run_silver_to_postgres_coaches = trigger_task("run_silver_to_postgres_coaches", "silver_to_postgres_coaches")
+        run_silver_to_postgres_team_coaches >> run_ingest_coaches
+        run_ingest_coaches >> run_bronze_to_silver_coaches >> run_silver_to_postgres_coaches
 
         run_ingest_head_to_head = trigger_task("run_ingest_head_to_head_bronze", "ingest_head_to_head_bronze")
         run_bronze_to_silver_head_to_head = trigger_task("run_bronze_to_silver_head_to_head", "bronze_to_silver_head_to_head")
