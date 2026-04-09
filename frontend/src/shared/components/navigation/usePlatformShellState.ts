@@ -193,7 +193,7 @@ function buildSeasonSurfaceLinks(
     buildSurfaceLink(
       pathname,
       currentSearchParams,
-      "Destaques",
+      "Rankings",
       buildSeasonHubTabPath(context, "rankings", filterInput),
     ),
     buildSurfaceLink(pathname, currentSearchParams, "Jogadores", buildPlayersPath(filterInput)),

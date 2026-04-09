@@ -20,6 +20,19 @@ type UseCompetitionStructureOptions = {
   enabled?: boolean;
 };
 
+function isCompetitionStructureData(value: unknown): value is CompetitionStructureData {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const maybeData = value as Partial<CompetitionStructureData>;
+  return Boolean(
+    maybeData.competition &&
+      typeof maybeData.competition === "object" &&
+      Array.isArray(maybeData.stages),
+  );
+}
+
 function normalizeError(error: unknown): ApiError | null {
   if (!error || typeof error !== "object") {
     return null;
@@ -58,12 +71,12 @@ export function useCompetitionStructure(
 
   return useMemo(
     () => ({
-      data: query.data?.data ?? null,
+      data: isCompetitionStructureData(query.data?.data) ? query.data.data : null,
       isLoading: query.isLoading,
       isError: query.isError,
       error: normalizeError(query.error),
       coverage: query.data?.meta?.coverage ?? UNKNOWN_COVERAGE,
-      hasStructure: query.data !== null && query.data !== undefined,
+      hasStructure: isCompetitionStructureData(query.data?.data),
     }),
     [query.data, query.error, query.isError, query.isLoading],
   ) as {

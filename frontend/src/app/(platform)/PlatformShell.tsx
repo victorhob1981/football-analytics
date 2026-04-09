@@ -489,6 +489,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
             </button>
 
             <button
+              aria-label="02 Busca Global Buscar competicoes, partidas, times ou jogadores"
               aria-expanded={isSearchOpen}
               aria-haspopup="dialog"
               className="group inline-flex min-w-0 flex-1 items-center justify-between gap-4 rounded-[1rem] bg-[#eef3ff] px-4 py-2.5 text-left transition-colors hover:bg-[#e3ebff] md:max-w-[520px] lg:flex-none lg:min-w-[29rem] lg:max-w-[32rem] lg:rounded-[1.15rem] lg:px-5 lg:py-4"

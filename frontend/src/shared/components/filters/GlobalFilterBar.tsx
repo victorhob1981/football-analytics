@@ -58,6 +58,12 @@ type TeamFilterOptionsData = {
   items: TeamSelectOption[];
 };
 
+type TeamFilterOptionsApiResponse =
+  | {
+      data?: TeamFilterOptionsData | TeamSelectOption[] | null;
+    }
+  | undefined;
+
 function describeFilterMode(mode: string): string {
   if (mode === "dateRange") {
     return "Intervalo de datas";
@@ -154,7 +160,7 @@ async function fetchTeamFilterOptions(filters: {
   competitionId: string;
   seasonId: string;
 }): Promise<{ data: TeamFilterOptionsData }> {
-  return apiRequest<{ data: TeamFilterOptionsData }>("/api/v1/teams", {
+  const response = await apiRequest<TeamFilterOptionsApiResponse>("/api/v1/teams", {
     method: "GET",
     params: {
       competitionId: filters.competitionId,
@@ -165,6 +171,15 @@ async function fetchTeamFilterOptions(filters: {
       sortDirection: "asc",
     },
   });
+
+  const payload = response?.data;
+  const items = Array.isArray(payload) ? payload : payload?.items;
+
+  return {
+    data: {
+      items: Array.isArray(items) ? items : [],
+    },
+  };
 }
 
 function parseFiltersFromSearchParams(searchParams: SearchParamsLike): GlobalFiltersState {
@@ -351,10 +366,14 @@ function FilterField({
 }
 
 function StaticField({
+  controlId,
+  controlValue,
   label,
   value,
   badge,
 }: {
+  controlId?: string;
+  controlValue?: string;
   label: string;
   value: string;
   badge?: ReactNode;
@@ -365,6 +384,18 @@ function StaticField({
       <div className="flex h-10 items-center rounded-[0.95rem] border border-[rgba(188,203,220,0.9)] bg-[linear-gradient(180deg,rgba(249,252,255,0.96)_0%,rgba(243,247,251,0.92)_100%)] px-3.5 text-sm font-medium text-[#142033] shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]">
         <span className="truncate">{value}</span>
       </div>
+      {controlId ? (
+        <input
+          aria-hidden="true"
+          className="sr-only"
+          disabled
+          id={controlId}
+          readOnly
+          tabIndex={-1}
+          type="text"
+          value={controlValue ?? ""}
+        />
+      ) : null}
     </div>
   );
 }
@@ -441,7 +472,7 @@ export function GlobalFilterBar() {
     enabled: Boolean(competitionId && seasonId),
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    isDataEmpty: (data) => data.items.length === 0,
+    isDataEmpty: (data) => !Array.isArray(data.items) || data.items.length === 0,
   });
   const teamOptions = useMemo(() => teamsQuery.data?.items ?? [], [teamsQuery.data?.items]);
   const selectedTeam = useMemo(
@@ -768,6 +799,8 @@ export function GlobalFilterBar() {
                     {isCompetitionContextLocked ? (
                       <StaticField
                         badge={<MicroBadge tone="locked">Fixo</MicroBadge>}
+                        controlId="global-filter-competition-id"
+                        controlValue={competitionId ?? ""}
                         label="Competição"
                         value={selectedCompetitionLabel}
                       />
@@ -828,6 +861,8 @@ export function GlobalFilterBar() {
                     {isSeasonContextLocked ? (
                       <StaticField
                         badge={<MicroBadge tone="locked">Fixa</MicroBadge>}
+                        controlId="global-filter-season-id"
+                        controlValue={seasonId ?? ""}
                         label="Temporada"
                         value={selectedSeasonLabel}
                       />

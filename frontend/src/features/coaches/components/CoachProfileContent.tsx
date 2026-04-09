@@ -144,7 +144,10 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
             Tecnico
           </p>
-          <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
+          <h1
+            aria-label="Perfil de técnico indisponível"
+            className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]"
+          >
             Perfil de tecnico indisponivel
           </h1>
         </header>
