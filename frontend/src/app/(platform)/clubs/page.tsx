@@ -10,5 +10,5 @@ export default async function ClubsPage({ searchParams }: ClubsPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const queryString = buildPassthroughSearchParamsQueryString(resolvedSearchParams);
 
-  redirect(`/teams${queryString}`);
+  redirect(`/competitions${queryString}`);
 }
