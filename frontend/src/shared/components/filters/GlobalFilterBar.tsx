@@ -31,6 +31,7 @@ import {
   buildSeasonHubPath,
   getContextQueryKeysToLockForPath,
   getContextQueryKeysToOmitForPath,
+  resolveCompetitionSeasonContextFromPathname,
 } from "@/shared/utils/context-routing";
 import { describeTimeWindowLabel, describeVenueLabel } from "@/shared/utils/filter-descriptions";
 
@@ -63,6 +64,10 @@ type TeamFilterOptionsApiResponse =
       data?: TeamFilterOptionsData | TeamSelectOption[] | null;
     }
   | undefined;
+
+function isSeasonHubRootPathname(pathname: string): boolean {
+  return /^\/competitions\/[^/]+\/seasons\/[^/]+\/?$/.test(pathname);
+}
 
 function describeFilterMode(mode: string): string {
   if (mode === "dateRange") {
@@ -445,31 +450,43 @@ export function GlobalFilterBar() {
     () => /^\/competitions\/[^/]+\/seasons\/[^/]+(?:\/|$)/.test(pathname),
     [pathname],
   );
+  const isSeasonHubRootPath = useMemo(() => isSeasonHubRootPathname(pathname), [pathname]);
+  const pathnameContext = useMemo(
+    () => resolveCompetitionSeasonContextFromPathname(pathname),
+    [pathname],
+  );
+  const effectiveCompetitionId = competitionId ?? pathnameContext?.competitionId ?? null;
+  const effectiveSeasonId = seasonId ?? pathnameContext?.seasonId ?? null;
   const selectedCompetition = useMemo(
-    () => getCompetitionById(competitionId),
-    [competitionId],
+    () => getCompetitionById(effectiveCompetitionId),
+    [effectiveCompetitionId],
   );
   const selectedSeason = useMemo(() => {
     if (selectedCompetition) {
       return (
-        getSeasonByQueryId(seasonId, selectedCompetition.seasonCalendar) ?? getSeasonById(seasonId)
+        getSeasonByQueryId(effectiveSeasonId, selectedCompetition.seasonCalendar) ??
+        getSeasonById(effectiveSeasonId)
       );
     }
 
-    return getSeasonById(seasonId);
-  }, [seasonId, selectedCompetition]);
+    return getSeasonById(effectiveSeasonId);
+  }, [effectiveSeasonId, selectedCompetition]);
   const seasonOptions = useMemo(
-    () => buildSeasonOptions(competitionId, seasonId),
-    [competitionId, seasonId],
+    () => buildSeasonOptions(effectiveCompetitionId, effectiveSeasonId),
+    [effectiveCompetitionId, effectiveSeasonId],
   );
   const teamsQuery = useQueryWithCoverage<TeamFilterOptionsData>({
-    queryKey: ["global-filter-teams", competitionId ?? "none", seasonId ?? "none"],
+    queryKey: [
+      "global-filter-teams",
+      effectiveCompetitionId ?? "none",
+      effectiveSeasonId ?? "none",
+    ],
     queryFn: () =>
       fetchTeamFilterOptions({
-        competitionId: competitionId ?? "",
-        seasonId: seasonId ?? "",
+        competitionId: effectiveCompetitionId ?? "",
+        seasonId: effectiveSeasonId ?? "",
       }),
-    enabled: Boolean(competitionId && seasonId),
+    enabled: Boolean(effectiveCompetitionId && effectiveSeasonId),
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     isDataEmpty: (data) => !Array.isArray(data.items) || data.items.length === 0,
@@ -479,7 +496,8 @@ export function GlobalFilterBar() {
     () => teamOptions.find((team) => team.teamId === teamId) ?? null,
     [teamId, teamOptions],
   );
-  const resetButtonLabel = hasLockedRouteContext ? "Limpar filtros extras" : "Limpar filtros";
+  const resetButtonLabel =
+    isSeasonHubRootPath || hasLockedRouteContext ? "Limpar filtros extras" : "Limpar filtros";
   const inputClasses =
     "h-10 w-full rounded-[0.95rem] border border-[rgba(197,208,223,0.95)] bg-white px-3.5 text-sm text-[#162235] shadow-[0_1px_0_rgba(255,255,255,0.9),0_12px_28px_-26px_rgba(17,28,45,0.34)] outline-none transition-[border-color,box-shadow,background-color,transform] duration-150 ease-out placeholder:text-[#90a0b5] focus:border-[#184d3b] focus:bg-white focus:shadow-[0_0_0_3px_rgba(24,77,59,0.12)] disabled:cursor-not-allowed disabled:border-[rgba(210,219,231,0.94)] disabled:bg-[rgba(242,246,251,0.96)] disabled:text-[#6d7b8f]";
   const panelClasses =
@@ -506,15 +524,20 @@ export function GlobalFilterBar() {
   const currentViewSummary = [selectedTeamLabel, venueLabel, roundId ? `Rodada ${roundId}` : null]
     .filter(Boolean)
     .join(" · ");
+  const hasSeasonHubExtraFilters = Boolean(
+    teamId || roundId || venue !== "all" || lastN !== null || dateRangeStart || dateRangeEnd,
+  );
   const hasResettableFilters = Boolean(
-    (!isCompetitionContextLocked && competitionId) ||
-      (!isSeasonContextLocked && seasonId) ||
-      teamId ||
-      roundId ||
-      venue !== "all" ||
-      lastN !== null ||
-      dateRangeStart ||
-      dateRangeEnd,
+    isSeasonHubRootPath
+      ? hasSeasonHubExtraFilters
+      : (!isCompetitionContextLocked && competitionId) ||
+          (!isSeasonContextLocked && seasonId) ||
+          teamId ||
+          roundId ||
+          venue !== "all" ||
+          lastN !== null ||
+          dateRangeStart ||
+          dateRangeEnd,
   );
 
   const currentFilters = useMemo(
@@ -571,7 +594,80 @@ export function GlobalFilterBar() {
     },
     [currentUrlSignature, isUrlHydrated, pathname, router, searchParams],
   );
+  const applySeasonHubContextChange = useCallback(
+    ({
+      nextCompetitionId,
+      nextPathname,
+      nextSeasonId,
+    }: {
+      nextCompetitionId: string | null;
+      nextPathname: string;
+      nextSeasonId: string | null;
+    }) => {
+      setCompetitionId(nextCompetitionId);
+      setSeasonId(nextSeasonId);
+      if (teamId !== null) {
+        setTeamId(null);
+      }
+      if (roundId !== null) {
+        setRoundId(null);
+      }
+      if (venue !== "all") {
+        setVenue("all");
+      }
+      setTimeRange({ mode: "lastN", lastN: null });
+      replaceFiltersInUrl(
+        {
+          competitionId: nextCompetitionId,
+          seasonId: nextSeasonId,
+          teamId: null,
+          roundId: null,
+          venue: "all",
+          lastN: null,
+          dateRangeStart: null,
+          dateRangeEnd: null,
+        },
+        nextPathname,
+      );
+    },
+    [
+      replaceFiltersInUrl,
+      roundId,
+      setCompetitionId,
+      setRoundId,
+      setSeasonId,
+      setTeamId,
+      setTimeRange,
+      setVenue,
+      teamId,
+      venue,
+    ],
+  );
   const handleReset = useCallback(() => {
+    if (isSeasonHubRootPath) {
+      if (teamId !== null) {
+        setTeamId(null);
+      }
+      if (roundId !== null) {
+        setRoundId(null);
+      }
+      if (venue !== "all") {
+        setVenue("all");
+      }
+      setTimeRange({ mode: "lastN", lastN: null });
+      replaceFiltersInUrl({
+        competitionId: effectiveCompetitionId,
+        seasonId: effectiveSeasonId,
+        teamId: null,
+        roundId: null,
+        venue: "all",
+        lastN: null,
+        dateRangeStart: null,
+        dateRangeEnd: null,
+      });
+      return;
+    }
+
     const nextCompetitionId = isCompetitionContextLocked ? competitionId : null;
     const nextSeasonId = isSeasonContextLocked ? seasonId : null;
 
@@ -593,9 +689,13 @@ export function GlobalFilterBar() {
     });
   }, [
     competitionId,
+    effectiveCompetitionId,
+    effectiveSeasonId,
+    isSeasonHubRootPath,
     isCompetitionContextLocked,
     isSeasonContextLocked,
     replaceFiltersInUrl,
+    roundId,
     seasonId,
     setCompetitionId,
     setRoundId,
@@ -603,6 +703,8 @@ export function GlobalFilterBar() {
     setTeamId,
     setTimeRange,
     setVenue,
+    teamId,
+    venue,
   ]);
 
   useEffect(() => {
@@ -643,6 +745,10 @@ export function GlobalFilterBar() {
     }
 
     const parsedFilters = parseFiltersFromSearchParams(searchParams);
+    if (pathnameContext) {
+      parsedFilters.competitionId = pathnameContext.competitionId;
+      parsedFilters.seasonId = pathnameContext.seasonId;
+    }
     const currentStoreFilters = readGlobalFiltersSnapshot();
 
     if (!areFiltersEqual(currentStoreFilters, parsedFilters)) {
@@ -670,6 +776,7 @@ export function GlobalFilterBar() {
   }, [
     currentUrlSignature,
     currentFilters,
+    pathnameContext,
     pathname,
     searchParams,
     setCompetitionId,
@@ -704,7 +811,7 @@ export function GlobalFilterBar() {
   }, [currentFilters, isUrlHydrated, omittedContextKeys, pathname, router, searchParams]);
 
   useEffect(() => {
-    if (!competitionId || !seasonId) {
+    if (!effectiveCompetitionId || !effectiveSeasonId) {
       if (teamId !== null) {
         setTeamId(null);
         replaceFiltersInUrl({ teamId: null });
@@ -722,7 +829,123 @@ export function GlobalFilterBar() {
       setTeamId(null);
       replaceFiltersInUrl({ teamId: null });
     }
-  }, [competitionId, replaceFiltersInUrl, seasonId, setTeamId, teamId, teamOptions]);
+  }, [
+    effectiveCompetitionId,
+    effectiveSeasonId,
+    replaceFiltersInUrl,
+    setTeamId,
+    teamId,
+    teamOptions,
+  ]);
+
+  if (isSeasonHubRootPath) {
+    return (
+      <section
+        aria-label="Contexto da edição"
+        data-url-hydrated={isUrlHydrated ? "true" : "false"}
+        className="rounded-[1.4rem] border border-[rgba(208,220,236,0.88)] bg-[linear-gradient(180deg,rgba(252,253,255,0.98)_0%,rgba(245,248,252,0.94)_100%)] px-4 py-4 shadow-[0_20px_48px_-44px_rgba(17,28,45,0.34)]"
+      >
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+          <div className="grid flex-1 gap-3 md:grid-cols-[minmax(0,1.5fr)_220px]">
+            <FilterField label="Competição">
+              <select
+                className={inputClasses}
+                id="global-filter-competition-id"
+                onChange={(event) => {
+                  const nextCompetitionId = parseNullableText(event.target.value);
+                  const nextCompetition = getCompetitionById(nextCompetitionId);
+                  const nextSeason = nextCompetition
+                    ? resolveSeasonForCompetition(nextCompetition, {
+                        seasonId: effectiveSeasonId,
+                        seasonLabel: selectedSeason?.label ?? effectiveSeasonId,
+                      })
+                    : null;
+
+                  applySeasonHubContextChange({
+                    nextCompetitionId,
+                    nextPathname: nextCompetition
+                      ? nextSeason
+                        ? buildSeasonHubPath({
+                            competitionKey: nextCompetition.key,
+                            seasonLabel: nextSeason.label,
+                          })
+                        : buildCompetitionHubPath(nextCompetition.key)
+                      : "/competitions",
+                    nextSeasonId: nextSeason?.queryId ?? null,
+                  });
+                }}
+                value={effectiveCompetitionId ?? ""}
+              >
+                <option value="">Todas as competições</option>
+                {SUPPORTED_COMPETITIONS.map((competition) => (
+                  <option key={competition.id} value={competition.id}>
+                    {competition.name}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+
+            <FilterField label="Temporada">
+              <select
+                className={inputClasses}
+                disabled={!selectedCompetition}
+                id="global-filter-season-id"
+                onChange={(event) => {
+                  const nextSeasonId = parseNullableText(event.target.value);
+                  const nextSeason =
+                    selectedCompetition && nextSeasonId
+                      ? resolveSeasonForCompetition(selectedCompetition, {
+                          seasonId: nextSeasonId,
+                          seasonLabel:
+                            getSeasonByQueryId(nextSeasonId, selectedCompetition.seasonCalendar)
+                              ?.label ?? nextSeasonId,
+                        })
+                      : null;
+
+                  applySeasonHubContextChange({
+                    nextCompetitionId: effectiveCompetitionId,
+                    nextPathname: selectedCompetition
+                      ? nextSeason
+                        ? buildSeasonHubPath({
+                            competitionKey: selectedCompetition.key,
+                            seasonLabel: nextSeason.label,
+                          })
+                        : buildCompetitionHubPath(selectedCompetition.key)
+                      : "/competitions",
+                    nextSeasonId: nextSeason?.queryId ?? null,
+                  });
+                }}
+                value={effectiveSeasonId ?? ""}
+              >
+                <option value="">Todas as temporadas</option>
+                {seasonOptions.map((season) => (
+                  <option key={`${season.value}-${season.label}`} value={season.value}>
+                    {season.label}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+          </div>
+
+          <div className="flex xl:justify-end">
+            <button
+              className={joinClasses(
+                "inline-flex h-10 items-center justify-center rounded-[1rem] border px-4 text-sm font-semibold transition-[border-color,background-color,color] duration-150 ease-out",
+                hasResettableFilters
+                  ? "border-[rgba(197,208,223,0.95)] bg-white text-[#184d3b] hover:border-[rgba(24,77,59,0.28)] hover:bg-[rgba(24,77,59,0.04)]"
+                  : "border-[rgba(218,226,237,0.9)] bg-[rgba(248,250,253,0.92)] text-[#91a0b4]",
+              )}
+              disabled={!hasResettableFilters}
+              onClick={handleReset}
+              type="button"
+            >
+              {resetButtonLabel}
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

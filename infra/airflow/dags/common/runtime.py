@@ -190,9 +190,9 @@ def resolve_fixture_windows(
             season_start_date = str(catalog_scope.get("season_start_date") or "").strip()
             season_end_date = str(catalog_scope.get("season_end_date") or "").strip()
             if season_start_date and season_end_date:
-                if provider_name == "sportmonks" or "_" in season_label:
+                is_split_year_scope = "_" in season_label or season_start_date[:4] != season_end_date[:4]
+                if is_split_year_scope:
                     return _chunk_fixture_windows(season_start_date, season_end_date)
-                return [(season_start_date, season_end_date)]
 
     if season in DEFAULT_FIXTURE_WINDOWS_BY_SEASON:
         return DEFAULT_FIXTURE_WINDOWS_BY_SEASON[season]
