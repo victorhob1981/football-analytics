@@ -12,8 +12,6 @@ import {
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { useQueryWithCoverage } from "@/shared/hooks/useQueryWithCoverage";
-import { apiRequest } from "@/shared/services/api-client";
 import { useGlobalFilters } from "@/shared/hooks/useGlobalFilters";
 import { useGlobalFiltersStore } from "@/shared/stores/globalFilters.store";
 import { useTimeRange } from "@/shared/hooks/useTimeRange";
@@ -33,7 +31,7 @@ import {
   getContextQueryKeysToOmitForPath,
   resolveCompetitionSeasonContextFromPathname,
 } from "@/shared/utils/context-routing";
-import { describeTimeWindowLabel, describeVenueLabel } from "@/shared/utils/filter-descriptions";
+import { describeTimeWindowLabel } from "@/shared/utils/filter-descriptions";
 
 const FILTER_QUERY_KEYS = [
   "competitionId",
@@ -51,34 +49,9 @@ type SeasonSelectOption = {
   value: string;
   label: string;
 };
-type TeamSelectOption = {
-  teamId: string;
-  teamName: string;
-};
-type TeamFilterOptionsData = {
-  items: TeamSelectOption[];
-};
-
-type TeamFilterOptionsApiResponse =
-  | {
-      data?: TeamFilterOptionsData | TeamSelectOption[] | null;
-    }
-  | undefined;
 
 function isSeasonHubRootPathname(pathname: string): boolean {
   return /^\/competitions\/[^/]+\/seasons\/[^/]+\/?$/.test(pathname);
-}
-
-function describeFilterMode(mode: string): string {
-  if (mode === "dateRange") {
-    return "Intervalo de datas";
-  }
-
-  if (mode === "lastN") {
-    return "Últimas partidas";
-  }
-
-  return "Temporada inteira";
 }
 
 function parseVenue(value: string | null): VenueFilter {
@@ -159,32 +132,6 @@ function buildSeasonOptions(
   }
 
   return options;
-}
-
-async function fetchTeamFilterOptions(filters: {
-  competitionId: string;
-  seasonId: string;
-}): Promise<{ data: TeamFilterOptionsData }> {
-  const response = await apiRequest<TeamFilterOptionsApiResponse>("/api/v1/teams", {
-    method: "GET",
-    params: {
-      competitionId: filters.competitionId,
-      seasonId: filters.seasonId,
-      page: 1,
-      pageSize: 64,
-      sortBy: "teamName",
-      sortDirection: "asc",
-    },
-  });
-
-  const payload = response?.data;
-  const items = Array.isArray(payload) ? payload : payload?.items;
-
-  return {
-    data: {
-      items: Array.isArray(items) ? items : [],
-    },
-  };
 }
 
 function parseFiltersFromSearchParams(searchParams: SearchParamsLike): GlobalFiltersState {
@@ -288,64 +235,10 @@ function joinClasses(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function SummaryChip({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "locked";
-}) {
-  return (
-    <span
-      className={joinClasses(
-        "inline-flex min-w-0 items-center gap-2 rounded-full border px-2.5 py-1.5 text-[0.68rem] leading-none transition-colors",
-        tone === "locked"
-          ? "border-[rgba(20,122,87,0.18)] bg-[rgba(227,247,238,0.95)] text-[#0b5a42]"
-          : "border-[rgba(199,210,226,0.9)] bg-[rgba(255,255,255,0.94)] text-[#39485d]",
-      )}
-    >
-      <span className="font-semibold uppercase tracking-[0.16em] text-[#6d7b8f]">{label}</span>
-      <span
-        className={joinClasses(
-          "max-w-[14rem] truncate font-semibold",
-          tone === "locked" ? "text-[#0b5a42]" : "text-[#162235]",
-        )}
-      >
-        {value}
-      </span>
-    </span>
-  );
-}
-
-function MicroBadge({
-  children,
-  tone = "default",
-}: {
-  children: ReactNode;
-  tone?: "default" | "locked" | "active";
-}) {
-  return (
-    <span
-      className={joinClasses(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.14em]",
-        tone === "locked"
-          ? "bg-[rgba(15,92,67,0.1)] text-[#0f5c43]"
-          : tone === "active"
-            ? "bg-[rgba(23,92,67,0.12)] text-[#184d3b]"
-            : "bg-[rgba(227,232,240,0.78)] text-[#6c7890]",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 function FieldHeader({ label, badge }: { label: string; badge?: ReactNode }) {
   return (
-    <div className="mb-1.5 flex items-center justify-between gap-2">
-      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[#5f6f86]">
+    <div className="mb-[0.42rem] flex items-center justify-between gap-2">
+      <span className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#69778d]">
         {label}
       </span>
       {badge}
@@ -370,6 +263,120 @@ function FilterField({
   );
 }
 
+function StyledSelect({
+  disabled = false,
+  id,
+  label,
+  onChange,
+  options,
+  placeholder,
+  value,
+}: {
+  disabled?: boolean;
+  id: string;
+  label: string;
+  onChange: (value: string) => void;
+  options: SeasonSelectOption[];
+  placeholder: string;
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedOption = options.find((option) => option.value === value);
+  const displayValue = selectedOption?.label ?? placeholder;
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (containerRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={label}
+        className={joinClasses(
+          "flex min-h-[2.9rem] w-full items-center justify-between gap-3 rounded-[0.95rem] bg-white/95 px-[0.85rem] py-[0.7rem] text-left text-[0.92rem] font-semibold text-[#162235] shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_14px_32px_-30px_rgba(17,28,45,0.2)] outline-none transition-[box-shadow,background-color,transform] duration-180 ease-[cubic-bezier(0.23,1,0.32,1)] focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,53,38,0.14),inset_0_1px_0_rgba(255,255,255,0.88),0_14px_32px_-30px_rgba(17,28,45,0.2)] active:scale-[0.99]",
+          disabled
+            ? "cursor-not-allowed bg-[rgba(222,228,237,0.72)] text-[#93a0b4]"
+            : "hover:bg-white",
+        )}
+        disabled={disabled}
+        id={id}
+        onClick={() => {
+          setIsOpen((current) => !current);
+        }}
+        type="button"
+      >
+        <span className="truncate">{displayValue}</span>
+        <span
+          aria-hidden="true"
+          className={joinClasses(
+            "h-2 w-2 shrink-0 rotate-45 border-b-2 border-r-2 border-[#7a879a] transition-transform duration-180 ease-[cubic-bezier(0.23,1,0.32,1)]",
+            isOpen && "translate-y-0.5 rotate-[225deg]",
+          )}
+        />
+      </button>
+
+      {isOpen ? (
+        <div
+          className="absolute left-0 top-[calc(100%+0.45rem)] z-50 max-h-80 w-full min-w-[16rem] overflow-y-auto rounded-[0.95rem] border border-[rgba(214,223,236,0.9)] bg-white p-1.5 shadow-[0_24px_56px_-34px_rgba(17,28,45,0.32)]"
+          role="listbox"
+        >
+          {options.map((option) => {
+            const isSelected = option.value === value;
+
+            return (
+              <button
+                aria-selected={isSelected}
+                className={joinClasses(
+                  "flex min-h-9 w-full items-center rounded-[0.7rem] px-3 py-2 text-left text-[0.9rem] font-semibold transition-[background-color,color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]",
+                  isSelected
+                    ? "bg-[#003526] text-white"
+                    : "text-[#162235] hover:bg-[rgba(216,227,251,0.62)]",
+                )}
+                key={`${option.value}-${option.label}`}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                role="option"
+                type="button"
+              >
+                <span className="truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function StaticField({
   controlId,
   controlValue,
@@ -386,7 +393,7 @@ function StaticField({
   return (
     <div className="flex min-w-0 flex-col text-sm text-[#223146]">
       <FieldHeader badge={badge} label={label} />
-      <div className="flex h-10 items-center rounded-[0.95rem] border border-[rgba(188,203,220,0.9)] bg-[linear-gradient(180deg,rgba(249,252,255,0.96)_0%,rgba(243,247,251,0.92)_100%)] px-3.5 text-sm font-medium text-[#142033] shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]">
+      <div className="flex min-h-[2.9rem] items-center rounded-[0.95rem] bg-white/95 px-[0.85rem] py-[0.7rem] text-[0.92rem] font-semibold text-[#162235] shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_14px_32px_-30px_rgba(17,28,45,0.2)]">
         <span className="truncate">{value}</span>
       </div>
       {controlId ? (
@@ -475,41 +482,24 @@ export function GlobalFilterBar() {
     () => buildSeasonOptions(effectiveCompetitionId, effectiveSeasonId),
     [effectiveCompetitionId, effectiveSeasonId],
   );
-  const teamsQuery = useQueryWithCoverage<TeamFilterOptionsData>({
-    queryKey: [
-      "global-filter-teams",
-      effectiveCompetitionId ?? "none",
-      effectiveSeasonId ?? "none",
+  const competitionOptions = useMemo(
+    () => [
+      { value: "", label: "Todas as competições" },
+      ...SUPPORTED_COMPETITIONS.map((competition) => ({
+        value: competition.id,
+        label: competition.name,
+      })),
     ],
-    queryFn: () =>
-      fetchTeamFilterOptions({
-        competitionId: effectiveCompetitionId ?? "",
-        seasonId: effectiveSeasonId ?? "",
-      }),
-    enabled: Boolean(effectiveCompetitionId && effectiveSeasonId),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    isDataEmpty: (data) => !Array.isArray(data.items) || data.items.length === 0,
-  });
-  const teamOptions = useMemo(() => teamsQuery.data?.items ?? [], [teamsQuery.data?.items]);
-  const selectedTeam = useMemo(
-    () => teamOptions.find((team) => team.teamId === teamId) ?? null,
-    [teamId, teamOptions],
+    [],
   );
-  const resetButtonLabel =
-    isSeasonHubRootPath || hasLockedRouteContext ? "Limpar filtros extras" : "Limpar filtros";
-  const inputClasses =
-    "h-10 w-full rounded-[0.95rem] border border-[rgba(197,208,223,0.95)] bg-white px-3.5 text-sm text-[#162235] shadow-[0_1px_0_rgba(255,255,255,0.9),0_12px_28px_-26px_rgba(17,28,45,0.34)] outline-none transition-[border-color,box-shadow,background-color,transform] duration-150 ease-out placeholder:text-[#90a0b5] focus:border-[#184d3b] focus:bg-white focus:shadow-[0_0_0_3px_rgba(24,77,59,0.12)] disabled:cursor-not-allowed disabled:border-[rgba(210,219,231,0.94)] disabled:bg-[rgba(242,246,251,0.96)] disabled:text-[#6d7b8f]";
-  const panelClasses =
-    "rounded-[1.16rem] border border-[rgba(214,223,236,0.88)] bg-[rgba(255,255,255,0.78)] p-3.5 shadow-[0_18px_40px_-38px_rgba(17,28,45,0.3)]";
-  const hasTeamFilter = Boolean(teamId);
-  const activeReadModeLabel =
-    activeMode === "none" && roundId !== null ? "Rodada fixa" : describeFilterMode(activeMode);
+  const seasonDropdownOptions = useMemo(
+    () => [{ value: "", label: "Todas as temporadas" }, ...seasonOptions],
+    [seasonOptions],
+  );
+  const resetButtonLabel = "Limpar filtros";
   const selectedCompetitionLabel =
     selectedCompetition?.shortName ?? selectedCompetition?.name ?? "Todas as competições";
   const selectedSeasonLabel = selectedSeason?.label ?? "Todas as temporadas";
-  const selectedTeamLabel = selectedTeam?.teamName ?? "Todos os clubes";
-  const venueLabel = describeVenueLabel(venue);
   const activeWindowSummary =
     lastN !== null
       ? `Últimos ${lastN} jogos`
@@ -521,9 +511,6 @@ export function GlobalFilterBar() {
             dateRangeStart,
             dateRangeEnd,
           });
-  const currentViewSummary = [selectedTeamLabel, venueLabel, roundId ? `Rodada ${roundId}` : null]
-    .filter(Boolean)
-    .join(" · ");
   const hasSeasonHubExtraFilters = Boolean(
     teamId || roundId || venue !== "all" || lastN !== null || dateRangeStart || dateRangeEnd,
   );
@@ -538,6 +525,22 @@ export function GlobalFilterBar() {
           lastN !== null ||
           dateRangeStart ||
           dateRangeEnd,
+  );
+  const compactStatusSummary = [
+    roundId ? `Rodada ${roundId}` : null,
+    activeMode !== "lastN" || lastN !== null || dateRangeStart !== null || dateRangeEnd !== null
+      ? activeWindowSummary
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const controlBarClasses =
+    "rounded-[1.35rem] bg-[linear-gradient(180deg,rgba(240,243,255,0.82),rgba(248,251,255,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.84),0_16px_36px_-34px_rgba(17,28,45,0.18)]";
+  const resetButtonClasses = joinClasses(
+    "inline-flex min-h-[2.15rem] w-full items-center justify-center self-end rounded-full px-5 py-2 text-[0.72rem] font-extrabold uppercase tracking-[0.18em] transition-[transform,background-color,color,box-shadow] duration-180 ease-[cubic-bezier(0.23,1,0.32,1)] lg:w-auto lg:whitespace-nowrap",
+    hasResettableFilters
+      ? "bg-[#003526] text-white shadow-[0_14px_28px_-24px_rgba(0,53,38,0.55)] hover:-translate-y-0.5 hover:bg-[#004e39] hover:shadow-[0_18px_34px_-24px_rgba(0,53,38,0.55)] active:scale-[0.97]"
+      : "bg-[rgba(222,228,237,0.88)] text-[#93a0b4] shadow-none",
   );
 
   const currentFilters = useMemo(
@@ -816,133 +819,98 @@ export function GlobalFilterBar() {
         setTeamId(null);
         replaceFiltersInUrl({ teamId: null });
       }
-      return;
     }
-
-    if (!teamId || teamOptions.length === 0) {
-      return;
-    }
-
-    const teamStillAvailable = teamOptions.some((team) => team.teamId === teamId);
-
-    if (!teamStillAvailable) {
-      setTeamId(null);
-      replaceFiltersInUrl({ teamId: null });
-    }
-  }, [
-    effectiveCompetitionId,
-    effectiveSeasonId,
-    replaceFiltersInUrl,
-    setTeamId,
-    teamId,
-    teamOptions,
-  ]);
+  }, [effectiveCompetitionId, effectiveSeasonId, replaceFiltersInUrl, setTeamId, teamId]);
 
   if (isSeasonHubRootPath) {
     return (
       <section
         aria-label="Contexto da edição"
         data-url-hydrated={isUrlHydrated ? "true" : "false"}
-        className="rounded-[1.4rem] border border-[rgba(208,220,236,0.88)] bg-[linear-gradient(180deg,rgba(252,253,255,0.98)_0%,rgba(245,248,252,0.94)_100%)] px-4 py-4 shadow-[0_20px_48px_-44px_rgba(17,28,45,0.34)]"
+        className={controlBarClasses}
       >
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-          <div className="grid flex-1 gap-3 md:grid-cols-[minmax(0,1.5fr)_220px]">
-            <FilterField label="Competição">
-              <select
-                className={inputClasses}
-                id="global-filter-competition-id"
-                onChange={(event) => {
-                  const nextCompetitionId = parseNullableText(event.target.value);
-                  const nextCompetition = getCompetitionById(nextCompetitionId);
-                  const nextSeason = nextCompetition
-                    ? resolveSeasonForCompetition(nextCompetition, {
-                        seasonId: effectiveSeasonId,
-                        seasonLabel: selectedSeason?.label ?? effectiveSeasonId,
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
+          <FilterField label="Competição">
+            <StyledSelect
+              id="global-filter-competition-id"
+              label="Competição"
+              onChange={(nextValue) => {
+                const nextCompetitionId = parseNullableText(nextValue);
+                const nextCompetition = getCompetitionById(nextCompetitionId);
+                const nextSeason = nextCompetition
+                  ? resolveSeasonForCompetition(nextCompetition, {
+                      seasonId: effectiveSeasonId,
+                      seasonLabel: selectedSeason?.label ?? effectiveSeasonId,
+                    })
+                  : null;
+
+                applySeasonHubContextChange({
+                  nextCompetitionId,
+                  nextPathname: nextCompetition
+                    ? nextSeason
+                      ? buildSeasonHubPath({
+                          competitionKey: nextCompetition.key,
+                          seasonLabel: nextSeason.label,
+                        })
+                      : buildCompetitionHubPath(nextCompetition.key)
+                    : "/competitions",
+                  nextSeasonId: nextSeason?.queryId ?? null,
+                });
+              }}
+              options={competitionOptions}
+              placeholder="Todas as competições"
+              value={effectiveCompetitionId ?? ""}
+            />
+          </FilterField>
+
+          <FilterField label="Temporada">
+            <StyledSelect
+              disabled={!selectedCompetition}
+              id="global-filter-season-id"
+              label="Temporada"
+              onChange={(nextValue) => {
+                const nextSeasonId = parseNullableText(nextValue);
+                const nextSeason =
+                  selectedCompetition && nextSeasonId
+                    ? resolveSeasonForCompetition(selectedCompetition, {
+                        seasonId: nextSeasonId,
+                        seasonLabel:
+                          getSeasonByQueryId(nextSeasonId, selectedCompetition.seasonCalendar)
+                            ?.label ?? nextSeasonId,
                       })
                     : null;
 
-                  applySeasonHubContextChange({
-                    nextCompetitionId,
-                    nextPathname: nextCompetition
-                      ? nextSeason
-                        ? buildSeasonHubPath({
-                            competitionKey: nextCompetition.key,
-                            seasonLabel: nextSeason.label,
-                          })
-                        : buildCompetitionHubPath(nextCompetition.key)
-                      : "/competitions",
-                    nextSeasonId: nextSeason?.queryId ?? null,
-                  });
-                }}
-                value={effectiveCompetitionId ?? ""}
-              >
-                <option value="">Todas as competições</option>
-                {SUPPORTED_COMPETITIONS.map((competition) => (
-                  <option key={competition.id} value={competition.id}>
-                    {competition.name}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-
-            <FilterField label="Temporada">
-              <select
-                className={inputClasses}
-                disabled={!selectedCompetition}
-                id="global-filter-season-id"
-                onChange={(event) => {
-                  const nextSeasonId = parseNullableText(event.target.value);
-                  const nextSeason =
-                    selectedCompetition && nextSeasonId
-                      ? resolveSeasonForCompetition(selectedCompetition, {
-                          seasonId: nextSeasonId,
-                          seasonLabel:
-                            getSeasonByQueryId(nextSeasonId, selectedCompetition.seasonCalendar)
-                              ?.label ?? nextSeasonId,
+                applySeasonHubContextChange({
+                  nextCompetitionId: effectiveCompetitionId,
+                  nextPathname: selectedCompetition
+                    ? nextSeason
+                      ? buildSeasonHubPath({
+                          competitionKey: selectedCompetition.key,
+                          seasonLabel: nextSeason.label,
                         })
-                      : null;
+                      : buildCompetitionHubPath(selectedCompetition.key)
+                    : "/competitions",
+                  nextSeasonId: nextSeason?.queryId ?? null,
+                });
+              }}
+              options={seasonDropdownOptions}
+              placeholder="Todas as temporadas"
+              value={effectiveSeasonId ?? ""}
+            />
+          </FilterField>
 
-                  applySeasonHubContextChange({
-                    nextCompetitionId: effectiveCompetitionId,
-                    nextPathname: selectedCompetition
-                      ? nextSeason
-                        ? buildSeasonHubPath({
-                            competitionKey: selectedCompetition.key,
-                            seasonLabel: nextSeason.label,
-                          })
-                        : buildCompetitionHubPath(selectedCompetition.key)
-                      : "/competitions",
-                    nextSeasonId: nextSeason?.queryId ?? null,
-                  });
-                }}
-                value={effectiveSeasonId ?? ""}
-              >
-                <option value="">Todas as temporadas</option>
-                {seasonOptions.map((season) => (
-                  <option key={`${season.value}-${season.label}`} value={season.value}>
-                    {season.label}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
-          </div>
-
-          <div className="flex xl:justify-end">
-            <button
-              className={joinClasses(
-                "inline-flex h-10 items-center justify-center rounded-[1rem] border px-4 text-sm font-semibold transition-[border-color,background-color,color] duration-150 ease-out",
-                hasResettableFilters
-                  ? "border-[rgba(197,208,223,0.95)] bg-white text-[#184d3b] hover:border-[rgba(24,77,59,0.28)] hover:bg-[rgba(24,77,59,0.04)]"
-                  : "border-[rgba(218,226,237,0.9)] bg-[rgba(248,250,253,0.92)] text-[#91a0b4]",
-              )}
-              disabled={!hasResettableFilters}
-              onClick={handleReset}
-              type="button"
-            >
-              {resetButtonLabel}
-            </button>
-          </div>
+          <button
+            className={resetButtonClasses}
+            disabled={!hasResettableFilters}
+            onClick={handleReset}
+            type="button"
+          >
+            {resetButtonLabel}
+          </button>
         </div>
+        {compactStatusSummary ? (
+          <p className="mt-3 text-[0.8rem] font-semibold text-[#687790]">{compactStatusSummary}</p>
+        ) : null}
       </section>
     );
   }
@@ -951,287 +919,117 @@ export function GlobalFilterBar() {
     <section
       aria-label="Filtros do produto"
       data-url-hydrated={isUrlHydrated ? "true" : "false"}
-      className="rounded-[1.45rem] border border-[rgba(208,220,236,0.88)] bg-[linear-gradient(180deg,rgba(252,253,255,0.98)_0%,rgba(245,248,252,0.92)_100%)] px-4 py-4 shadow-[0_24px_56px_-48px_rgba(17,28,45,0.42)] backdrop-blur-xl"
+      className={controlBarClasses}
     >
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#5f6f86]">
-                Recorte global
-              </p>
-              {hasLockedRouteContext ? <MicroBadge tone="locked">Recorte da rota</MicroBadge> : null}
-              <MicroBadge tone="active">{activeReadModeLabel}</MicroBadge>
-            </div>
-            <p className="text-sm font-medium text-[#223146]">
-              {currentViewSummary}
-              <span className="text-[#73839a]"> · {activeWindowSummary}</span>
-            </p>
-          </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
+        {isCompetitionContextLocked ? (
+          <StaticField
+            controlId="global-filter-competition-id"
+            controlValue={competitionId ?? ""}
+            label="Competição"
+            value={selectedCompetitionLabel}
+          />
+        ) : (
+          <FilterField label="Competição">
+            <StyledSelect
+              disabled={isCompetitionContextLocked}
+              id="global-filter-competition-id"
+              label="Competição"
+              onChange={(nextValue) => {
+                const nextCompetitionId = parseNullableText(nextValue);
+                const nextCompetition = getCompetitionById(nextCompetitionId);
+                const nextSeason = nextCompetition
+                  ? resolveSeasonForCompetition(nextCompetition, {
+                      seasonId,
+                      seasonLabel: selectedSeason?.label ?? seasonId,
+                    })
+                  : null;
+                const nextSeasonId = nextSeason?.queryId ?? null;
+                const nextPathname = !isCompetitionScopedPath
+                  ? undefined
+                  : nextCompetition
+                    ? isCompetitionSeasonScopedPath && nextSeason
+                      ? buildSeasonHubPath({
+                          competitionKey: nextCompetition.key,
+                          seasonLabel: nextSeason.label,
+                        })
+                      : buildCompetitionHubPath(nextCompetition.key)
+                    : "/competitions";
 
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <button
-              className={joinClasses(
-                "inline-flex items-center rounded-full border px-3.5 py-2 text-sm font-semibold transition-[border-color,background-color,color,transform] duration-150 ease-out active:scale-[0.98]",
-                hasResettableFilters
-                  ? "border-[rgba(194,206,222,0.94)] bg-white text-[#184d3b] hover:border-[rgba(24,77,59,0.28)] hover:bg-[rgba(24,77,59,0.04)]"
-                  : "border-[rgba(218,226,237,0.9)] bg-[rgba(248,250,253,0.92)] text-[#91a0b4]",
-              )}
-              disabled={!hasResettableFilters}
-              onClick={handleReset}
-              type="button"
-            >
-              {resetButtonLabel}
-            </button>
-          </div>
-        </div>
+                setCompetitionId(nextCompetitionId);
+                setSeasonId(nextSeasonId);
+                if (teamId !== null) {
+                  setTeamId(null);
+                }
+                if (roundId !== null) {
+                  setRoundId(null);
+                }
+                replaceFiltersInUrl(
+                  {
+                    competitionId: nextCompetitionId,
+                    seasonId: nextSeasonId,
+                    teamId: null,
+                    roundId: null,
+                  },
+                  nextPathname,
+                );
+              }}
+              options={competitionOptions}
+              placeholder="Todas as competições"
+              value={competitionId ?? ""}
+            />
+          </FilterField>
+        )}
 
-        <div className="grid items-start gap-3">
-          <div className={panelClasses}>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-                <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#5f6f86]">
-                  Contexto e principais
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <SummaryChip
-                    label="Competição"
-                    tone={isCompetitionContextLocked ? "locked" : "default"}
-                    value={selectedCompetitionLabel}
-                  />
-                  <SummaryChip
-                    label="Temporada"
-                    tone={isSeasonContextLocked ? "locked" : "default"}
-                    value={selectedSeasonLabel}
-                  />
-                </div>
-              </div>
+        {isSeasonContextLocked ? (
+          <StaticField
+            controlId="global-filter-season-id"
+            controlValue={seasonId ?? ""}
+            label="Temporada"
+            value={selectedSeasonLabel}
+          />
+        ) : (
+          <FilterField label="Temporada">
+            <StyledSelect
+              disabled={isSeasonContextLocked}
+              id="global-filter-season-id"
+              label="Temporada"
+              onChange={(nextValue) => {
+                const nextSeasonId = parseNullableText(nextValue);
+                const nextRoundId = roundId !== null ? null : roundId;
 
-              <div className="grid gap-4 xl:grid-cols-[minmax(280px,0.78fr)_minmax(0,1.58fr)]">
-                <div className="space-y-3 xl:border-r xl:border-[rgba(220,229,239,0.82)] xl:pr-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#5f6f86]">
-                      Contexto
-                    </p>
-                    {hasLockedRouteContext ? (
-                      <MicroBadge tone="locked">Definido pela rota</MicroBadge>
-                    ) : null}
-                  </div>
+                setSeasonId(nextSeasonId);
+                if (teamId !== null) {
+                  setTeamId(null);
+                }
+                if (roundId !== null) {
+                  setRoundId(null);
+                }
+                replaceFiltersInUrl({
+                  seasonId: nextSeasonId,
+                  teamId: null,
+                  roundId: nextRoundId,
+                });
+              }}
+              options={seasonDropdownOptions}
+              placeholder="Todas as temporadas"
+              value={seasonId ?? ""}
+            />
+          </FilterField>
+        )}
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {isCompetitionContextLocked ? (
-                      <StaticField
-                        badge={<MicroBadge tone="locked">Fixo</MicroBadge>}
-                        controlId="global-filter-competition-id"
-                        controlValue={competitionId ?? ""}
-                        label="Competição"
-                        value={selectedCompetitionLabel}
-                      />
-                    ) : (
-                      <FilterField label="Competição">
-                        <select
-                          className={inputClasses}
-                          disabled={isCompetitionContextLocked}
-                          id="global-filter-competition-id"
-                          onChange={(event) => {
-                            const nextCompetitionId = parseNullableText(event.target.value);
-                            const nextCompetition = getCompetitionById(nextCompetitionId);
-                            const nextSeason = nextCompetition
-                              ? resolveSeasonForCompetition(nextCompetition, {
-                                  seasonId,
-                                  seasonLabel: selectedSeason?.label ?? seasonId,
-                                })
-                              : null;
-                            const nextSeasonId = nextSeason?.queryId ?? null;
-                            const nextPathname = !isCompetitionScopedPath
-                              ? undefined
-                              : nextCompetition
-                                ? isCompetitionSeasonScopedPath && nextSeason
-                                  ? buildSeasonHubPath({
-                                      competitionKey: nextCompetition.key,
-                                      seasonLabel: nextSeason.label,
-                                    })
-                                  : buildCompetitionHubPath(nextCompetition.key)
-                                : "/competitions";
-
-                            setCompetitionId(nextCompetitionId);
-                            setSeasonId(nextSeasonId);
-                            if (teamId !== null) {
-                              setTeamId(null);
-                            }
-                            if (roundId !== null) {
-                              setRoundId(null);
-                            }
-                            replaceFiltersInUrl({
-                              competitionId: nextCompetitionId,
-                              seasonId: nextSeasonId,
-                              teamId: null,
-                              roundId: null,
-                            }, nextPathname);
-                          }}
-                          value={competitionId ?? ""}
-                        >
-                          <option value="">Todas as competições</option>
-                          {SUPPORTED_COMPETITIONS.map((comp) => (
-                            <option key={comp.id} value={comp.id}>
-                              {comp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </FilterField>
-                    )}
-
-                    {isSeasonContextLocked ? (
-                      <StaticField
-                        badge={<MicroBadge tone="locked">Fixa</MicroBadge>}
-                        controlId="global-filter-season-id"
-                        controlValue={seasonId ?? ""}
-                        label="Temporada"
-                        value={selectedSeasonLabel}
-                      />
-                    ) : (
-                      <FilterField label="Temporada">
-                        <select
-                          className={inputClasses}
-                          disabled={isSeasonContextLocked}
-                          id="global-filter-season-id"
-                          onChange={(event) => {
-                            const nextSeasonId = parseNullableText(event.target.value);
-                            const nextRoundId = roundId !== null ? null : roundId;
-
-                            setSeasonId(nextSeasonId);
-                            if (teamId !== null) {
-                              setTeamId(null);
-                            }
-                            if (roundId !== null) {
-                              setRoundId(null);
-                            }
-                            replaceFiltersInUrl({
-                              seasonId: nextSeasonId,
-                              teamId: null,
-                              roundId: nextRoundId,
-                            });
-                          }}
-                          value={seasonId ?? ""}
-                        >
-                          <option value="">Todas as temporadas</option>
-                          {seasonOptions.map((season) => (
-                            <option key={`${season.value}-${season.label}`} value={season.value}>
-                              {season.label}
-                            </option>
-                          ))}
-                        </select>
-                      </FilterField>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3 xl:pl-4">
-                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#5f6f86]">
-                    Principais
-                  </p>
-
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1.7fr)_152px_176px]">
-                    {competitionId && seasonId ? (
-                      <FilterField
-                        badge={
-                          <MicroBadge tone={selectedTeam ? "active" : "default"}>
-                            {teamsQuery.isLoading
-                              ? "Carregando"
-                              : hasTeamFilter
-                                ? "Ativo"
-                                : "Opcional"}
-                          </MicroBadge>
-                        }
-                        label="Clube"
-                      >
-                        <select
-                          className={inputClasses}
-                          disabled={teamsQuery.isLoading || teamOptions.length === 0}
-                          id="global-filter-team-id"
-                          onChange={(event) => {
-                            const nextTeamId = parseNullableText(event.target.value);
-
-                            setTeamId(nextTeamId);
-                            if (roundId !== null) {
-                              setRoundId(null);
-                            }
-                            setTimeRange({ mode: "lastN", lastN: null });
-                            replaceFiltersInUrl({
-                              teamId: nextTeamId,
-                              roundId: null,
-                              lastN: null,
-                              dateRangeStart: null,
-                              dateRangeEnd: null,
-                            });
-                          }}
-                          value={teamId ?? ""}
-                        >
-                          <option value="">
-                            {teamsQuery.isLoading ? "Carregando clubes..." : "Todos os clubes"}
-                          </option>
-                          {teamOptions.map((team) => (
-                            <option key={team.teamId} value={team.teamId}>
-                              {team.teamName}
-                            </option>
-                          ))}
-                        </select>
-                      </FilterField>
-                    ) : (
-                      <StaticField
-                        badge={<MicroBadge>Base</MicroBadge>}
-                        label="Clube"
-                        value="Selecione competição e temporada"
-                      />
-                    )}
-
-                    <FilterField
-                      badge={
-                        roundId ? (
-                          <MicroBadge tone="active">Ativa</MicroBadge>
-                        ) : (
-                          <MicroBadge>Opcional</MicroBadge>
-                        )
-                      }
-                      label="Rodada"
-                    >
-                      <input
-                        className={inputClasses}
-                        id="global-filter-round-id"
-                        onChange={(event) => {
-                          const nextRoundId = parseNullableText(event.target.value);
-                          setRoundId(nextRoundId);
-                          replaceFiltersInUrl({ roundId: nextRoundId });
-                        }}
-                        placeholder="Ex: 1"
-                        type="text"
-                        value={roundId ?? ""}
-                      />
-                    </FilterField>
-
-                    <FilterField label="Mando">
-                      <select
-                        className={inputClasses}
-                        id="global-filter-venue"
-                        onChange={(event) => {
-                          const nextVenue = event.target.value as VenueFilter;
-                          setVenue(nextVenue);
-                          replaceFiltersInUrl({ venue: nextVenue });
-                        }}
-                        value={venue}
-                      >
-                        <option value="all">Todos</option>
-                        <option value="home">Casa</option>
-                        <option value="away">Fora</option>
-                      </select>
-                    </FilterField>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <button
+          className={resetButtonClasses}
+          disabled={!hasResettableFilters}
+          onClick={handleReset}
+          type="button"
+        >
+          {resetButtonLabel}
+        </button>
       </div>
+      {compactStatusSummary ? (
+        <p className="mt-3 text-[0.8rem] font-semibold text-[#687790]">{compactStatusSummary}</p>
+      ) : null}
     </section>
   );
 }

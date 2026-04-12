@@ -125,21 +125,11 @@ function buildCompetitionOrder(items: HomeCompetitionCard[]): HomeCompetitionCar
 }
 
 function buildCompetitionCardHref(competition: HomeCompetitionCard): string {
-  if (competition.latestContext) {
-    return `/competitions/${competition.latestContext.competitionKey}/seasons/${encodeURIComponent(
-      competition.latestContext.seasonLabel,
-    )}`;
-  }
-
   return buildCompetitionHubPath(competition.competitionKey);
 }
 
-function buildCompetitionCtaLabel(competition: HomeCompetitionCard): string {
-  if (competition.latestContext?.seasonLabel) {
-    return `Abrir temporada ${competition.latestContext.seasonLabel}`;
-  }
-
-  return "Abrir hub da competição";
+function buildCompetitionCtaLabel(_competition: HomeCompetitionCard): string {
+  return "Ver temporadas";
 }
 
 function buildVisualAssetUrl(

@@ -133,3 +133,6 @@ frontend/artifacts/block1-isolation/
 frontend/artifacts/runtime-validation/
 .tmp*.log
 *.pid
+
+images/
+imagens.py

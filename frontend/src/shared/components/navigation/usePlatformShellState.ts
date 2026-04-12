@@ -6,7 +6,6 @@ import { usePathname, useSearchParams, type ReadonlyURLSearchParams } from "next
 
 import { getCompetitionById, getCompetitionByKey } from "@/config/competitions.registry";
 import { getRankingDefinition } from "@/config/ranking.registry";
-import { getLatestSeasonForCompetition } from "@/config/seasons.registry";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 import { useTimeRange } from "@/shared/hooks/useTimeRange";
 import type {
@@ -367,22 +366,7 @@ export function usePlatformShellState(): PlatformShellState {
         ...buildSeasonSurfaceLinks(pathname, searchParams, context, sharedFilterInput),
       );
     } else if (competitionOnly) {
-      const latestSeason = getLatestSeasonForCompetition(competitionOnly);
-
       surfaceLinks.push(buildSurfaceLink(pathname, searchParams, "Competição", competitionHubHref));
-      if (latestSeason) {
-        surfaceLinks.push(
-          buildSurfaceLink(
-            pathname,
-            searchParams,
-            "Temporada",
-            buildSeasonHubPath({
-              competitionKey: competitionOnly.key,
-              seasonLabel: latestSeason.label,
-            }),
-          ),
-        );
-      }
     } else {
       surfaceLinks.push(
         buildSurfaceLink(pathname, searchParams, "Competições", "/competitions"),
