@@ -50,6 +50,9 @@ dbt/logs/
 dbt_packages/
 profiles.yml
 dbt/.user.yml
+platform/dbt/target*/
+platform/dbt/logs/
+platform/dbt/.user.yml
 
 # =========================
 # GREAT EXPECTATIONS
@@ -58,6 +61,9 @@ quality/great_expectations/uncommitted/
 quality/great_expectations/.ge_store_backend_id
 quality/gx/uncommitted/
 .ge_store_backend_id
+platform/quality/great_expectations/uncommitted/
+platform/quality/great_expectations/.ge_store_backend_id
+platform/quality/gx/uncommitted/
 
 # =========================
 # NODE / FRONTEND

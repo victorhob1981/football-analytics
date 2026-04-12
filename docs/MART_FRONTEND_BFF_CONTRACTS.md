@@ -7,18 +7,18 @@ Projeto: `football-analytics`
 
 Fonte de verdade usada para este mapeamento:
 
-- modelos finais em `dbt/models/marts/core/*.sql` e `dbt/models/marts/analytics/*.sql`
-- qualidade final em `dbt/target/run_results.json` (`dbt test --select marts.core marts.analytics`)
+- modelos finais em `platform/dbt/models/marts/core/*.sql` e `platform/dbt/models/marts/analytics/*.sql`
+- qualidade final em `platform/dbt/target/run_results.json` (`dbt test --select marts.core marts.analytics`)
 - auditoria final `raw -> mart` em:
-  - `artifacts/mart_final_audit_20260320/scope_status_summary.csv`
-  - `artifacts/mart_final_audit_20260320/mart_raw_scope_matrix.csv`
+  - `docs/artifacts/mart_final_audit_20260320/scope_status_summary.csv`
+  - `docs/artifacts/mart_final_audit_20260320/mart_raw_scope_matrix.csv`
 - quality gates finais em:
-  - `dbt/target/run_results.json`
+  - `platform/dbt/target/run_results.json`
   - `docs/GUIA_MESTRE_APLICACAO.md`
 
 Evidencia objetiva consolidada:
 
-- `dbt test` escopo `marts.core marts.analytics`: `124 pass`, `0 fail`, `0 error` (`dbt/target/run_results.json`, `generated_at=2026-03-20T18:16:58.497303Z`)
+- `dbt test` escopo `marts.core marts.analytics`: `124 pass`, `0 fail`, `0 error` (`platform/dbt/target/run_results.json`, `generated_at=2026-03-20T18:16:58.497303Z`)
 - auditoria final `raw -> mart`:
   - `COMPLETO=32`
   - `PROVIDER_COVERAGE_GAP=18`

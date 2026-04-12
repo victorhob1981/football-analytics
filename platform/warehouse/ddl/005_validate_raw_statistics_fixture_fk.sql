@@ -17,7 +17,7 @@ BEGIN
 
   IF NOT constraint_exists THEN
     RAISE EXCEPTION
-      'Constraint fk_match_statistics_fixture nao existe. Rode warehouse/ddl/004_raw_statistics_fixture_fk.sql primeiro.';
+      'Constraint fk_match_statistics_fixture nao existe. Rode platform/warehouse/ddl/004_raw_statistics_fixture_fk.sql primeiro.';
   END IF;
 
   SELECT COUNT(*)

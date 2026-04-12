@@ -7,8 +7,8 @@ This document is the single contract reference for the active flow:
 Contract sources used:
 - Raw physical schema: `db/migrations/*.sql`
 - Silver schemas and partitions: `infra/airflow/dags/bronze_to_silver_*.py`
-- Mart models: `dbt/models/**`
-- Quality rules: `dbt/models/**/schema.yml`, `dbt/tests/*.sql`, `quality/great_expectations/expectations/*.json`, `infra/airflow/dags/data_quality_checks.py`
+- Mart models: `platform/dbt/models/**`
+- Quality rules: `platform/dbt/models/**/schema.yml`, `platform/dbt/tests/*.sql`, `platform/quality/great_expectations/expectations/*.json`, `infra/airflow/dags/data_quality_checks.py`
 
 Detailed dbt field docs stay in dbt docs and model YAMLs. This file defines the end-to-end contract and ownership.
 
@@ -16,7 +16,7 @@ Detailed dbt field docs stay in dbt docs and model YAMLs. This file defines the 
 - Gate order in orchestrator (`infra/airflow/dags/pipeline_brasileirao.py`):
   `dbt_run -> great_expectations_checks -> data_quality_checks`
 - A pipeline run is valid only when all 3 gates pass.
-- dbt output schema default: `mart` (`dbt/profiles.yml`, `DBT_TARGET_SCHEMA`).
+- dbt output schema default: `mart` (`platform/dbt/profiles.yml`, `DBT_TARGET_SCHEMA`).
 
 ---
 
@@ -207,7 +207,7 @@ Main schema (written):
 
 ## Gold/Marts contracts (dbt models in schema `mart`)
 
-Note: legacy SQL marts in `warehouse/` are historical reference only. Active contract is dbt output.
+Note: legacy SQL marts in `platform/warehouse/` are historical reference only. Active contract is dbt output.
 
 ### Core dimensions
 
@@ -216,7 +216,7 @@ Note: legacy SQL marts in `warehouse/` are historical reference only. Active con
 - Key: `team_sk` (hash surrogate, unique), natural key `team_id`.
 - Required: `team_sk`, `team_id`, `team_name`.
 - Source: `stg_matches` (home/away union).
-- Quality: dbt `not_null` + `unique` on keys (`dbt/models/marts/core/schema.yml`).
+- Quality: dbt `not_null` + `unique` on keys (`platform/dbt/models/marts/core/schema.yml`).
 
 #### `dim_player`
 - Grain: 1 row per player (`player_id`).

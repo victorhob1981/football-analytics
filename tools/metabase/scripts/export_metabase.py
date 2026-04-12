@@ -108,7 +108,7 @@ def main():
     parser = argparse.ArgumentParser(description="Exporta dashboards do Metabase para JSON versionavel.")
     parser.add_argument(
         "--out",
-        default="bi/metabase/exports/metabase_export.json",
+        default="tools/metabase/exports/metabase_export.json",
         help="Arquivo de saida JSON.",
     )
     parser.add_argument(

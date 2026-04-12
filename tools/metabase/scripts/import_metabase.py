@@ -94,7 +94,7 @@ def main():
     parser = argparse.ArgumentParser(description="Importa artefatos versionados do Metabase.")
     parser.add_argument(
         "--in-file",
-        default="bi/metabase/exports/metabase_export.json",
+        default="tools/metabase/exports/metabase_export.json",
         help="Arquivo exportado do Metabase.",
     )
     args = parser.parse_args()

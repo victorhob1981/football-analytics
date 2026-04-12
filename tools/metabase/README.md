@@ -19,7 +19,7 @@ Este diretório versiona metadados de dashboard do Metabase sem incluir credenci
 $env:METABASE_URL='http://localhost:3000'
 $env:METABASE_USERNAME='admin@local'
 $env:METABASE_PASSWORD='admin123'
-python bi/metabase/scripts/export_metabase.py --out bi/metabase/exports/metabase_export.json
+python tools/metabase/scripts/export_metabase.py --out tools/metabase/exports/metabase_export.json
 ```
 
 Export default tenta os dashboards:
@@ -39,7 +39,7 @@ $env:METABASE_URL='http://localhost:3000'
 $env:METABASE_USERNAME='admin@local'
 $env:METABASE_PASSWORD='admin123'
 $env:METABASE_DATABASE_NAME='football_dw'
-python bi/metabase/scripts/import_metabase.py --in-file bi/metabase/exports/metabase_export.json
+python tools/metabase/scripts/import_metabase.py --in-file tools/metabase/exports/metabase_export.json
 ```
 
 ## Notas de idempotência
