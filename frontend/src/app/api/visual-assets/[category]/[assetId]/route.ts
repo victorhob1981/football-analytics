@@ -62,7 +62,16 @@ export async function GET(
     return NextResponse.json({ message: "Asset não encontrado." }, { status: 404 });
   }
 
-  const entries = await loadManifestEntries(category);
+  let entries: ManifestEntry[];
+  try {
+    entries = await loadManifestEntries(category);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return NextResponse.json({ message: "Asset não encontrado." }, { status: 404 });
+    }
+    throw error;
+  }
+
   const entry = entries.find(
     (candidate) =>
       typeof candidate.entity_id === "number" &&
@@ -75,9 +84,17 @@ export async function GET(
   }
 
   const assetPath = path.resolve(process.cwd(), "..", entry.local_path);
-  const buffer = await fs.readFile(assetPath);
+  let buffer: Buffer;
+  try {
+    buffer = await fs.readFile(assetPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return NextResponse.json({ message: "Asset não encontrado." }, { status: 404 });
+    }
+    throw error;
+  }
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Cache-Control": "public, max-age=86400, immutable",
       "Content-Type": entry.content_type ?? "image/png",

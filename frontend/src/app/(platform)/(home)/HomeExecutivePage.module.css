@@ -21,9 +21,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(90deg, rgba(5, 30, 23, 0.12), rgba(5, 30, 23, 0.03)),
-    url("/home/maracana-hero-backdrop.png");
+  background: linear-gradient(135deg, rgba(5, 30, 23, 0.18), rgba(236, 244, 240, 0.84));
   background-position: center 18%;
   background-repeat: no-repeat;
   background-size: cover;

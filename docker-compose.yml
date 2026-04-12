@@ -89,7 +89,6 @@
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       FOOTBALL_PG_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      WORLD_CUP_DATA_MOUNT_ROOT: /opt/airflow/data
 
 
 
@@ -123,7 +122,7 @@
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW__CORE__ENABLE_XCOM_PICKLING: "true"
-      PYTHONPATH: /opt/airflow:/opt/airflow/dags:/opt/airflow/src
+      PYTHONPATH: /opt/airflow:/opt/airflow/dags
       APIFOOTBALL_API_KEY: ${APIFOOTBALL_API_KEY}
       APIFOOTBALL_BASE_URL: ${APIFOOTBALL_BASE_URL}
       ACTIVE_PROVIDER: ${ACTIVE_PROVIDER:-sportmonks}
@@ -145,11 +144,8 @@
 
     volumes:
       - ./infra/airflow/dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
-      - ./platform/warehouse:/opt/airflow/warehouse
       - ./platform/dbt:/opt/airflow/dbt
       - ./platform/quality:/opt/airflow/quality
-      - ./data:/opt/airflow/data
     ports:
       - "8080:8080"
     command: webserver
@@ -166,7 +162,7 @@
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW__CORE__ENABLE_XCOM_PICKLING: "true"
-      PYTHONPATH: /opt/airflow:/opt/airflow/dags:/opt/airflow/src
+      PYTHONPATH: /opt/airflow:/opt/airflow/dags
       APIFOOTBALL_API_KEY: ${APIFOOTBALL_API_KEY}
       APIFOOTBALL_BASE_URL: ${APIFOOTBALL_BASE_URL}
       ACTIVE_PROVIDER: ${ACTIVE_PROVIDER:-sportmonks}
@@ -183,17 +179,13 @@
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       FOOTBALL_PG_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      WORLD_CUP_DATA_MOUNT_ROOT: /opt/airflow/data
 
 
 
     volumes:
       - ./infra/airflow/dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src
-      - ./platform/warehouse:/opt/airflow/warehouse
       - ./platform/dbt:/opt/airflow/dbt
       - ./platform/quality:/opt/airflow/quality
-      - ./data:/opt/airflow/data
     command: scheduler
 
 
@@ -207,7 +199,6 @@
       mc alias set local ${MINIO_ENDPOINT_URL} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
       mc mb local/football-bronze;
       mc mb local/football-silver;
-      mc mb local/football-gold;
       exit 0;
       "
 
