@@ -2,10 +2,10 @@ from pathlib import Path
 
 
 REQUIRED_SQL_FILES = [
-    "warehouse/queries/mart_team_monthly_upsert.sql",
-    "warehouse/queries/mart_league_summary_upsert.sql",
-    "warehouse/queries/mart_standings_evolution_upsert.sql",
-    "warehouse/queries/mart_team_performance_upsert.sql",
+    "platform/warehouse/queries/mart_team_monthly_upsert.sql",
+    "platform/warehouse/queries/mart_league_summary_upsert.sql",
+    "platform/warehouse/queries/mart_standings_evolution_upsert.sql",
+    "platform/warehouse/queries/mart_team_performance_upsert.sql",
 ]
 
 

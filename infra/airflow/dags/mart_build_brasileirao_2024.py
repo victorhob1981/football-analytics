@@ -19,7 +19,7 @@ def _assert_mart_objects(conn):
         text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'mart')")
     ).scalar_one()
     if not schema_exists:
-        raise ValueError("Schema mart nao existe. Aplique warehouse/ddl/010_mart_schema.sql.")
+        raise ValueError("Schema mart nao existe. Aplique platform/warehouse/ddl/010_mart_schema.sql.")
 
     required_tables = {"team_match_goals_monthly", "league_summary", "standings_evolution", "team_performance_monthly"}
     found_tables = {
@@ -38,7 +38,7 @@ def _assert_mart_objects(conn):
     if missing_tables:
         raise ValueError(
             f"Tabelas mart ausentes: {missing_tables}. "
-            "Aplique warehouse/ddl/011_mart_tables.sql."
+            "Aplique platform/warehouse/ddl/011_mart_tables.sql."
         )
 
     required_team_cols = {"points", "goal_diff"}
@@ -58,7 +58,7 @@ def _assert_mart_objects(conn):
     if missing_team_cols:
         raise ValueError(
             f"Colunas mart.team_match_goals_monthly ausentes: {missing_team_cols}. "
-            "Aplique warehouse/ddl/011_mart_tables.sql atualizado."
+            "Aplique platform/warehouse/ddl/011_mart_tables.sql atualizado."
         )
 
 
@@ -89,12 +89,12 @@ def _read_sql(filename: str) -> str:
     if configured_dir:
         candidates.append(Path(configured_dir) / filename)
 
-    # Repo local path: <repo>/infra/airflow/dags -> <repo>/warehouse/queries
-    candidates.append(Path(__file__).resolve().parents[3] / "warehouse" / "queries" / filename)
+    # Repo local path: <repo>/infra/airflow/dags -> <repo>/platform/warehouse/queries
+    candidates.append(Path(__file__).resolve().parents[3] / "platform" / "warehouse" / "queries" / filename)
     # Container path fallback if warehouse is mounted into /opt/airflow/warehouse
     candidates.append(Path("/opt/airflow/warehouse/queries") / filename)
     # Last fallback for local executions from repo root
-    candidates.append(Path.cwd() / "warehouse" / "queries" / filename)
+    candidates.append(Path.cwd() / "platform" / "warehouse" / "queries" / filename)
 
     for path in candidates:
         if path.exists():

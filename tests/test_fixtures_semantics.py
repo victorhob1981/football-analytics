@@ -143,7 +143,7 @@ def test_data_quality_checks_include_fixture_semantic_guards() -> None:
 
 def test_raw_fixtures_suite_requires_semantic_columns() -> None:
     expectation_suite = json.loads(
-        Path("quality/great_expectations/expectations/raw_fixtures_suite.json").read_text()
+        Path("platform/quality/great_expectations/expectations/raw_fixtures_suite.json").read_text()
     )
     not_null_columns = {
         expectation["kwargs"]["column"]

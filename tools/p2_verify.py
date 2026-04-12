@@ -39,9 +39,9 @@ def _run_stats_queries_step(*, artifact_dir: Path, db_name: str, db_user: str) -
     started_at = time.perf_counter()
 
     query_files = [
-        Path("warehouse/queries/fixtures_missing_stats.sql"),
-        Path("warehouse/queries/stats_duplicates.sql"),
-        Path("warehouse/queries/coverage_by_season.sql"),
+        Path("platform/warehouse/queries/fixtures_missing_stats.sql"),
+        Path("platform/warehouse/queries/stats_duplicates.sql"),
+        Path("platform/warehouse/queries/coverage_by_season.sql"),
     ]
     psql_cmd = [
         "docker",

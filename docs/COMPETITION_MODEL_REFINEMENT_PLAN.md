@@ -43,12 +43,12 @@ Leitura correta:
 
 Ha forte legado semantico em `league_id` / `league_name`:
 
-- `dbt/models/marts/core/dim_competition.sql`
-- `dbt/models/marts/core/fact_standings_snapshots.sql`
-- `dbt/models/marts/analytics/league_summary.sql`
-- `dbt/models/marts/analytics/standings_evolution.sql`
-- `dbt/models/marts/core/schema.yml`
-- `dbt/models/marts/analytics/schema.yml`
+- `platform/dbt/models/marts/core/dim_competition.sql`
+- `platform/dbt/models/marts/core/fact_standings_snapshots.sql`
+- `platform/dbt/models/marts/analytics/league_summary.sql`
+- `platform/dbt/models/marts/analytics/standings_evolution.sql`
+- `platform/dbt/models/marts/core/schema.yml`
+- `platform/dbt/models/marts/analytics/schema.yml`
 
 Leitura correta:
 

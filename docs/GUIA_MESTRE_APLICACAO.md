@@ -84,11 +84,11 @@ Stack atual do repo:
 - Airflow em `infra/airflow/dags/`
 - MinIO para bronze/silver
 - Postgres para `raw`, `mart` e tabelas de controle
-- dbt em `dbt/`
-- quality gates em `quality/` e DAGs de validacao
+- dbt em `platform/dbt/`
+- quality gates em `platform/quality/` e DAGs de validacao
 - BFF em `api/`
 - frontend em `frontend/`
-- dashboards versionados em `bi/metabase/`
+- dashboards versionados em `tools/metabase/`
 
 ## 5. Escopo de dados
 

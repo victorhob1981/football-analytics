@@ -3,7 +3,7 @@
 -- 1) Keep check query for orphans
 -- 2) Ensure index exists on fixture_id
 -- 3) Add FK as NOT VALID to avoid long lock/validation on large tables
--- 4) Validate later via warehouse/ddl/005_validate_raw_statistics_fixture_fk.sql
+-- 4) Validate later via platform/warehouse/ddl/005_validate_raw_statistics_fixture_fk.sql
 
 CREATE INDEX IF NOT EXISTS idx_match_statistics_fixture
   ON raw.match_statistics (fixture_id);

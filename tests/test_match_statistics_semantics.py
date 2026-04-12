@@ -136,7 +136,7 @@ def test_data_quality_checks_include_statistics_semantic_guards():
 
 def test_raw_match_statistics_suite_requires_semantic_columns():
     expectation_suite = json.loads(
-        Path("quality/great_expectations/expectations/raw_match_statistics_suite.json").read_text()
+        Path("platform/quality/great_expectations/expectations/raw_match_statistics_suite.json").read_text()
     )
     not_null_columns = {
         expectation["kwargs"]["column"]

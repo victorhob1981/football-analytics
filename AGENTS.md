@@ -36,7 +36,7 @@ Long-term target (not all implemented yet):
 
 ## Repo Map (expected)
 - `infra/airflow/dags/` — Airflow DAGs
-- `warehouse/ddl/` — Postgres DDL/migrations
+- `platform/warehouse/ddl/` — Postgres DDL/migrations
 - `pipelines/` or `src/` — Python pipeline logic (if present)
 - `README.md` — how to run locally
 
