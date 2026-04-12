@@ -11,7 +11,7 @@ import {
 import { getLatestSeasonForCompetition, listSeasonsForCompetition } from "@/config/seasons.registry";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
-import { buildCompetitionHubPath, buildSeasonHubPath } from "@/shared/utils/context-routing";
+import { buildCompetitionHubPath } from "@/shared/utils/context-routing";
 
 import styles from "./page.module.css";
 
@@ -116,26 +116,11 @@ function buildCompetitionGroups(competitions: CompetitionDef[]) {
 }
 
 function buildCompetitionCardHref(competition: CompetitionDef): string {
-  const latestSeason = getLatestSeasonForCompetition(competition);
-
-  if (!latestSeason) {
-    return buildCompetitionHubPath(competition.key);
-  }
-
-  return buildSeasonHubPath({
-    competitionKey: competition.key,
-    seasonLabel: latestSeason.label,
-  });
+  return buildCompetitionHubPath(competition.key);
 }
 
-function buildCompetitionCtaLabel(competition: CompetitionDef): string {
-  const latestSeason = getLatestSeasonForCompetition(competition);
-
-  if (!latestSeason) {
-    return "Abrir competição";
-  }
-
-  return `Abrir temporada ${latestSeason.label}`;
+function buildCompetitionCtaLabel(_competition: CompetitionDef): string {
+  return "Ver temporadas";
 }
 
 function buildCompetitionFallbackLabel(competition: CompetitionDef): string {
