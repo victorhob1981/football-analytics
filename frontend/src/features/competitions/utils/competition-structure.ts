@@ -19,7 +19,7 @@ export function isTableStageFormat(stageFormat: CompetitionStageFormat): boolean
 export function getStageFormatLabel(stageFormat: CompetitionStageFormat): string {
   switch (stageFormat) {
     case "league_table":
-      return "League phase";
+      return "Fase classificatória";
     case "group_table":
       return "Fase de grupos";
     case "qualification_knockout":
@@ -52,7 +52,7 @@ export function describeCompetitionEdition(structure: CompetitionStructureData |
     stageFormats.has("placement_match");
 
   if (hasLeagueTable && hasKnockout) {
-    return "League phase + mata-mata";
+    return "Fase classificatória + mata-mata";
   }
 
   if (hasGroupTable && hasKnockout) {
@@ -64,7 +64,7 @@ export function describeCompetitionEdition(structure: CompetitionStructureData |
   }
 
   if (hasLeagueTable) {
-    return "League phase";
+    return "Fase classificatória";
   }
 
   if (hasKnockout) {

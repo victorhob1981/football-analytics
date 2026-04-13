@@ -1,13 +1,12 @@
+import { CHAMPION_ARTWORK_BY_EDITION } from "./champion-media.generated";
+
 export type SeasonChampionArtwork = {
   src: string;
-  teamName: string;
 };
 
 function buildEditionKey(competitionKey: string, seasonLabel: string): string {
   return `${competitionKey}::${seasonLabel}`;
 }
-
-const CHAMPION_ARTWORK_BY_EDITION: Record<string, SeasonChampionArtwork> = {};
 
 export function resolveSeasonChampionArtwork(
   competitionKey: string,

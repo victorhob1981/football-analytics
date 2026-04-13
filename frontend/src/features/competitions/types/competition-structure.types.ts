@@ -67,6 +67,43 @@ export interface CompetitionStructureFilters {
   seasonLabel?: string | null;
 }
 
+export type HistoricalStatEntityType = "team" | "player" | "match";
+
+export interface CompetitionHistoricalStatItem {
+  statCode: string;
+  label: string;
+  entityType: HistoricalStatEntityType;
+  entityId?: string | null;
+  entityName: string;
+  value?: number | string | null;
+  valueLabel?: string | null;
+  rank?: number | null;
+  seasonLabel?: string | null;
+  occurredOn?: string | null;
+  sourceUrl?: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface CompetitionHistoricalStatGroup {
+  items: CompetitionHistoricalStatItem[];
+  source: string;
+  asOfYear: number;
+}
+
+export interface CompetitionHistoricalStatsData {
+  champions: CompetitionHistoricalStatGroup;
+  scorers: CompetitionHistoricalStatGroup;
+  teamRecords: CompetitionHistoricalStatGroup;
+  matchRecords: CompetitionHistoricalStatGroup;
+  playerRecords: CompetitionHistoricalStatGroup;
+  updatedAt?: string | null;
+}
+
+export interface CompetitionHistoricalStatsFilters {
+  competitionKey?: string | null;
+  asOfYear?: number | null;
+}
+
 export interface StageTie {
   tieId: string;
   tieOrder: number;

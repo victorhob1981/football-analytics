@@ -2,6 +2,7 @@ import { buildQueryKey } from "@/shared/utils/queryKeys";
 
 import type {
   CompetitionAnalyticsFilters,
+  CompetitionHistoricalStatsFilters,
   CompetitionStructureFilters,
   StageTiesFilters,
   TeamJourneyHistoryFilters,
@@ -15,6 +16,8 @@ export const competitionStructureQueryKeys = {
     buildQueryKey(COMPETITIONS_DOMAIN, "structure", filters),
   analytics: (filters: CompetitionAnalyticsFilters) =>
     buildQueryKey(COMPETITIONS_DOMAIN, "analytics", filters),
+  historicalStats: (filters: CompetitionHistoricalStatsFilters) =>
+    buildQueryKey(COMPETITIONS_DOMAIN, "historical-stats", filters),
   ties: (filters: StageTiesFilters) => buildQueryKey(COMPETITIONS_DOMAIN, "ties", filters),
   teamJourney: (filters: TeamJourneyHistoryFilters) =>
     buildQueryKey(COMPETITIONS_DOMAIN, "team-journey", filters),

@@ -4,6 +4,8 @@ import type { ApiResponse } from "@/shared/types/api-response.types";
 import type {
   CompetitionAnalyticsData,
   CompetitionAnalyticsFilters,
+  CompetitionHistoricalStatsData,
+  CompetitionHistoricalStatsFilters,
   CompetitionStructureData,
   CompetitionStructureFilters,
   StageTiesData,
@@ -14,6 +16,7 @@ import type {
 
 const COMPETITION_STRUCTURE_ENDPOINT = "/api/v1/competition-structure";
 const COMPETITION_ANALYTICS_ENDPOINT = "/api/v1/competition-analytics";
+const COMPETITION_HISTORICAL_STATS_ENDPOINT = "/api/v1/competition-historical-stats";
 const STAGE_TIES_ENDPOINT = "/api/v1/ties";
 const TEAM_JOURNEY_HISTORY_ENDPOINT = "/api/v1/team-journey-history";
 
@@ -48,6 +51,15 @@ export async function fetchCompetitionAnalytics(
   filters: CompetitionAnalyticsFilters,
 ): Promise<ApiResponse<CompetitionAnalyticsData>> {
   return apiRequest<ApiResponse<CompetitionAnalyticsData>>(COMPETITION_ANALYTICS_ENDPOINT, {
+    method: "GET",
+    params: toQueryParams(filters as Record<string, unknown>),
+  });
+}
+
+export async function fetchCompetitionHistoricalStats(
+  filters: CompetitionHistoricalStatsFilters,
+): Promise<ApiResponse<CompetitionHistoricalStatsData>> {
+  return apiRequest<ApiResponse<CompetitionHistoricalStatsData>>(COMPETITION_HISTORICAL_STATS_ENDPOINT, {
     method: "GET",
     params: toQueryParams(filters as Record<string, unknown>),
   });
