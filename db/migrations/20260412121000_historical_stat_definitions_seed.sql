@@ -65,7 +65,7 @@ VALUES
   (
     'longest_unbeaten_run',
     'team_records',
-    'Maior sequencia invicta',
+    'Maior sequência invicta',
     'Team record for longest unbeaten run in the competition.',
     'team',
     'matches',
@@ -75,7 +75,7 @@ VALUES
   (
     'longest_winning_run',
     'team_records',
-    'Maior sequencia de vitorias',
+    'Maior sequência de vitórias',
     'Team record for longest winning run in the competition.',
     'team',
     'matches',

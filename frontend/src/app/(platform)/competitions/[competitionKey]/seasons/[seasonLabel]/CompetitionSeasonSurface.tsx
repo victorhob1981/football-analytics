@@ -2197,7 +2197,7 @@ function LeagueStandingsTable({
             <th className="w-12 py-3.5 px-4 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]">Pos</th>
             <th className="min-w-[180px] py-3.5 px-4 text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]">Clube</th>
             <th className="py-3.5 px-3 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]" title="Partidas jogadas">PJ</th>
-            <th className="py-3.5 px-3 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]" title="Vitorias">V</th>
+            <th className="py-3.5 px-3 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]" title="Vitórias">V</th>
             <th className="py-3.5 px-3 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]" title="Empates">E</th>
             <th className="py-3.5 px-3 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]" title="Derrotas">D</th>
             <th className="py-3.5 px-4 text-center text-[0.68rem] font-bold uppercase tracking-widest text-[#515f74]" title="Saldo de gols">SG</th>
@@ -3421,7 +3421,7 @@ function EditionTravelRailCard({ context }: { context: CompetitionSeasonContext 
   const insights = useEditionRailInsights(context);
   const coverage = resolveRailCoverage(
     [insights.standingsQuery.coverage, insights.matchesQuery.coverage],
-    "Dados parciais de mando e viagem",
+    "Dados de mando e viagem",
   );
 
   const bestHomeTeam = insights.bestHomeTeam;
@@ -3454,7 +3454,7 @@ function EditionTravelRailCard({ context }: { context: CompetitionSeasonContext 
     },
     {
       href: longestUnbeatenRun?.teamId ? buildCanonicalTeamPath(context, longestUnbeatenRun.teamId) : null,
-      label: "Maior sequencia invicta",
+      label: "Maior sequência invicta",
       media: longestUnbeatenRun ? <TeamBadge size={38} teamId={longestUnbeatenRun.teamId} teamName={longestUnbeatenRun.teamName} /> : null,
       primary: longestUnbeatenRun?.teamName ?? (insights.matchesQuery.isLoading ? "..." : "-"),
       value:
@@ -3464,7 +3464,7 @@ function EditionTravelRailCard({ context }: { context: CompetitionSeasonContext 
     },
     {
       href: longestWinningRun?.teamId ? buildCanonicalTeamPath(context, longestWinningRun.teamId) : null,
-      label: "Maior sequencia de vitorias",
+      label: "Maior sequência de vitórias",
       media: longestWinningRun ? <TeamBadge size={38} teamId={longestWinningRun.teamId} teamName={longestWinningRun.teamName} /> : null,
       primary: longestWinningRun?.teamName ?? (insights.matchesQuery.isLoading ? "..." : "-"),
       value:
@@ -3479,9 +3479,7 @@ function EditionTravelRailCard({ context }: { context: CompetitionSeasonContext 
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">Mandos</p>
-          <p className="mt-2 font-[family:var(--font-profile-headline)] text-xl font-extrabold tracking-[-0.03em] text-[#111c2d]">
-            Forca de mando e viagem
-          </p>
+          
         </div>
         {coverage.status !== "complete" ? <ProfileCoveragePill coverage={coverage} /> : null}
       </div>

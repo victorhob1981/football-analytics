@@ -1,5 +1,7 @@
 ﻿import type { NextConfig } from "next";
 
+const isVercel = process.env.VERCEL === "1";
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   images: {
@@ -11,6 +13,19 @@ const nextConfig: NextConfig = {
     ],
   },
   reactStrictMode: true,
+
+  async rewrites() {
+    if (!isVercel) {
+      return [];
+    }
+
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://163.176.59.174/api/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
