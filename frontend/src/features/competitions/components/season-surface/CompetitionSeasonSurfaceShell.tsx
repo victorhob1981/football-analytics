@@ -50,7 +50,7 @@ export function CompetitionSeasonSurfaceShell({
 
   return (
     <CanonicalRouteContextSync context={context}>
-      <ProfileShell className="space-y-6">
+      <ProfileShell className="space-y-6" variant="plain">
         {showLocalBreadcrumbs ? (
           <div className="flex flex-wrap items-center gap-2 text-[0.78rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
             <Link className="transition-colors hover:text-[#003526]" href="/competitions">
