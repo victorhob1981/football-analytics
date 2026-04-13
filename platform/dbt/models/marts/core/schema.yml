@@ -438,7 +438,7 @@ models:
           - not_null
 
   - name: dim_round
-    description: "Dimensao de rodadas com chave sequencial por temporada."
+    description: "Dimensao de rodadas com chave sequêncial por temporada."
     tests:
       - unique_combination_of_columns:
           combination_of_columns:
