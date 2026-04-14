@@ -119,7 +119,7 @@ export function MatchCenterHeader({ match, contextInput = {} }: MatchCenterHeade
       : null;
   const matchStatusLabel = resolveMatchStatusLabel(match.status);
   const kickoffLabel = formatDate(match.kickoffAt);
-  const venueLabel = match.venueName?.trim() || "Local indisponivel";
+  const venueLabel = match.venueName?.trim() || "Local indisponível";
   const seasonLabel = competitionContext?.seasonLabel ?? match.seasonLabel ?? match.seasonId;
 
   return (

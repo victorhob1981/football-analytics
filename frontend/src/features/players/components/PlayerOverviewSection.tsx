@@ -66,6 +66,18 @@ function formatResultLabel(result: string | null | undefined): string {
   return "-";
 }
 
+function formatInsightSeverity(severity: InsightObject["severity"]): string {
+  if (severity === "critical") {
+    return "Crítico";
+  }
+
+  if (severity === "warning") {
+    return "Atenção";
+  }
+
+  return "Informativo";
+}
+
 export function PlayerOverviewSection({
   coverage,
   matchesHref,
@@ -105,7 +117,7 @@ export function PlayerOverviewSection({
               </h2>
               <p className="text-sm leading-6 text-[#57657a]">
                 Leitura principal do jogador nesta temporada, com atalhos para time, rankings e
-                calendario.
+                calendário.
               </p>
             </div>
 
@@ -144,9 +156,9 @@ export function PlayerOverviewSection({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <ProfileKpi label="Jogos" value={summary.matchesPlayed ?? "-"} hint={`Min ${summary.minutesPlayed ?? "-"}`} />
-            <ProfileKpi label="G+A" value={goalContribution} hint={`${summary.goals ?? 0} gols · ${summary.assists ?? 0} assist.`} />
-            <ProfileKpi label="Rating" value={formatDecimal(summary.rating)} hint={`No alvo ${formatPercentage(shotsOnTargetPct)}`} />
+            <ProfileKpi label="Jogos" value={summary.matchesPlayed ?? "-"} hint={`Minutos ${summary.minutesPlayed ?? "-"}`} />
+            <ProfileKpi label="Gols + assistências" value={goalContribution} hint={`${summary.goals ?? 0} gols · ${summary.assists ?? 0} assistências`} />
+            <ProfileKpi label="Nota" value={formatDecimal(summary.rating)} hint={`No alvo ${formatPercentage(shotsOnTargetPct)}`} />
             <ProfileKpi label="Finalizações" value={summary.shotsTotal ?? "-"} hint={`${summary.shotsOnTarget ?? 0} no alvo`} />
           </div>
         </ProfilePanel>
@@ -162,20 +174,20 @@ export function PlayerOverviewSection({
             <p className="text-sm leading-6 text-white/75">
               {latestMatch
                 ? `${formatDate(latestMatch.playedAt)} · ${latestMatch.venue === "home" ? "Casa" : "Fora"}`
-                : "Ainda nao ha ultima partida consolidada para este jogador."}
+                : "Ainda não há última partida consolidada para este jogador."}
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <ProfileMetricTile label="Resultado" value={latestMatch ? formatResultLabel(latestMatch.result) : "-"} />
-            <ProfileMetricTile label="Score" value={latestMatch ? `${latestMatch.goalsFor ?? "-"} - ${latestMatch.goalsAgainst ?? "-"}` : "-"} />
+            <ProfileMetricTile label="Placar" value={latestMatch ? `${latestMatch.goalsFor ?? "-"} - ${latestMatch.goalsAgainst ?? "-"}` : "-"} />
             <ProfileMetricTile label="Minutos" value={latestMatch?.minutesPlayed ?? "-"} />
             <ProfileMetricTile label="Nota" value={formatDecimal(latestMatch?.rating)} />
           </div>
 
           <div className="rounded-[1.3rem] bg-white/10 p-4">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-white/65">
-              Navegacao conectada
+              Navegação conectada
             </p>
             <p className="mt-2 text-sm leading-6 text-white/78">
               Os atalhos mantêm a mesma competição e temporada ao abrir time, rankings e
@@ -189,7 +201,7 @@ export function PlayerOverviewSection({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Insights
+              Leituras
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
               Leituras do jogador
@@ -199,11 +211,11 @@ export function PlayerOverviewSection({
         </div>
 
         {insights.isLoading ? (
-          <p className="text-sm text-[#57657a]">Carregando insights do jogador...</p>
+          <p className="text-sm text-[#57657a]">Carregando leituras do jogador...</p>
         ) : null}
 
         {!insights.isLoading && insights.isError && insights.items.length === 0 ? (
-          <ProfileAlert title="Falha ao carregar insights do jogador" tone="critical">
+          <ProfileAlert title="Falha ao carregar leituras do jogador" tone="critical">
             <p>{insights.errorMessage ?? "Sem mensagem adicional."}</p>
           </ProfileAlert>
         ) : null}
@@ -212,8 +224,8 @@ export function PlayerOverviewSection({
 
         {!insights.isLoading && !insights.isError && insights.items.length === 0 ? (
           <EmptyState
-            title="Sem insights"
-            description="Nao ha leituras adicionais disponiveis para este jogador."
+            title="Sem leituras"
+            description="Não há leituras adicionais disponíveis para este jogador."
           />
         ) : null}
 
@@ -225,7 +237,7 @@ export function PlayerOverviewSection({
                 key={insight.insight_id}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <ProfileTag>{insight.severity}</ProfileTag>
+                  <ProfileTag>{formatInsightSeverity(insight.severity)}</ProfileTag>
                   <span className="text-xs text-[#57657a]">{insight.reference_period}</span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[#111c2d]">{insight.explanation}</p>
@@ -235,7 +247,7 @@ export function PlayerOverviewSection({
         ) : null}
 
         {!insights.isLoading && insights.isError && insights.items.length > 0 ? (
-          <ProfileAlert title="Insights carregados com alerta" tone="warning">
+          <ProfileAlert title="Leituras carregadas com alerta" tone="warning">
             <p>{insights.errorMessage ?? "Sem mensagem adicional."}</p>
           </ProfileAlert>
         ) : null}

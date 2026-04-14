@@ -48,11 +48,11 @@ function describeTransferWindow(params: {
   dateRangeEnd: string | null;
 }): string {
   if (typeof params.lastN === "number" && params.lastN > 0) {
-    return `Ultimas ${params.lastN} movimentacoes`;
+    return `Últimas ${params.lastN} movimentações`;
   }
 
   if (params.dateRangeStart || params.dateRangeEnd) {
-    return `${params.dateRangeStart ?? "..."} ate ${params.dateRangeEnd ?? "..."}`;
+    return `${params.dateRangeStart ?? "..."} até ${params.dateRangeEnd ?? "..."}`;
   }
 
   if (params.roundId) {
@@ -64,7 +64,7 @@ function describeTransferWindow(params: {
 
 function formatTransferDate(value: string | null | undefined): string {
   if (!value) {
-    return "Data nao informada";
+    return "Data não informada";
   }
 
   const parsedDate = new Date(`${value}T00:00:00`);
@@ -82,7 +82,7 @@ function formatTransferDate(value: string | null | undefined): string {
 
 function formatAmount(value: string | null | undefined): string {
   if (!value) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   const normalized = Number(value);
@@ -101,8 +101,8 @@ function formatMovement(item: {
   toTeamName?: string | null;
   careerEnded: boolean;
 }): string {
-  const fromTeam = item.fromTeamName ?? "Origem nao informada";
-  const toTeam = item.careerEnded ? "Fim de carreira" : item.toTeamName ?? "Destino nao informado";
+  const fromTeam = item.fromTeamName ?? "Origem não informada";
+  const toTeam = item.careerEnded ? "Fim de carreira" : item.toTeamName ?? "Destino não informado";
 
   return `${fromTeam} -> ${toTeam}`;
 }
@@ -173,7 +173,7 @@ export function MarketPageContent() {
             Mercado
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Carregando transferencias
+            Carregando transferências
           </h1>
         </header>
         <LoadingSkeleton height={140} />
@@ -191,7 +191,7 @@ export function MarketPageContent() {
             Mercado
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Falha ao carregar transferencias
+            Falha ao carregar transferências
           </h1>
         </header>
         <ProfileAlert title="Erro no carregamento" tone="critical">
@@ -209,12 +209,12 @@ export function MarketPageContent() {
             Mercado
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Nenhuma transferencia encontrada
+            Nenhuma transferência encontrada
           </h1>
         </header>
         <EmptyState
-          title="Sem movimentacoes neste recorte"
-          description="Nao encontramos transferencias com os filtros atuais."
+          title="Sem movimentações neste recorte"
+          description="Não encontramos transferências com os filtros atuais."
         />
       </ProfileShell>
     );
@@ -238,25 +238,25 @@ export function MarketPageContent() {
 
           <div className="space-y-3">
             <p className="text-[0.72rem] uppercase tracking-[0.18em] text-white/62">
-              Feed publico de mercado
+              Mercado público
             </p>
             <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-[-0.04em] text-white md:text-5xl">
               {resolvedContext
-                ? `Transferencias em ${resolvedContext.competitionName} ${resolvedContext.seasonLabel}`
-                : "Transferencias reais por jogador e clube"}
+                ? `Transferências em ${resolvedContext.competitionName} ${resolvedContext.seasonLabel}`
+                : "Transferências reais por jogador e clube"}
             </h1>
             <p className="max-w-3xl text-sm/6 text-white/74">
-              O dominio agora consome movimentacoes reais do warehouse em vez de um mockup
-              estatico.
+              O domínio agora consome movimentações reais da base de dados em vez de dados
+              estáticos.
             </p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <ProfileKpi hint="Linhas nesta visao" invert label="Transferencias" value={items.length} />
+            <ProfileKpi hint="Linhas nesta visão" invert label="Transferências" value={items.length} />
             <ProfileKpi
-              hint="Status concluido no payload"
+              hint="Status concluído nos dados recebidos"
               invert
-              label="Concluidas"
+              label="Concluídas"
               value={completedTransfers}
             />
             <ProfileKpi hint={activeWindowLabel} invert label="Janela" value={activeWindowLabel} />
@@ -281,7 +281,7 @@ export function MarketPageContent() {
             </label>
             <dl className="space-y-3 text-sm text-[#1f2d40]">
               <div className="flex items-start justify-between gap-4">
-                <dt className="text-[#57657a]">Competicao</dt>
+                <dt className="text-[#57657a]">Competição</dt>
                 <dd className="text-right font-medium">{resolvedContext?.competitionName ?? "Todas"}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -335,14 +335,14 @@ export function MarketPageContent() {
       >
         <p>
           {usesScopedTeamApproximation
-            ? "Quando competicao, temporada ou rodada estao ativas, o feed filtra transferencias pelos times que aparecem nas partidas materializadas do recorte. Isso evita mockup, mas nao representa uma janela oficial de inscricao."
-            : "Sem recorte competitivo ativo, o feed usa a base integral de transferencias e aplica somente busca e janela temporal sobre a data da movimentacao."}
+            ? "Quando competição, temporada ou rodada estão ativas, a lista filtra transferências pelos times que aparecem nas partidas materializadas do recorte. Isso evita dados fictícios, mas não representa uma janela oficial de inscrição."
+            : "Sem recorte competitivo ativo, a lista usa a base integral de transferências e aplica somente busca e janela temporal sobre a data da movimentação."}
         </p>
       </ProfileAlert>
 
       <PartialDataBanner
         coverage={marketQuery.coverage}
-        message="Parte das movimentacoes pode ficar fora quando o recorte competitivo depende de times presentes nas partidas materializadas."
+        message="Parte das movimentações pode ficar fora quando o recorte competitivo depende de times presentes nas partidas materializadas."
       />
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -379,13 +379,13 @@ export function MarketPageContent() {
                 <ProfilePanel className="space-y-1" tone="soft">
                   <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Origem</p>
                   <p className="text-base font-extrabold text-[#111c2d]">
-                    {item.fromTeamName ?? "Nao informada"}
+                    {item.fromTeamName ?? "Não informada"}
                   </p>
                 </ProfilePanel>
                 <ProfilePanel className="space-y-1" tone="soft">
                   <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Destino</p>
                   <p className="text-base font-extrabold text-[#111c2d]">
-                    {item.careerEnded ? "Fim de carreira" : item.toTeamName ?? "Nao informado"}
+                    {item.careerEnded ? "Fim de carreira" : item.toTeamName ?? "Não informado"}
                   </p>
                 </ProfilePanel>
                 <ProfilePanel className="space-y-1" tone="soft">
@@ -395,7 +395,7 @@ export function MarketPageContent() {
                 <ProfilePanel className="space-y-1" tone="soft">
                   <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Tipo</p>
                   <p className="text-base font-extrabold text-[#111c2d]">
-                    {item.typeId ? `Tipo #${item.typeId}` : "Nao informado"}
+                    {item.typeId ? `Tipo #${item.typeId}` : "Não informado"}
                   </p>
                 </ProfilePanel>
               </div>
@@ -438,11 +438,11 @@ export function MarketPageContent() {
           value={mappedTransfers}
         />
         <ProfileKpi
-          hint="Cobertura do payload exibido nesta pagina"
+          hint="Cobertura dos dados exibidos nesta página"
           label="Cobertura"
           value={marketQuery.coverage.status}
         />
-        <ProfileKpi hint="Paginas futuras podem expandir o contrato" label="Entrega" value="Lista publica" />
+        <ProfileKpi hint="Páginas futuras podem expandir o contrato" label="Entrega" value="Lista pública" />
       </ProfilePanel>
     </ProfileShell>
   );

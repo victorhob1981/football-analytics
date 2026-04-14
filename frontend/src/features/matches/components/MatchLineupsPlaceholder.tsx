@@ -65,7 +65,7 @@ function renderPlayerMeta(player: MatchLineupPlayer): string {
   return [
     player.position?.trim(),
     typeof player.shirtNumber === "number" ? `#${player.shirtNumber}` : null,
-    typeof player.formationPosition === "number" ? `slot ${player.formationPosition}` : null,
+    typeof player.formationPosition === "number" ? `posição ${player.formationPosition}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -170,7 +170,7 @@ function TeamRosterColumn({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {hasFormationData ? <ProfileTag>Slots de formacao</ProfileTag> : null}
+          {hasFormationData ? <ProfileTag>Posições da formação</ProfileTag> : null}
           <ProfileTag>{starters.length} titulares</ProfileTag>
           <ProfileTag>{bench.length} banco</ProfileTag>
         </div>
@@ -196,7 +196,7 @@ function TeamRosterColumn({
 }
 
 export function MatchLineupsPlaceholder({
-  coverage = { status: "unknown", label: "Lineups" },
+  coverage = { status: "unknown", label: "Escalações" },
   competitionContext = null,
   contextInput = {},
   lineups,
@@ -233,13 +233,13 @@ export function MatchLineupsPlaceholder({
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-            Escalacoes
+            Escalações
           </p>
           <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
-            Escalacoes da partida
+            Escalações da partida
           </h2>
           <p className="mt-2 text-sm leading-6 text-[#57657a]">
-            Separacao por time, com titulares, banco, posicao e camisa quando esses dados estiverem disponiveis.
+            Separação por time, com titulares, banco, posição e camisa quando esses dados estiverem disponíveis.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -250,12 +250,12 @@ export function MatchLineupsPlaceholder({
 
       <PartialDataBanner
         coverage={coverage}
-        message="Algumas informacoes de escalação ainda chegaram incompletas para esta partida."
+        message="Algumas informações de escalação ainda chegaram incompletas para esta partida."
       />
 
       {lineupItems.length === 0 ? (
         <div className="rounded-[1.2rem] border border-dashed border-[rgba(112,121,116,0.32)] bg-[rgba(240,243,255,0.78)] px-4 py-5 text-sm text-[#57657a]">
-          Nenhuma escalacao confirmada para esta partida.
+          Nenhuma escalação confirmada para esta partida.
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">

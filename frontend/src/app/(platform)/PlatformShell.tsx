@@ -277,7 +277,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
     {
       href: buildHeadToHeadPath(sharedFilters),
       icon: "match" as const,
-      label: "Head-to-head",
+      label: "Confronto direto",
       summary: "Comparar times",
     },
     {
@@ -367,7 +367,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
               Football Analytics
             </span>
             <span className="mt-1 block text-[0.62rem] font-semibold uppercase tracking-[0.34em] text-emerald-300/82 lg:mt-2 lg:text-[0.72rem] lg:tracking-[0.28em]">
-              Historical Archive
+              Acervo histórico
             </span>
           </Link>
 
@@ -495,7 +495,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
             </button>
 
             <button
-              aria-label="02 Busca Global Buscar competicoes, partidas, times ou jogadores"
+              aria-label="02 Busca global Buscar competições, partidas, times ou jogadores"
               aria-expanded={isSearchOpen}
               aria-haspopup="dialog"
               className="group inline-flex min-w-0 flex-1 items-center justify-between gap-4 rounded-[1rem] bg-[#eef3ff] px-4 py-2.5 text-left transition-colors hover:bg-[#e3ebff] md:max-w-[520px] lg:flex-none lg:min-w-[29rem] lg:max-w-[32rem] lg:rounded-[1.15rem] lg:px-5 lg:py-4"

@@ -19,7 +19,7 @@ type TeamJourneySectionProps = {
 function getStageFormatLabel(stageFormat: string | null | undefined): string {
   switch (stageFormat) {
     case "league_table":
-      return "League phase";
+      return "Fase de liga";
     case "group_table":
       return "Fase de grupos";
     case "knockout":
@@ -74,7 +74,7 @@ export function TeamJourneySection({
 
   if (teamJourneyQuery.isError) {
     return (
-      <ProfileAlert title="Nao foi possivel carregar a jornada historica" tone="critical">
+      <ProfileAlert title="Não foi possível carregar a jornada histórica" tone="critical">
         <p>{teamJourneyQuery.error?.message}</p>
       </ProfileAlert>
     );
@@ -84,8 +84,8 @@ export function TeamJourneySection({
     return (
       <EmptyState
         className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-        description="Nao ha temporadas suficientes para montar a jornada historica deste time nesta competicao."
-        title="Sem jornada historica"
+        description="Não há temporadas suficientes para montar a jornada histórica deste time nesta competição."
+        title="Sem jornada histórica"
       />
     );
   }
@@ -96,7 +96,7 @@ export function TeamJourneySection({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-              Jornada historica
+              Jornada histórica
             </p>
             <h3 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
               Todas as fases disputadas nesta competição

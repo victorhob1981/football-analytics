@@ -21,16 +21,16 @@ export default async function RankingsPage({ params }: RankingsPageProps) {
             Rankings
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Ranking indisponivel
+            Ranking indisponível
           </h1>
           <p className="text-sm text-[#57657a]">
-            O ranking solicitado nao esta disponivel nesta versao do produto.
+            O ranking solicitado não está disponível nesta versão do produto.
           </p>
         </header>
         <ProfilePanel className="space-y-4 text-sm text-[#1f2d40]">
           <EmptyState
-            title="Ranking nao encontrado"
-            description={`Nao foi possivel abrir o ranking "${rankingType}". Escolha uma das leituras disponiveis abaixo.`}
+            title="Ranking não encontrado"
+            description={`Não foi possível abrir o ranking "${rankingType}". Escolha uma das leituras disponíveis abaixo.`}
           />
           <div className="grid gap-2 sm:grid-cols-2">
             {RANKING_DEFINITIONS.map((ranking) => (

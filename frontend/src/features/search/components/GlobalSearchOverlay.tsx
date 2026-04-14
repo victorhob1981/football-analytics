@@ -105,7 +105,7 @@ function buildMatchScoreLine(result: MatchSearchResult): string {
     return `${result.homeScore} x ${result.awayScore}`;
   }
 
-  return "VS";
+  return "x";
 }
 
 function buildMatchMetaLine(result: MatchSearchResult): string | null {
@@ -119,12 +119,12 @@ function buildMatchMetaLine(result: MatchSearchResult): string | null {
 }
 
 function buildSearchErrorDescription(): string {
-  return "Nao foi possivel carregar os resultados agora. Tente novamente em instantes.";
+  return "Não foi possível carregar os resultados agora. Tente novamente em instantes.";
 }
 
 function buildSearchFooterLabel(hasQuery: boolean, totalResults: number): string {
   if (!hasQuery) {
-    return "Busque por nome, competicao ou numero da partida";
+    return "Busque por nome, competição ou número da partida";
   }
 
   return `${totalResults} resultado${totalResults === 1 ? "" : "s"}`;
@@ -141,7 +141,7 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
       >
         <div className="min-w-0">
           <p className="font-semibold text-[#111c2d]">{item.competitionName}</p>
-          <p className="mt-1 text-xs text-[#57657a]">Visao geral da competicao</p>
+          <p className="mt-1 text-xs text-[#57657a]">Visão geral da competição</p>
         </div>
         <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#003526]">
           Abrir
@@ -188,10 +188,10 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold text-[#111c2d]">
-                {item.homeTeamName ?? "Mandante"} vs {item.awayTeamName ?? "Visitante"}
+                {item.homeTeamName ?? "Mandante"} x {item.awayTeamName ?? "Visitante"}
               </p>
               <span className="rounded-full bg-[rgba(216,227,251,0.76)] px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#1f2d40]">
-                {item.status?.trim().length ? item.status : "Match"}
+                {item.status?.trim().length ? item.status : "Partida"}
               </span>
             </div>
             <p className="mt-1 text-xs text-[#57657a]">{metaLine ?? "Abrir detalhes da partida"}</p>
@@ -302,7 +302,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
               onChange={(event) => {
                 setQuery(event.target.value);
               }}
-              placeholder="Buscar competicoes, partidas, times ou jogadores"
+              placeholder="Buscar competições, partidas, times ou jogadores"
               ref={inputRef}
               value={query}
             />
@@ -315,7 +315,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
             </button>
           </div>
           <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[#57657a]">
-            Encontre competicoes, partidas, times e jogadores nas telas disponiveis agora.
+            Encontre competições, partidas, times e jogadores nas telas disponíveis agora.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {SEARCH_GROUP_TAGS.map((tag) => (
@@ -328,7 +328,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
           {!hasQuery ? (
             <EmptyState
               className="rounded-[1.45rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-              description="Busque por competicao, time, jogador ou numero da partida."
+              description="Busque por competição, time, jogador ou número da partida."
               title="Comece pela busca"
             />
           ) : null}
@@ -345,7 +345,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
             <EmptyState
               className="rounded-[1.45rem] border-[rgba(191,201,195,0.55)] bg-white/80"
               description={buildSearchErrorDescription()}
-              title="Busca indisponivel"
+              title="Busca indisponível"
             />
           ) : null}
 
@@ -364,7 +364,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
           {hasQuery && !searchQuery.isLoading && !searchQuery.isError && !hasResults ? (
             <EmptyState
               className="rounded-[1.45rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-              description={`Nenhum resultado foi encontrado para "${deferredQuery}". Tente o nome completo ou o numero da partida.`}
+              description={`Nenhum resultado foi encontrado para "${deferredQuery}". Tente o nome completo ou o número da partida.`}
               title="Sem resultados"
             />
           ) : null}

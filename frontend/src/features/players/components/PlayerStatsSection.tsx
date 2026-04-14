@@ -50,8 +50,8 @@ export function PlayerStatsSection({
       <div className="space-y-4">
         {coverage.status === "partial" ? <PartialDataBanner coverage={coverage} /> : null}
         <EmptyState
-          title="Stats indisponíveis"
-          description="Nao ha metricas suficientes para montar esta leitura do jogador agora."
+          title="Estatísticas indisponíveis"
+          description="Não há métricas suficientes para montar esta leitura do jogador agora."
         />
       </div>
     );
@@ -65,13 +65,13 @@ export function PlayerStatsSection({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Estatisticas
+              Estatísticas
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
               Produção agregada e tendência
             </h2>
             <p className="max-w-3xl text-sm leading-6 text-[#57657a]">
-              Metricas por 90 minutos e leitura mensal consolidada da temporada selecionada.
+              Métricas por 90 minutos e leitura mensal consolidada da temporada selecionada.
             </p>
           </div>
           <ProfileCoveragePill coverage={coverage} />
@@ -79,15 +79,15 @@ export function PlayerStatsSection({
 
         <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
           <ProfileMetricTile label="Gols/90" value={formatDecimal(stats?.goalsPer90)} />
-          <ProfileMetricTile label="Assist/90" value={formatDecimal(stats?.assistsPer90)} />
+          <ProfileMetricTile label="Assistências/90" value={formatDecimal(stats?.assistsPer90)} />
           <ProfileMetricTile
-            label="Contrib./90"
+            label="Contribuições/90"
             value={formatDecimal(stats?.goalContributionsPer90)}
           />
-          <ProfileMetricTile label="Final./90" value={formatDecimal(stats?.shotsPer90)} />
-          <ProfileMetricTile label="No alvo %" value={formatPercentage(stats?.shotsOnTargetPct)} />
+          <ProfileMetricTile label="Finalizações/90" value={formatDecimal(stats?.shotsPer90)} />
+          <ProfileMetricTile label="No alvo (%)" value={formatPercentage(stats?.shotsOnTargetPct)} />
           <ProfileMetricTile
-            label="Rating"
+            label="Nota"
             value={typeof summary.rating === "number" ? summary.rating.toFixed(2) : "-"}
           />
         </div>
@@ -111,10 +111,10 @@ export function PlayerStatsSection({
 
             <div className="grid gap-3 sm:grid-cols-4">
               <ProfileMetricTile label="Minutos" value={point.minutesPlayed ?? "-"} tone="soft" />
-              <ProfileMetricTile label="G+A" value={`${point.goals ?? 0} + ${point.assists ?? 0}`} tone="soft" />
+              <ProfileMetricTile label="Gols + assistências" value={`${point.goals ?? 0} + ${point.assists ?? 0}`} tone="soft" />
               <ProfileMetricTile label="Finalizações" value={point.shotsTotal ?? "-"} tone="soft" />
               <ProfileMetricTile
-                label="Rating"
+                label="Nota"
                 value={typeof point.rating === "number" ? point.rating.toFixed(2) : "-"}
                 tone="soft"
               />

@@ -83,7 +83,7 @@ export function PlayerMatchesSection({
         {coverage.status === "partial" ? <PartialDataBanner coverage={coverage} /> : null}
         <EmptyState
           title="Partidas indisponíveis"
-          description="Nao ha partidas suficientes para montar esta leitura do jogador agora."
+          description="Não há partidas suficientes para montar esta leitura do jogador agora."
         />
       </div>
     );
@@ -100,10 +100,10 @@ export function PlayerMatchesSection({
               Partidas
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
-              Match log do jogador
+              Registro de partidas do jogador
             </h2>
             <p className="max-w-3xl text-sm leading-6 text-[#57657a]">
-              Cada linha mantem a mesma competicao e temporada desta visao e abre a central do
+              Cada linha mantém a mesma competição e temporada desta visão e abre a central do
               jogo.
             </p>
           </div>
@@ -113,7 +113,7 @@ export function PlayerMatchesSection({
               className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
               href={buildMatchesPath(filters)}
             >
-              Abrir calendario
+              Abrir calendário
             </Link>
           </div>
         </div>
@@ -147,7 +147,7 @@ export function PlayerMatchesSection({
                     {formatResultLabel(match.result)}
                   </span>
                   <ProfileTag>
-                    {match.venue === "home" ? "Casa" : match.venue === "away" ? "Fora" : "Mando n/d"}
+                    {match.venue === "home" ? "Casa" : match.venue === "away" ? "Fora" : "Mando não definido"}
                   </ProfileTag>
                   {match.teamName ? <ProfileTag>{match.teamName}</ProfileTag> : null}
                   {opponentHref ? (
@@ -176,13 +176,13 @@ export function PlayerMatchesSection({
                     </p>
                   </div>
                   <div className="rounded-[1.15rem] bg-[rgba(240,243,255,0.88)] px-4 py-3">
-                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Assist</p>
+                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Assistências</p>
                     <p className="mt-2 text-2xl font-extrabold text-[#111c2d]">
                       {formatMetricValue("assists", match.assists)}
                     </p>
                   </div>
                   <div className="rounded-[1.15rem] bg-[rgba(240,243,255,0.88)] px-4 py-3">
-                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Final.</p>
+                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Finalizações</p>
                     <p className="mt-2 text-2xl font-extrabold text-[#111c2d]">
                       {formatMetricValue("shots_total", match.shotsTotal)}
                     </p>
@@ -198,7 +198,7 @@ export function PlayerMatchesSection({
 
               <div className="flex items-center justify-end">
                 <Link
-                  aria-label={`Abrir match center de ${match.teamName ?? "Time"} contra ${match.opponentName ?? "adversário"}`}
+                  aria-label={`Abrir central da partida de ${match.teamName ?? "Time"} contra ${match.opponentName ?? "adversário"}`}
                   className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
                   href={buildMatchCenterPath(matchId, {
                     ...filters,
@@ -208,7 +208,7 @@ export function PlayerMatchesSection({
                     roundId: match.roundId ?? filters.roundId,
                   })}
                 >
-                  Abrir match center
+                  Abrir central da partida
                 </Link>
               </div>
             </ProfilePanel>

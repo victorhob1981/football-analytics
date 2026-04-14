@@ -130,7 +130,7 @@ export function SeasonCompetitionAnalyticsSection({
       </div>
 
       {analyticsQuery.isError ? (
-        <ProfileAlert title="Nao foi possivel carregar os analytics da competicao" tone="critical">
+        <ProfileAlert title="Não foi possível carregar as análises da competição" tone="critical">
           <p>{analyticsQuery.error?.message}</p>
         </ProfileAlert>
       ) : null}
@@ -139,7 +139,7 @@ export function SeasonCompetitionAnalyticsSection({
         <PartialDataBanner
           className="rounded-[1.2rem] border-[#ffdcc3] bg-[#fff3e8] px-4 py-3 text-[#6e3900]"
           coverage={analyticsQuery.coverage}
-          message="Os analytics desta competicao seguem navegaveis, mas parte da temporada ainda esta com cobertura parcial."
+          message="As análises desta competição seguem navegáveis, mas parte da temporada ainda está com cobertura parcial."
         />
       ) : null}
 
@@ -147,7 +147,7 @@ export function SeasonCompetitionAnalyticsSection({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-              Analytics por fase
+              Análises por fase
             </p>
             <h3 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
               Desempenho segmentado pela estrutura da edição
@@ -172,8 +172,8 @@ export function SeasonCompetitionAnalyticsSection({
         {!analyticsQuery.isLoading && stageAnalytics.length === 0 ? (
           <EmptyState
             className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-            description="Ainda nao ha fases suficientes para materializar analytics estruturais nesta temporada."
-            title="Sem analytics por fase"
+            description="Ainda não há fases suficientes para materializar análises estruturais nesta temporada."
+            title="Sem análises por fase"
           />
         ) : null}
 
@@ -193,9 +193,9 @@ export function SeasonCompetitionAnalyticsSection({
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <ProfileKpi hint="Times com presenca na fase" label="Times" value={stage.teamCount} />
+                  <ProfileKpi hint="Times com presença na fase" label="Times" value={stage.teamCount} />
                   <ProfileKpi hint="Confrontos agregados" label="Chaves" value={stage.tieCount} />
-                  <ProfileKpi hint="Media por partida" label="Gols/jogo" value={formatAverage(stage.averageGoals)} />
+                  <ProfileKpi hint="Média por partida" label="Gols/jogo" value={formatAverage(stage.averageGoals)} />
                 </div>
 
                 <div className="grid gap-2 text-sm text-[#57657a] sm:grid-cols-3">
@@ -267,8 +267,8 @@ export function SeasonCompetitionAnalyticsSection({
         {!analyticsQuery.isLoading && seasonComparisons.length === 0 ? (
           <EmptyState
             className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-            description="Ainda nao ha temporadas suficientes para comparar a estrutura desta competicao."
-            title="Sem comparativo historico"
+            description="Ainda não há temporadas suficientes para comparar a estrutura desta competição."
+            title="Sem comparativo histórico"
           />
         ) : null}
 
@@ -306,7 +306,7 @@ export function SeasonCompetitionAnalyticsSection({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-              Bracket estrutural
+              Chaveamento estrutural
             </p>
             <h3 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
               Visão completa das fases eliminatórias
@@ -320,16 +320,16 @@ export function SeasonCompetitionAnalyticsSection({
         {hasPartialBracketCoverage ? (
           <PartialDataBanner
             className="rounded-[1.2rem] border-[#ffdcc3] bg-[#fff3e8] px-4 py-3 text-[#6e3900]"
-            coverage={{ status: "partial", label: "Bracket coverage" }}
-            message="Parte do bracket desta temporada ainda está com cobertura parcial."
+            coverage={{ status: "partial", label: "Cobertura do chaveamento" }}
+            message="Parte do chaveamento desta temporada ainda está com cobertura parcial."
           />
         ) : null}
 
         {bracketStages.length === 0 ? (
           <EmptyState
             className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-            description="Esta temporada nao tem fases eliminatorias suficientes para montar um bracket."
-            title="Sem bracket"
+            description="Esta temporada não tem fases eliminatórias suficientes para montar um chaveamento."
+            title="Sem chaveamento"
           />
         ) : (
           <div className="grid gap-4 xl:grid-cols-4">
@@ -344,7 +344,7 @@ export function SeasonCompetitionAnalyticsSection({
 
                 {isError ? (
                   <ProfileAlert title="Falha ao carregar esta fase" tone="warning">
-                    <p>Os confrontos desta etapa nao puderam ser carregados agora.</p>
+                    <p>Os confrontos desta etapa não puderam ser carregados agora.</p>
                   </ProfileAlert>
                 ) : null}
 

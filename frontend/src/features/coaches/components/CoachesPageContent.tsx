@@ -49,11 +49,11 @@ function describeTimeWindow(params: {
   dateRangeEnd: string | null;
 }): string {
   if (typeof params.lastN === "number" && params.lastN > 0) {
-    return `Ultimas ${params.lastN} partidas`;
+    return `Últimas ${params.lastN} partidas`;
   }
 
   if (params.dateRangeStart || params.dateRangeEnd) {
-    return `${params.dateRangeStart ?? "..."} ate ${params.dateRangeEnd ?? "..."}`;
+    return `${params.dateRangeStart ?? "..."} até ${params.dateRangeEnd ?? "..."}`;
   }
 
   if (params.roundId) {
@@ -84,10 +84,10 @@ function formatDateRange(startDate: string | null | undefined, endDate: string |
   }
 
   if (normalizedEnd) {
-    return `Ate ${normalizedEnd}`;
+    return `Até ${normalizedEnd}`;
   }
 
-  return "Janela nao informada";
+  return "Janela não informada";
 }
 
 function formatRecord(wins: number, draws: number, losses: number): string {
@@ -143,10 +143,10 @@ export function CoachesPageContent() {
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Tecnicos
+            Técnicos
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Carregando tecnicos
+            Carregando técnicos
           </h1>
         </header>
         <LoadingSkeleton height={140} />
@@ -161,10 +161,10 @@ export function CoachesPageContent() {
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Tecnicos
+            Técnicos
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Falha ao carregar tecnicos
+            Falha ao carregar técnicos
           </h1>
         </header>
         <ProfileAlert title="Erro no carregamento" tone="critical">
@@ -179,15 +179,15 @@ export function CoachesPageContent() {
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Tecnicos
+            Técnicos
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Nenhum tecnico encontrado
+            Nenhum técnico encontrado
           </h1>
         </header>
         <EmptyState
-          title="Sem tecnicos neste recorte"
-          description="Nao encontramos tecnicos com os filtros atuais."
+          title="Sem técnicos neste recorte"
+          description="Não encontramos técnicos com os filtros atuais."
         />
       </ProfileShell>
     );
@@ -204,27 +204,27 @@ export function CoachesPageContent() {
             <ProfileTag className="bg-white/12 text-white/82">
               {resolvedContext ? "Contexto fechado" : "Entrada direta"}
             </ProfileTag>
-            <ProfileTag className="bg-white/12 text-white/82">{items.length} tecnicos</ProfileTag>
+            <ProfileTag className="bg-white/12 text-white/82">{items.length} técnicos</ProfileTag>
           </div>
 
             <div className="space-y-3">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-white/62">
-                Catalogo de tecnicos
+                Catálogo de técnicos
               </p>
               <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-[-0.04em] text-white md:text-5xl">
               {resolvedContext
-                ? `Tecnicos em ${resolvedContext.competitionName} ${resolvedContext.seasonLabel}`
-                : "Leitura de tecnicos por passagem e rendimento"}
+                ? `Técnicos em ${resolvedContext.competitionName} ${resolvedContext.seasonLabel}`
+                : "Leitura de técnicos por passagem e rendimento"}
               </h1>
               <p className="max-w-3xl text-sm/6 text-white/74">
-                O dominio agora usa identidade canonica de tecnicos materializada no warehouse.
-                A ordenacao prioriza tecnicos em atividade e rendimento sustentado, reduzindo o
+                O domínio agora usa identidade canônica de técnicos materializada na base de dados.
+                A ordenação prioriza técnicos em atividade e rendimento sustentado, reduzindo o
                 viés de amostras curtas.
               </p>
             </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <ProfileKpi hint="Linhas nesta visao" invert label="Tecnicos" value={items.length} />
+            <ProfileKpi hint="Linhas nesta visão" invert label="Técnicos" value={items.length} />
             <ProfileKpi hint={describeVenue(venue)} invert label="Mando" value={describeVenue(venue)} />
             <ProfileKpi hint="Janela aplicada" invert label="Janela" value={activeWindowLabel} />
           </div>
@@ -236,19 +236,19 @@ export function CoachesPageContent() {
               Busca
             </p>
             <label className="block">
-              <span className="sr-only">Buscar tecnico ou time</span>
+              <span className="sr-only">Buscar técnico ou time</span>
               <input
                 className="w-full rounded-[1.1rem] border border-[rgba(191,201,195,0.65)] bg-white/92 px-4 py-3 text-sm text-[#111c2d] outline-none transition-colors placeholder:text-[#7f8b99] focus:border-[#8bd6b6]"
                 onChange={(event) => {
                   setSearch(event.target.value);
                 }}
-                placeholder="Buscar tecnico ou time"
+                placeholder="Buscar técnico ou time"
                 value={search}
               />
             </label>
             <dl className="space-y-3 text-sm text-[#1f2d40]">
               <div className="flex items-start justify-between gap-4">
-                <dt className="text-[#57657a]">Competicao</dt>
+                <dt className="text-[#57657a]">Competição</dt>
                 <dd className="text-right font-medium">{resolvedContext?.competitionName ?? "Todas"}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
@@ -296,7 +296,7 @@ export function CoachesPageContent() {
 
       <PartialDataBanner
         coverage={coachesQuery.coverage}
-        message="Parte das passagens pode nao ter partidas materializadas neste recorte."
+        message="Parte das passagens pode não ter partidas materializadas neste recorte."
       />
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -330,7 +330,7 @@ export function CoachesPageContent() {
                     <h2 className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.04em] text-[#111c2d]">
                       {item.coachName}
                     </h2>
-                    <ProfileTag>{item.active ? "Ativo" : "Historico"}</ProfileTag>
+                    <ProfileTag>{item.active ? "Ativo" : "Histórico"}</ProfileTag>
                     {item.temporary ? <ProfileTag>Interino</ProfileTag> : null}
                     {item.matches > 0 && item.matches < 5 ? <ProfileTag>Amostra curta</ProfileTag> : null}
                   </div>

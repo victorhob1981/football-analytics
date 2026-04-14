@@ -60,7 +60,7 @@ export function TeamSquadSection({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Squad
+              Elenco
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
               Elenco por minutos jogados
@@ -74,10 +74,10 @@ export function TeamSquadSection({
         </div>
       </ProfilePanel>
 
-      <ProfileAlert title="Availability ainda não entrou no squad público" tone="info">
-        O encaixe canônico desta informação continua aqui no elenco, mas o payload atual ainda não
-        expõe afastados ou sidelined com consistência suficiente. Por enquanto, a leitura pública
-        fica concentrada em participação, minutos e última aparição.
+      <ProfileAlert title="Disponibilidade ainda não entrou no elenco público" tone="info">
+        Esta informação pertence ao elenco, mas os dados atuais ainda não expõem afastamentos com
+        consistência suficiente. Por enquanto, a leitura pública fica concentrada em participação,
+        minutos e última aparição.
       </ProfileAlert>
 
       <section className="space-y-3">

@@ -52,7 +52,7 @@ function resolveCoverageStatus(coverages: CoverageState[]): CoverageState {
   }
 
   if (coverages.some((coverage) => coverage.status === "empty")) {
-    return { status: "partial", label: "Uma das entidades nao possui dados" };
+    return { status: "partial", label: "Um dos jogadores não possui dados" };
   }
 
   return { status: "unknown", label: "Cobertura desconhecida no comparativo" };
@@ -97,7 +97,7 @@ type DeltaListProps = {
 function DeltaList({ metricKeys, leftSummary, rightSummary }: DeltaListProps) {
   return (
     <section className="space-y-2 rounded-md border border-slate-200 bg-white p-3">
-      <h3 className="text-sm font-medium text-slate-900">Deltas (direita - esquerda)</h3>
+      <h3 className="text-sm font-medium text-slate-900">Diferenças (direita - esquerda)</h3>
       <ul className="space-y-2 text-sm">
         {metricKeys.map((metricKey) => {
           const metric = getMetric(metricKey);
@@ -181,14 +181,14 @@ export function PlayerComparisonPanel() {
         </div>
 
         <p className="text-sm text-[#57657a]">
-          {selectionLabel}. Selecione ate dois nomes na lista para abrir a leitura lado a lado.
+          {selectionLabel}. Selecione até dois nomes na lista para abrir a leitura lado a lado.
         </p>
       </header>
 
       {!canRenderComparison ? (
         <EmptyState
           description="Selecione dois jogadores na lista para habilitar o comparativo lado a lado."
-          title="Comparativo aguardando selecao"
+          title="Comparativo aguardando seleção"
         />
       ) : null}
 
@@ -201,19 +201,19 @@ export function PlayerComparisonPanel() {
 
       {canRenderComparison && hasErrorState ? (
         <section className="rounded-[1.2rem] border border-[#ffdcc3] bg-[#fff3e8] p-4 text-sm text-[#6e3900]">
-          <p>Falha ao carregar dados de comparacao.</p>
+          <p>Falha ao carregar dados de comparação.</p>
           <p>{leftProfileQuery.error?.message ?? rightProfileQuery.error?.message}</p>
         </section>
       ) : null}
 
       {canRenderComparison && hasEmptyState ? (
-        <EmptyState description="Um dos jogadores nao possui dados suficientes para esta comparacao." title="Comparativo sem dados" />
+        <EmptyState description="Um dos jogadores não possui dados suficientes para esta comparação." title="Comparativo sem dados" />
       ) : null}
 
       {canRenderComparison && !hasLoadingState && !hasErrorState && !hasEmptyState ? (
         <section className="space-y-3">
           {(leftProfileQuery.isPartial || rightProfileQuery.isPartial) ? (
-            <PartialDataBanner coverage={combinedCoverage} message="Parte das metricas pode estar incompleta para um dos jogadores." />
+            <PartialDataBanner coverage={combinedCoverage} message="Parte das métricas pode estar incompleta para um dos jogadores." />
           ) : null}
 
           <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export function PlayerComparisonPanel() {
           </div>
 
           <ComparisonLayout
-            description="Leitura rapida lado a lado das metricas principais."
+            description="Leitura rápida lado a lado das métricas principais."
             left={{
               title: leftDisplayName,
               subtitle: "Jogador 1",
