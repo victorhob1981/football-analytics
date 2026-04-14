@@ -103,7 +103,7 @@ function translateStageLabel(stageName: string | null | undefined, stageFormat: 
   const lookup = normalizeLookupValue(normalizedStageName);
 
   if (lookup === "league stage" || lookup === "league phase") {
-    return "Fase de liga";
+    return "Fase classificatória";
   }
 
   if (lookup === "group stage" || lookup === "fase de grupos") {
@@ -124,6 +124,7 @@ function translateStageLabel(stageName: string | null | undefined, stageFormat: 
 
   if (
     lookup === "round of 16" ||
+    lookup === "round 16" ||
     lookup === "8th finals" ||
     lookup === "eighth finals" ||
     lookup === "oitavas de final"
@@ -152,7 +153,7 @@ function translateStageLabel(stageName: string | null | undefined, stageFormat: 
   }
 
   if (lookup === "playoffs" || lookup === "play-offs" || lookup === "playoff") {
-    return "Playoff";
+    return "Repescagem";
   }
 
   return normalizedStageName;

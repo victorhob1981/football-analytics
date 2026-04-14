@@ -17,25 +17,140 @@ const ALLOWED_CATEGORIES = new Set(["clubs", "competitions", "players"]);
 type CachedManifest = {
   entries: ManifestEntry[];
   mtimeMs: number;
+  loadedAtMs?: number;
 };
 
 const manifestCache = new Map<string, CachedManifest>();
+const REMOTE_MANIFEST_CACHE_TTL_MS = 5 * 60 * 1000;
 
-function resolveManifestPath(category: string): string {
-  return path.resolve(
-    process.cwd(),
-    "..",
-    "data",
-    "visual_assets",
-    "manifests",
-    `${category}.json`,
+function resolveConfiguredValue(...values: Array<string | undefined>): string | null {
+  return (
+    values
+      .map((value) => value?.trim())
+      .find((value): value is string => Boolean(value)) ?? null
   );
 }
 
+function resolveVisualAssetsRoot(): string {
+  const configuredRoot = resolveConfiguredValue(
+    process.env.FOOTBALL_VISUAL_ASSETS_ROOT,
+    process.env.VISUAL_ASSETS_ROOT,
+  );
+
+  if (configuredRoot) {
+    return path.resolve(configuredRoot);
+  }
+
+  return path.resolve(process.cwd(), "..", "data", "visual_assets");
+}
+
+function resolvePublicAssetsBaseUrl(): string | null {
+  return resolveConfiguredValue(
+    process.env.FOOTBALL_VISUAL_ASSETS_PUBLIC_BASE_URL,
+    process.env.VISUAL_ASSETS_PUBLIC_BASE_URL,
+  );
+}
+
+function resolveManifestBaseUrl(): string | null {
+  return resolveConfiguredValue(
+    process.env.FOOTBALL_VISUAL_ASSETS_MANIFEST_BASE_URL,
+    process.env.VISUAL_ASSETS_MANIFEST_BASE_URL,
+  );
+}
+
+function resolveRemoteManifestUrl(category: string): string | null {
+  const baseUrl = resolveManifestBaseUrl();
+  if (!baseUrl) {
+    return null;
+  }
+
+  return new URL(`${category}.json`, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).toString();
+}
+
+function resolveManifestPath(category: string): string {
+  return path.resolve(resolveVisualAssetsRoot(), "manifests", `${category}.json`);
+}
+
+function normalizeAssetRelativePath(localPath: string): string | null {
+  const normalizedLocalPath = localPath.replaceAll("\\", "/");
+  const legacyPrefix = "data/visual_assets/";
+  const relativeAssetPath = normalizedLocalPath.startsWith(legacyPrefix)
+    ? normalizedLocalPath.slice(legacyPrefix.length)
+    : normalizedLocalPath;
+
+  if (
+    relativeAssetPath === "" ||
+    path.isAbsolute(relativeAssetPath) ||
+    relativeAssetPath.startsWith("/") ||
+    relativeAssetPath.split("/").includes("..")
+  ) {
+    return null;
+  }
+
+  return relativeAssetPath;
+}
+
+function isPathInside(parentPath: string, candidatePath: string): boolean {
+  const relativePath = path.relative(parentPath, candidatePath);
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function resolveAssetPath(localPath: string): string | null {
+  const assetsRoot = resolveVisualAssetsRoot();
+  const relativeAssetPath = normalizeAssetRelativePath(localPath);
+  if (!relativeAssetPath) {
+    return null;
+  }
+
+  const assetPath = path.resolve(assetsRoot, relativeAssetPath);
+
+  return isPathInside(assetsRoot, assetPath) ? assetPath : null;
+}
+
+function resolvePublicAssetUrl(localPath: string): string | null {
+  const baseUrl = resolvePublicAssetsBaseUrl();
+  const relativeAssetPath = normalizeAssetRelativePath(localPath);
+  if (!baseUrl || !relativeAssetPath) {
+    return null;
+  }
+
+  return new URL(relativeAssetPath, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).toString();
+}
+
 async function loadManifestEntries(category: string): Promise<ManifestEntry[]> {
+  const remoteManifestUrl = resolveRemoteManifestUrl(category);
+  if (remoteManifestUrl) {
+    const cacheKey = `remote:${category}`;
+    const cached = manifestCache.get(cacheKey);
+    const now = Date.now();
+
+    if (cached?.loadedAtMs && now - cached.loadedAtMs < REMOTE_MANIFEST_CACHE_TTL_MS) {
+      return cached.entries;
+    }
+
+    const response = await fetch(remoteManifestUrl, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      const error = new Error(`Unable to load visual asset manifest: ${remoteManifestUrl}`);
+      (error as NodeJS.ErrnoException).code = response.status === 404 ? "ENOENT" : "EIO";
+      throw error;
+    }
+
+    const parsedManifest = (await response.json()) as ManifestFile;
+    const entries = Array.isArray(parsedManifest.entries) ? parsedManifest.entries : [];
+    manifestCache.set(cacheKey, {
+      entries,
+      mtimeMs: now,
+      loadedAtMs: now,
+    });
+    return entries;
+  }
+
   const manifestPath = resolveManifestPath(category);
   const manifestStat = await fs.stat(manifestPath);
-  const cached = manifestCache.get(category);
+  const cacheKey = `local:${category}`;
+  const cached = manifestCache.get(cacheKey);
 
   if (cached && cached.mtimeMs === manifestStat.mtimeMs) {
     return cached.entries;
@@ -45,7 +160,7 @@ async function loadManifestEntries(category: string): Promise<ManifestEntry[]> {
   const parsedManifest = JSON.parse(rawManifest) as ManifestFile;
   const entries = Array.isArray(parsedManifest.entries) ? parsedManifest.entries : [];
 
-  manifestCache.set(category, {
+  manifestCache.set(cacheKey, {
     entries,
     mtimeMs: manifestStat.mtimeMs,
   });
@@ -83,7 +198,21 @@ export async function GET(
     return NextResponse.json({ message: "Asset não encontrado." }, { status: 404 });
   }
 
-  const assetPath = path.resolve(process.cwd(), "..", entry.local_path);
+  const publicAssetUrl = resolvePublicAssetUrl(entry.local_path);
+  if (publicAssetUrl) {
+    return NextResponse.redirect(publicAssetUrl, {
+      status: 307,
+      headers: {
+        "Cache-Control": "public, max-age=86400, immutable",
+      },
+    });
+  }
+
+  const assetPath = resolveAssetPath(entry.local_path);
+  if (!assetPath) {
+    return NextResponse.json({ message: "Asset não encontrado." }, { status: 404 });
+  }
+
   let buffer: Buffer;
   try {
     buffer = await fs.readFile(assetPath);

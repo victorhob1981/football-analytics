@@ -1,0 +1,461 @@
+{
+  "generated_at": "2026-04-13T01:36:06.696778+00:00",
+  "source_root": "images",
+  "target_root": "frontend/public/images/competition-season/editions",
+  "summary": {
+    "editions_total": 50,
+    "competitions_total": 14
+  },
+  "entries": [
+    {
+      "competition_key": "brasileirao_a",
+      "season_label": "2021",
+      "edition_key": "brasileirao_a::2021",
+      "source_folder": "campeonato_brasileiro_serie_a_2021",
+      "source_file": "018.jpg",
+      "public_filename": "brasileirao_a__2021.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_a__2021.jpg"
+    },
+    {
+      "competition_key": "brasileirao_a",
+      "season_label": "2022",
+      "edition_key": "brasileirao_a::2022",
+      "source_folder": "campeonato_brasileiro_serie_a_2022",
+      "source_file": "021.jpg",
+      "public_filename": "brasileirao_a__2022.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_a__2022.jpg"
+    },
+    {
+      "competition_key": "brasileirao_a",
+      "season_label": "2023",
+      "edition_key": "brasileirao_a::2023",
+      "source_folder": "campeonato_brasileiro_serie_a_2023",
+      "source_file": "023.jpg",
+      "public_filename": "brasileirao_a__2023.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_a__2023.jpg"
+    },
+    {
+      "competition_key": "brasileirao_a",
+      "season_label": "2024",
+      "edition_key": "brasileirao_a::2024",
+      "source_folder": "campeonato_brasileiro_serie_a_2024",
+      "source_file": "012.png",
+      "public_filename": "brasileirao_a__2024.png",
+      "public_src": "/images/competition-season/editions/brasileirao_a__2024.png"
+    },
+    {
+      "competition_key": "brasileirao_a",
+      "season_label": "2025",
+      "edition_key": "brasileirao_a::2025",
+      "source_folder": "campeonato_brasileiro_serie_a_2025",
+      "source_file": "017.jpg",
+      "public_filename": "brasileirao_a__2025.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_a__2025.jpg"
+    },
+    {
+      "competition_key": "brasileirao_b",
+      "season_label": "2021",
+      "edition_key": "brasileirao_b::2021",
+      "source_folder": "campeonato_brasileiro_serie_b_2021",
+      "source_file": "011.png",
+      "public_filename": "brasileirao_b__2021.png",
+      "public_src": "/images/competition-season/editions/brasileirao_b__2021.png"
+    },
+    {
+      "competition_key": "brasileirao_b",
+      "season_label": "2022",
+      "edition_key": "brasileirao_b::2022",
+      "source_folder": "campeonato_brasileiro_serie_b_2022",
+      "source_file": "005.jpg",
+      "public_filename": "brasileirao_b__2022.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_b__2022.jpg"
+    },
+    {
+      "competition_key": "brasileirao_b",
+      "season_label": "2023",
+      "edition_key": "brasileirao_b::2023",
+      "source_folder": "campeonato_brasileiro_serie_b_2023",
+      "source_file": "007.jpg",
+      "public_filename": "brasileirao_b__2023.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_b__2023.jpg"
+    },
+    {
+      "competition_key": "brasileirao_b",
+      "season_label": "2024",
+      "edition_key": "brasileirao_b::2024",
+      "source_folder": "campeonato_brasileiro_serie_b_2024",
+      "source_file": "011.jpg",
+      "public_filename": "brasileirao_b__2024.jpg",
+      "public_src": "/images/competition-season/editions/brasileirao_b__2024.jpg"
+    },
+    {
+      "competition_key": "brasileirao_b",
+      "season_label": "2025",
+      "edition_key": "brasileirao_b::2025",
+      "source_folder": "campeonato_brasileiro_serie_b_2025",
+      "source_file": "014.jpeg",
+      "public_filename": "brasileirao_b__2025.jpeg",
+      "public_src": "/images/competition-season/editions/brasileirao_b__2025.jpeg"
+    },
+    {
+      "competition_key": "bundesliga",
+      "season_label": "2021/2022",
+      "edition_key": "bundesliga::2021/2022",
+      "source_folder": "bundesliga_2021_2022",
+      "source_file": "024.jpg",
+      "public_filename": "bundesliga__2021_2022.jpg",
+      "public_src": "/images/competition-season/editions/bundesliga__2021_2022.jpg"
+    },
+    {
+      "competition_key": "bundesliga",
+      "season_label": "2022/2023",
+      "edition_key": "bundesliga::2022/2023",
+      "source_folder": "bundesliga_2022_2023",
+      "source_file": "018.jpg",
+      "public_filename": "bundesliga__2022_2023.jpg",
+      "public_src": "/images/competition-season/editions/bundesliga__2022_2023.jpg"
+    },
+    {
+      "competition_key": "bundesliga",
+      "season_label": "2023/2024",
+      "edition_key": "bundesliga::2023/2024",
+      "source_folder": "bundesliga_2023_2024",
+      "source_file": "012.jpg",
+      "public_filename": "bundesliga__2023_2024.jpg",
+      "public_src": "/images/competition-season/editions/bundesliga__2023_2024.jpg"
+    },
+    {
+      "competition_key": "bundesliga",
+      "season_label": "2024/2025",
+      "edition_key": "bundesliga::2024/2025",
+      "source_folder": "bundesliga_2024_2025",
+      "source_file": "008.jpg",
+      "public_filename": "bundesliga__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/bundesliga__2024_2025.jpg"
+    },
+    {
+      "competition_key": "champions_league",
+      "season_label": "2021/2022",
+      "edition_key": "champions_league::2021/2022",
+      "source_folder": "uefa_champions_league_2021_2022",
+      "source_file": "003.jpg",
+      "public_filename": "champions_league__2021_2022.jpg",
+      "public_src": "/images/competition-season/editions/champions_league__2021_2022.jpg"
+    },
+    {
+      "competition_key": "champions_league",
+      "season_label": "2022/2023",
+      "edition_key": "champions_league::2022/2023",
+      "source_folder": "uefa_champions_league_2022_2023",
+      "source_file": "004.jpeg",
+      "public_filename": "champions_league__2022_2023.jpeg",
+      "public_src": "/images/competition-season/editions/champions_league__2022_2023.jpeg"
+    },
+    {
+      "competition_key": "champions_league",
+      "season_label": "2023/2024",
+      "edition_key": "champions_league::2023/2024",
+      "source_folder": "uefa_champions_league_2023_2024",
+      "source_file": "001.jpeg",
+      "public_filename": "champions_league__2023_2024.jpeg",
+      "public_src": "/images/competition-season/editions/champions_league__2023_2024.jpeg"
+    },
+    {
+      "competition_key": "champions_league",
+      "season_label": "2024/2025",
+      "edition_key": "champions_league::2024/2025",
+      "source_folder": "uefa_champions_league_2024_2025",
+      "source_file": "022.jpg",
+      "public_filename": "champions_league__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/champions_league__2024_2025.jpg"
+    },
+    {
+      "competition_key": "copa_do_brasil",
+      "season_label": "2021",
+      "edition_key": "copa_do_brasil::2021",
+      "source_folder": "copa_do_brasil_2021",
+      "source_file": "001.jpg",
+      "public_filename": "copa_do_brasil__2021.jpg",
+      "public_src": "/images/competition-season/editions/copa_do_brasil__2021.jpg"
+    },
+    {
+      "competition_key": "copa_do_brasil",
+      "season_label": "2022",
+      "edition_key": "copa_do_brasil::2022",
+      "source_folder": "copa_do_brasil_2022",
+      "source_file": "025.jpg",
+      "public_filename": "copa_do_brasil__2022.jpg",
+      "public_src": "/images/competition-season/editions/copa_do_brasil__2022.jpg"
+    },
+    {
+      "competition_key": "copa_do_brasil",
+      "season_label": "2023",
+      "edition_key": "copa_do_brasil::2023",
+      "source_folder": "copa_do_brasil_2023",
+      "source_file": "007.jpg",
+      "public_filename": "copa_do_brasil__2023.jpg",
+      "public_src": "/images/competition-season/editions/copa_do_brasil__2023.jpg"
+    },
+    {
+      "competition_key": "copa_do_brasil",
+      "season_label": "2024",
+      "edition_key": "copa_do_brasil::2024",
+      "source_folder": "copa_do_brasil_2024",
+      "source_file": "019.jpeg",
+      "public_filename": "copa_do_brasil__2024.jpeg",
+      "public_src": "/images/competition-season/editions/copa_do_brasil__2024.jpeg"
+    },
+    {
+      "competition_key": "copa_do_brasil",
+      "season_label": "2025",
+      "edition_key": "copa_do_brasil::2025",
+      "source_folder": "copa_do_brasil_2025",
+      "source_file": "018.jpg",
+      "public_filename": "copa_do_brasil__2025.jpg",
+      "public_src": "/images/competition-season/editions/copa_do_brasil__2025.jpg"
+    },
+    {
+      "competition_key": "fifa_intercontinental_cup",
+      "season_label": "2024",
+      "edition_key": "fifa_intercontinental_cup::2024",
+      "source_folder": "fifa_intercontinental_cup_2024",
+      "source_file": "001.jpg",
+      "public_filename": "fifa_intercontinental_cup__2024.jpg",
+      "public_src": "/images/competition-season/editions/fifa_intercontinental_cup__2024.jpg"
+    },
+    {
+      "competition_key": "la_liga",
+      "season_label": "2021/2022",
+      "edition_key": "la_liga::2021/2022",
+      "source_folder": "la_liga_2021_2022",
+      "source_file": "009.jpg",
+      "public_filename": "la_liga__2021_2022.jpg",
+      "public_src": "/images/competition-season/editions/la_liga__2021_2022.jpg"
+    },
+    {
+      "competition_key": "la_liga",
+      "season_label": "2022/2023",
+      "edition_key": "la_liga::2022/2023",
+      "source_folder": "la_liga_2022_2023",
+      "source_file": "019.jpeg",
+      "public_filename": "la_liga__2022_2023.jpeg",
+      "public_src": "/images/competition-season/editions/la_liga__2022_2023.jpeg"
+    },
+    {
+      "competition_key": "la_liga",
+      "season_label": "2023/2024",
+      "edition_key": "la_liga::2023/2024",
+      "source_folder": "la_liga_2023_2024",
+      "source_file": "023.jpeg",
+      "public_filename": "la_liga__2023_2024.jpeg",
+      "public_src": "/images/competition-season/editions/la_liga__2023_2024.jpeg"
+    },
+    {
+      "competition_key": "la_liga",
+      "season_label": "2024/2025",
+      "edition_key": "la_liga::2024/2025",
+      "source_folder": "la_liga_2024_2025",
+      "source_file": "020.jpg",
+      "public_filename": "la_liga__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/la_liga__2024_2025.jpg"
+    },
+    {
+      "competition_key": "libertadores",
+      "season_label": "2021",
+      "edition_key": "libertadores::2021",
+      "source_folder": "copa_libertadores_da_america_2021",
+      "source_file": "002.jpg",
+      "public_filename": "libertadores__2021.jpg",
+      "public_src": "/images/competition-season/editions/libertadores__2021.jpg"
+    },
+    {
+      "competition_key": "libertadores",
+      "season_label": "2022",
+      "edition_key": "libertadores::2022",
+      "source_folder": "copa_libertadores_da_america_2022",
+      "source_file": "022.jpg",
+      "public_filename": "libertadores__2022.jpg",
+      "public_src": "/images/competition-season/editions/libertadores__2022.jpg"
+    },
+    {
+      "competition_key": "libertadores",
+      "season_label": "2023",
+      "edition_key": "libertadores::2023",
+      "source_folder": "copa_libertadores_da_america_2023",
+      "source_file": "007.jpg",
+      "public_filename": "libertadores__2023.jpg",
+      "public_src": "/images/competition-season/editions/libertadores__2023.jpg"
+    },
+    {
+      "competition_key": "libertadores",
+      "season_label": "2024",
+      "edition_key": "libertadores::2024",
+      "source_folder": "copa_libertadores_da_america_2024",
+      "source_file": "020.jpg",
+      "public_filename": "libertadores__2024.jpg",
+      "public_src": "/images/competition-season/editions/libertadores__2024.jpg"
+    },
+    {
+      "competition_key": "libertadores",
+      "season_label": "2025",
+      "edition_key": "libertadores::2025",
+      "source_folder": "copa_libertadores_da_america_2025",
+      "source_file": "014.jpg",
+      "public_filename": "libertadores__2025.jpg",
+      "public_src": "/images/competition-season/editions/libertadores__2025.jpg"
+    },
+    {
+      "competition_key": "ligue_1",
+      "season_label": "2021/2022",
+      "edition_key": "ligue_1::2021/2022",
+      "source_folder": "ligue_1_2021_2022",
+      "source_file": "005.jpg",
+      "public_filename": "ligue_1__2021_2022.jpg",
+      "public_src": "/images/competition-season/editions/ligue_1__2021_2022.jpg"
+    },
+    {
+      "competition_key": "ligue_1",
+      "season_label": "2022/2023",
+      "edition_key": "ligue_1::2022/2023",
+      "source_folder": "ligue_1_2022_2023",
+      "source_file": "012.jpg",
+      "public_filename": "ligue_1__2022_2023.jpg",
+      "public_src": "/images/competition-season/editions/ligue_1__2022_2023.jpg"
+    },
+    {
+      "competition_key": "ligue_1",
+      "season_label": "2023/2024",
+      "edition_key": "ligue_1::2023/2024",
+      "source_folder": "ligue_1_2023_2024",
+      "source_file": "018.jpg",
+      "public_filename": "ligue_1__2023_2024.jpg",
+      "public_src": "/images/competition-season/editions/ligue_1__2023_2024.jpg"
+    },
+    {
+      "competition_key": "ligue_1",
+      "season_label": "2024/2025",
+      "edition_key": "ligue_1::2024/2025",
+      "source_folder": "ligue_1_2024_2025",
+      "source_file": "014.jpg",
+      "public_filename": "ligue_1__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/ligue_1__2024_2025.jpg"
+    },
+    {
+      "competition_key": "premier_league",
+      "season_label": "2021/2022",
+      "edition_key": "premier_league::2021/2022",
+      "source_folder": "premier_league_2021_2022",
+      "source_file": "018.jpg",
+      "public_filename": "premier_league__2021_2022.jpg",
+      "public_src": "/images/competition-season/editions/premier_league__2021_2022.jpg"
+    },
+    {
+      "competition_key": "premier_league",
+      "season_label": "2022/2023",
+      "edition_key": "premier_league::2022/2023",
+      "source_folder": "premier_league_2022_2023",
+      "source_file": "023.jpg",
+      "public_filename": "premier_league__2022_2023.jpg",
+      "public_src": "/images/competition-season/editions/premier_league__2022_2023.jpg"
+    },
+    {
+      "competition_key": "premier_league",
+      "season_label": "2023/2024",
+      "edition_key": "premier_league::2023/2024",
+      "source_folder": "premier_league_2023_2024",
+      "source_file": "021.jpeg",
+      "public_filename": "premier_league__2023_2024.jpeg",
+      "public_src": "/images/competition-season/editions/premier_league__2023_2024.jpeg"
+    },
+    {
+      "competition_key": "premier_league",
+      "season_label": "2024/2025",
+      "edition_key": "premier_league::2024/2025",
+      "source_folder": "premier_league_2024_2025",
+      "source_file": "019.jpg",
+      "public_filename": "premier_league__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/premier_league__2024_2025.jpg"
+    },
+    {
+      "competition_key": "primeira_liga",
+      "season_label": "2023/2024",
+      "edition_key": "primeira_liga::2023/2024",
+      "source_folder": "liga_portugal_2023_2024",
+      "source_file": "016.jpeg",
+      "public_filename": "primeira_liga__2023_2024.jpeg",
+      "public_src": "/images/competition-season/editions/primeira_liga__2023_2024.jpeg"
+    },
+    {
+      "competition_key": "primeira_liga",
+      "season_label": "2024/2025",
+      "edition_key": "primeira_liga::2024/2025",
+      "source_folder": "liga_portugal_2024_2025",
+      "source_file": "016.jpg",
+      "public_filename": "primeira_liga__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/primeira_liga__2024_2025.jpg"
+    },
+    {
+      "competition_key": "serie_a_italy",
+      "season_label": "2021/2022",
+      "edition_key": "serie_a_italy::2021/2022",
+      "source_folder": "serie_a_italia_2021_2022",
+      "source_file": "018.jpg",
+      "public_filename": "serie_a_italy__2021_2022.jpg",
+      "public_src": "/images/competition-season/editions/serie_a_italy__2021_2022.jpg"
+    },
+    {
+      "competition_key": "serie_a_italy",
+      "season_label": "2022/2023",
+      "edition_key": "serie_a_italy::2022/2023",
+      "source_folder": "serie_a_italia_2022_2023",
+      "source_file": "001.jfif",
+      "public_filename": "serie_a_italy__2022_2023.jpg",
+      "public_src": "/images/competition-season/editions/serie_a_italy__2022_2023.jpg"
+    },
+    {
+      "competition_key": "serie_a_italy",
+      "season_label": "2023/2024",
+      "edition_key": "serie_a_italy::2023/2024",
+      "source_folder": "serie_a_italia_2023_2024",
+      "source_file": "020.jpg",
+      "public_filename": "serie_a_italy__2023_2024.jpg",
+      "public_src": "/images/competition-season/editions/serie_a_italy__2023_2024.jpg"
+    },
+    {
+      "competition_key": "serie_a_italy",
+      "season_label": "2024/2025",
+      "edition_key": "serie_a_italy::2024/2025",
+      "source_folder": "serie_a_italia_2024_2025",
+      "source_file": "004.jpg",
+      "public_filename": "serie_a_italy__2024_2025.jpg",
+      "public_src": "/images/competition-season/editions/serie_a_italy__2024_2025.jpg"
+    },
+    {
+      "competition_key": "sudamericana",
+      "season_label": "2024",
+      "edition_key": "sudamericana::2024",
+      "source_folder": "copa_sudamericana_2024",
+      "source_file": "003.jpg",
+      "public_filename": "sudamericana__2024.jpg",
+      "public_src": "/images/competition-season/editions/sudamericana__2024.jpg"
+    },
+    {
+      "competition_key": "sudamericana",
+      "season_label": "2025",
+      "edition_key": "sudamericana::2025",
+      "source_folder": "copa_sudamericana_2025",
+      "source_file": "001.jpeg",
+      "public_filename": "sudamericana__2025.jpeg",
+      "public_src": "/images/competition-season/editions/sudamericana__2025.jpeg"
+    },
+    {
+      "competition_key": "supercopa_do_brasil",
+      "season_label": "2025",
+      "edition_key": "supercopa_do_brasil::2025",
+      "source_folder": "supercopa_do_brasil_2025",
+      "source_file": "012.jpg",
+      "public_filename": "supercopa_do_brasil__2025.jpg",
+      "public_src": "/images/competition-season/editions/supercopa_do_brasil__2025.jpg"
+    }
+  ]
+}

@@ -37,7 +37,10 @@ import {
   type CompetitionSeasonSurfaceSection,
 } from "@/features/competitions/utils/competition-season-surface";
 import { resolveSeasonChampionArtwork } from "@/features/competitions/utils/champion-media";
-import { getStageFormatLabel } from "@/features/competitions/utils/competition-structure";
+import {
+  getStageFormatLabel,
+  localizeCompetitionStageName,
+} from "@/features/competitions/utils/competition-structure";
 import { fetchMatchesList } from "@/features/matches/services/matches.service";
 import type { MatchListItem, MatchesListData } from "@/features/matches/types";
 import { resolveMatchDisplayContext } from "@/features/matches/utils/match-context";
@@ -756,6 +759,71 @@ function resolvePrimaryKnockoutStages(stages: KnockoutStageQueryState[]): Knocko
   return roundOf16Index >= 0 ? stages.slice(roundOf16Index) : stages;
 }
 
+function resolvePrimaryKnockoutStructureStages(
+  stages: CompetitionStructureStage[],
+): CompetitionStructureStage[] {
+  const roundOf16Index = stages.findIndex((stage) => isRoundOf16Stage(stage));
+  return roundOf16Index >= 0 ? stages.slice(roundOf16Index) : stages;
+}
+
+function formatCupStageCount(count: number): string {
+  if (count <= 0) {
+    return "fases indisponíveis";
+  }
+
+  return count === 1 ? "1 fase" : `${count} fases`;
+}
+
+function resolveCupPrimaryStages(
+  resolution: CompetitionSeasonSurfaceResolution,
+): CompetitionStructureStage[] {
+  const knockoutStages = resolution.knockoutStages.filter((stage) => stage.stageFormat === "knockout");
+  return resolvePrimaryKnockoutStructureStages(
+    knockoutStages.length > 0 ? knockoutStages : resolution.knockoutStages,
+  );
+}
+
+function resolveCupOpeningStage(
+  resolution: CompetitionSeasonSurfaceResolution,
+): CompetitionStructureStage | null {
+  return resolveCupPrimaryStages(resolution)[0] ?? resolution.knockoutStages[0] ?? null;
+}
+
+function resolveCupFinalStage(
+  resolution: CompetitionSeasonSurfaceResolution,
+): CompetitionStructureStage | null {
+  return resolveCupPrimaryStages(resolution).at(-1) ?? resolution.finalKnockoutStage;
+}
+
+function resolveCupParticipantCount(
+  resolution: CompetitionSeasonSurfaceResolution,
+): number | null {
+  const openingStage = resolveCupOpeningStage(resolution);
+
+  return typeof openingStage?.expectedTeams === "number" && openingStage.expectedTeams > 0
+    ? openingStage.expectedTeams
+    : null;
+}
+
+function resolveCupStageRangeLabel(
+  resolution: CompetitionSeasonSurfaceResolution,
+): string {
+  const openingStage = resolveCupOpeningStage(resolution);
+  const finalStage = resolveCupFinalStage(resolution);
+  const openingLabel = openingStage
+    ? localizeSeasonStageName(openingStage.stageName ?? openingStage.stageId)
+    : null;
+  const finalLabel = finalStage
+    ? localizeSeasonStageName(finalStage.stageName ?? finalStage.stageId)
+    : null;
+
+  if (openingLabel && finalLabel && openingLabel !== finalLabel) {
+    return `${openingLabel} até ${finalLabel.toLowerCase()}`;
+  }
+
+  return finalLabel ?? openingLabel ?? "Chave eliminatória";
+}
+
 function resolveTransitionSlotCount(stage: CompetitionStructureStage | null | undefined): number | null {
   if (!stage || stage.transitions.length === 0) {
     return null;
@@ -1011,34 +1079,6 @@ type HistoricalTopScorerData = {
   scorer: HistoricalTopScorer | null;
 };
 
-function compareHistoricalTopScorers(left: RankingTableRow, right: RankingTableRow): number {
-  const leftGoals = typeof left.metricValue === "number" && Number.isFinite(left.metricValue) ? left.metricValue : Number.NEGATIVE_INFINITY;
-  const rightGoals = typeof right.metricValue === "number" && Number.isFinite(right.metricValue) ? right.metricValue : Number.NEGATIVE_INFINITY;
-
-  if (leftGoals !== rightGoals) {
-    return rightGoals - leftGoals;
-  }
-
-  const leftMinutes =
-    typeof left.minutesPlayed === "number" && Number.isFinite(left.minutesPlayed) ? left.minutesPlayed : Number.POSITIVE_INFINITY;
-  const rightMinutes =
-    typeof right.minutesPlayed === "number" && Number.isFinite(right.minutesPlayed) ? right.minutesPlayed : Number.POSITIVE_INFINITY;
-
-  if (leftMinutes !== rightMinutes) {
-    return leftMinutes - rightMinutes;
-  }
-
-  const leftName = (left.entityName ?? left.entityId ?? "").trim();
-  const rightName = (right.entityName ?? right.entityId ?? "").trim();
-  const nameComparison = leftName.localeCompare(rightName, "pt-BR", { sensitivity: "base" });
-
-  if (nameComparison !== 0) {
-    return nameComparison;
-  }
-
-  return left.entityId.localeCompare(right.entityId, "pt-BR", { sensitivity: "base" });
-}
-
 async function fetchEditionTopScorer(context: CompetitionSeasonContext): Promise<ApiResponse<HistoricalTopScorerData>> {
   const rankingDefinition = getRankingDefinition("player-goals");
 
@@ -1054,32 +1094,19 @@ async function fetchEditionTopScorer(context: CompetitionSeasonContext): Promise
     };
   }
 
-  let page = 1;
-  let totalPages = 1;
-  let firstResponse: ApiResponse<{ rows: RankingTableRow[] }> | null = null;
-  const rows: RankingTableRow[] = [];
-
-  do {
-    const response = await fetchRanking({
-      rankingDefinition,
-      filters: {
-        competitionId: context.competitionId,
-        freshnessClass: "season",
-        minSampleValue: 0,
-        page,
-        pageSize: 100,
-        seasonId: context.seasonId,
-        sortDirection: "desc",
-      },
-    });
-
-    firstResponse ??= response;
-    rows.push(...(response.data.rows ?? []));
-    totalPages = response.meta?.pagination?.totalPages ?? 1;
-    page += 1;
-  } while (page <= totalPages);
-
-  const scorerRow = [...rows].sort(compareHistoricalTopScorers)[0] ?? null;
+  const response = await fetchRanking({
+    rankingDefinition,
+    filters: {
+      competitionId: context.competitionId,
+      freshnessClass: "season",
+      minSampleValue: 0,
+      page: 1,
+      pageSize: 1,
+      seasonId: context.seasonId,
+      sortDirection: "desc",
+    },
+  });
+  const scorerRow = response.data.rows?.[0] ?? null;
 
   return {
     data: {
@@ -1100,7 +1127,7 @@ async function fetchEditionTopScorer(context: CompetitionSeasonContext): Promise
           }
         : null,
     },
-    meta: firstResponse?.meta,
+    meta: response.meta,
   };
 }
 
@@ -1363,7 +1390,10 @@ function formatHybridStageTargetLabel(value: string | null | undefined): string 
 
   if (
     normalizedValue.includes("round_of_16") ||
+    normalizedValue === "round_16" ||
     normalizedValue.includes("last_16") ||
+    normalizedValue.includes("8th_final") ||
+    normalizedValue.includes("eighth_final") ||
     normalizedValue.includes("oitavas")
   ) {
     return "as oitavas";
@@ -1381,53 +1411,13 @@ function formatHybridStageTargetLabel(value: string | null | undefined): string 
     return "a final";
   }
 
-  return value ?? "o mata-mata";
+  const localizedLabel = localizeSeasonStageName(value);
+
+  return localizedLabel !== "Fase" ? localizedLabel.toLowerCase() : "o mata-mata";
 }
 
 function localizeSeasonStageName(value: string | null | undefined): string {
-  const normalizedValue = normalizeStageIdentityValue(value);
-
-  if (!normalizedValue) {
-    return "Fase";
-  }
-
-  if (
-    normalizedValue.includes("round_of_16") ||
-    normalizedValue.includes("last_16") ||
-    normalizedValue.includes("oitavas")
-  ) {
-    return "Oitavas de final";
-  }
-
-  if (normalizedValue.includes("quarter") || normalizedValue.includes("quartas")) {
-    return "Quartas de final";
-  }
-
-  if (normalizedValue.includes("semi")) {
-    return "Semifinais";
-  }
-
-  if (
-    normalizedValue.includes("final") &&
-    !normalizedValue.includes("semi") &&
-    !normalizedValue.includes("quarter")
-  ) {
-    return "Final";
-  }
-
-  if (normalizedValue.includes("group") || normalizedValue.includes("grupo")) {
-    return "Fase de grupos";
-  }
-
-  if (normalizedValue.includes("playoff") || normalizedValue.includes("play_off")) {
-    return "Play-off";
-  }
-
-  if (normalizedValue.includes("third") || normalizedValue.includes("terceiro")) {
-    return "Disputa de 3º lugar";
-  }
-
-  return value ?? "Fase";
+  return localizeCompetitionStageName(value);
 }
 
 function resolveHybridStructureHeadline(
@@ -2666,7 +2656,7 @@ function KnockoutBracketPanel({
                   {!snapshotState.finalStage?.isLoading && !snapshotState.finalStage?.isError && (snapshotState.finalStage?.ties.length ?? 0) > 0 ? (
                     (() => {
                       const tie = snapshotState.finalStage?.ties[0];
-                      const championName = tie?.winnerTeamName ?? "Campeao";
+                      const championName = tie?.winnerTeamName ?? "Campeão";
                       const dateLabel = tie ? formatDateWindow(tie.firstLegAt, tie.lastLegAt) : null;
 
                       return tie ? (
@@ -2717,13 +2707,13 @@ function KnockoutBracketPanel({
 
                           <div className="rounded-[1rem] border border-[rgba(166,242,209,0.16)] bg-[rgba(255,255,255,0.06)] px-3 py-3">
                             <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-[#bfe6d6]">
-                              Campeao
+                              Campeão
                             </p>
                             <p className="mt-1.5 font-[family:var(--font-profile-headline)] text-[1.52rem] font-extrabold text-white">
                               {championName}
                             </p>
                             <p className="mt-1.5 text-[0.8rem] text-[#d7efe4]">
-                              {formatTieResolutionLabel(tie) ?? "Decisao da edição"} • {formatTieMatchCountLabel(tie.matchCount)}
+                              {formatTieResolutionLabel(tie) ?? "Decisão da edição"} • {formatTieMatchCountLabel(tie.matchCount)}
                             </p>
                           </div>
                         </div>
@@ -2761,7 +2751,7 @@ function KnockoutBracketPanel({
                   key={`supporting-${stage.stage.stageId}`}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <ProfileTag>{stage.stage.stageName ?? stage.stage.stageId}</ProfileTag>
+                    <ProfileTag>{localizeSeasonStageName(stage.stage.stageName ?? stage.stage.stageId)}</ProfileTag>
                     {stage.stage.stageFormat ? <ProfileTag>{getStageFormatLabel(stage.stage.stageFormat)}</ProfileTag> : null}
                   </div>
                   <p className="mt-3 text-sm text-[#57657a]">
@@ -2806,7 +2796,7 @@ function KnockoutBracketPanel({
             <ProfilePanel className="space-y-4" key={stageState.stage.stageId} tone={stageState.stage.isCurrent ? "soft" : "base"}>
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <ProfileTag>{stageState.stage.stageName ?? stageState.stage.stageId}</ProfileTag>
+                  <ProfileTag>{localizeSeasonStageName(stageState.stage.stageName ?? stageState.stage.stageId)}</ProfileTag>
                   {stageState.stage.stageFormat ? <ProfileTag>{getStageFormatLabel(stageState.stage.stageFormat)}</ProfileTag> : null}
                 </div>
               </div>
@@ -2854,7 +2844,7 @@ function ChampionPathPanel({
         return ties
           .filter((tie) => championName && tie.winnerTeamName === championName)
           .map((tie) => ({
-            stageName: stage.stageName ?? stage.stageId,
+            stageName: localizeSeasonStageName(stage.stageName ?? stage.stageId),
             tie,
           }));
       }),
@@ -2928,7 +2918,7 @@ function GroupPhaseSummaryPanel({
         context={context}
         description="A fase classificatória desta edição foi encerrada e a tabela final segue como referência central."
         query={finalStandingsQuery}
-        title={stage.stageName ?? "Fase classificatória"}
+        title={localizeSeasonStageName(stage.stageName ?? "Fase classificatória")}
       />
     );
   }
@@ -2937,7 +2927,7 @@ function GroupPhaseSummaryPanel({
     <ProfilePanel className="space-y-5">
       <SeasonSectionHeader
         eyebrow="Fase classificatória"
-        title={stage.stageName ?? "Fase classificatória"}
+        title={localizeSeasonStageName(stage.stageName ?? "Fase classificatória")}
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -3182,7 +3172,7 @@ function SeasonFactsCard({
 
   const facts: Array<{ label: string; value: string }> = [
     {
-      label: "Campeao",
+      label: "Campeão",
       value: standingsQuery.isLoading
         ? "..."
         : (champion?.teamName ?? "Não identificado"),
@@ -3508,65 +3498,190 @@ function EditionRailInsightsCards({ context }: { context: CompetitionSeasonConte
   );
 }
 
-// ─── Copa / Híbrido — Hero Banner escuro ─────────────────────────────────────
+// ─── Copa — Hero histórico ───────────────────────────────────────────────────
 
-function CupHeroBanner({
+function CupHistoricalHero({
   context,
-  tag,
+  resolution,
 }: {
   context: CompetitionSeasonContext;
-  tag: string;
+  resolution: CompetitionSeasonSurfaceResolution;
 }) {
-  const compDef = getCompetitionById(context.competitionId);
-  const visualAssetId = getCompetitionVisualAssetId(compDef);
-  const logoSrc = visualAssetId
+  const [isHeroPhotoUnavailable, setIsHeroPhotoUnavailable] = useState(false);
+  const analyticsQuery = useCompetitionAnalytics({
+    competitionKey: context.competitionKey,
+    seasonLabel: context.seasonLabel,
+  });
+  const championTieQuery = useStageTies({
+    competitionKey: context.competitionKey,
+    seasonLabel: context.seasonLabel,
+    stageId: resolution.finalKnockoutStage?.stageId,
+  });
+  const topScorerQuery = useEditionTopScorer(context);
+  const competitionDefinition = getCompetitionById(context.competitionId);
+  const visualAssetId = getCompetitionVisualAssetId(competitionDefinition);
+  const competitionLogoSrc = visualAssetId
     ? `/api/visual-assets/competitions/${encodeURIComponent(visualAssetId)}`
     : null;
-  const initials = context.competitionName
+  const competitionInitials = context.competitionName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((t) => t[0]?.toUpperCase() ?? "")
+    .map((token) => token[0]?.toUpperCase() ?? "")
     .join("");
+  const championArtwork = resolveSeasonChampionArtwork(context.competitionKey, context.seasonLabel);
+  const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
+  const championName = championTieQuery.isLoading
+    ? "..."
+    : championTie?.winnerTeamName ?? "Campeão não identificado";
+  const finalDecisionDate =
+    championTie ? formatLongDate(championTie.lastLegAt ?? championTie.firstLegAt) : null;
+  const matchCount = analyticsQuery.isLoading
+    ? "..."
+    : formatHistoricalMatchCount(analyticsQuery.data?.seasonSummary.matchCount);
+  const primaryStageCount = resolveCupPrimaryStages(resolution).length || resolution.knockoutStages.length;
+  const participantCount = resolveCupParticipantCount(resolution);
+  const topScorer = topScorerQuery.data?.scorer ?? null;
+  const topScorerName = topScorerQuery.isLoading ? "..." : (topScorer?.entityName ?? "Artilharia indisponível");
+  const topScorerDetail = topScorer ? (
+    <>
+      <span className="font-semibold text-[#003526]">{topScorer.goals} gols</span>
+      {topScorer.teamName ? ` • ${topScorer.teamName}` : ""}
+    </>
+  ) : (
+    "Ranking histórico da copa não consolidado."
+  );
+  const summaryValue = (
+    <>
+      <span className="font-extrabold text-[#003526]">{matchCount}</span>
+      <span className="mx-2 text-[#8fa097]">•</span>
+      <span className="font-extrabold text-[#003526]">{formatCupStageCount(primaryStageCount)}</span>
+      {participantCount ? (
+        <>
+          <span className="mx-2 text-[#8fa097]">•</span>
+          <span className="font-extrabold text-[#003526]">{participantCount} clubes</span>
+        </>
+      ) : null}
+    </>
+  );
+  const heroImageSrc = championArtwork?.src ?? null;
+
+  useEffect(() => {
+    setIsHeroPhotoUnavailable(false);
+  }, [heroImageSrc]);
 
   return (
-    <div className="relative h-56 overflow-hidden rounded-xl bg-[#022e21] md:h-64">
-      <div className="absolute inset-0 bg-gradient-to-r from-[#011a13] via-[#022e21]/80 to-transparent" />
-      <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
-      <div className="absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-emerald-600/10 blur-3xl" />
+    <div className="relative overflow-hidden rounded-[1.7rem] border border-[rgba(191,201,195,0.5)] bg-[radial-gradient(circle_at_top_right,rgba(194,241,214,0.42),transparent_26%),linear-gradient(180deg,#f7fbf8_0%,#edf6f1_100%)] px-5 py-5 shadow-[0_34px_80px_-52px_rgba(17,28,45,0.32)] md:px-6 md:py-6">
+      <div className="absolute right-[-8%] top-[-18%] h-56 w-56 rounded-full bg-[rgba(5,77,57,0.08)] blur-3xl" />
+      <div className="absolute bottom-[-24%] left-[14%] h-48 w-48 rounded-full bg-[rgba(166,242,209,0.22)] blur-3xl" />
 
-      <div className="relative z-10 flex h-full items-center gap-8 px-8 md:px-10">
-        <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[rgba(191,201,195,0.55)] bg-white shadow-2xl md:h-28 md:w-28">
-          <span className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#003526]">
-            {initials || "FA"}
-          </span>
-          {logoSrc ? (
-            <img
-              alt={`Logo ${context.competitionName}`}
-              className="absolute inset-0 h-full w-full object-contain bg-white p-3"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              src={logoSrc}
-            />
-          ) : null}
+      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.96fr)] xl:items-stretch">
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2">
+            {["Edição encerrada", "Mata-mata"].map((tag) => (
+              <span
+                className="rounded-full border border-[rgba(0,53,38,0.12)] bg-[rgba(255,255,255,0.72)] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#0d4a37]"
+                key={tag}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
+            <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.35rem] border border-[rgba(191,201,195,0.55)] bg-white shadow-[0_24px_50px_-34px_rgba(17,28,45,0.42)]">
+              <span className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#003526]">
+                {competitionInitials || "FA"}
+              </span>
+              {competitionLogoSrc ? (
+                <img
+                  alt={`Logo ${context.competitionName}`}
+                  className="absolute inset-0 h-full w-full object-contain bg-white p-3"
+                  onError={(event) => {
+                    (event.currentTarget as HTMLImageElement).style.display = "none";
+                  }}
+                  src={competitionLogoSrc}
+                />
+              ) : null}
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="max-w-4xl font-[family:var(--font-profile-headline)] text-[2.65rem] font-extrabold leading-[0.95] tracking-[-0.06em] text-[#111c2d] md:text-[3.25rem]">
+                {context.competitionName} {context.seasonLabel}
+              </h1>
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-[rgba(191,201,195,0.52)] bg-white/92 px-5 py-5 shadow-[0_28px_68px_-48px_rgba(17,28,45,0.22)]">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
+              Resumo da copa
+            </p>
+            <div className="mt-4">
+              <HybridHeroSummaryItem
+                label="Campeão"
+                media={championTie ? <TeamBadge size={44} teamId={championTie.winnerTeamId} teamName={championName} /> : null}
+                value={championName}
+                valueClassName="font-[family:var(--font-profile-headline)] text-[2.05rem] font-extrabold leading-none tracking-[-0.05em] text-[#111c2d]"
+              />
+              <HybridHeroSummaryItem
+                label="Final"
+                value={finalDecisionDate ?? "Data não informada"}
+                valueClassName="font-[family:var(--font-profile-headline)] text-[1.55rem] font-extrabold leading-[1.02] tracking-[-0.04em] text-[#111c2d]"
+              />
+              <HybridHeroSummaryItem
+                detail={topScorerDetail}
+                label="Artilheiro"
+                media={<PlayerPhoto playerId={topScorer?.entityId} playerName={topScorer?.entityName ?? topScorerName} size={52} />}
+                value={topScorerName}
+                valueClassName="font-[family:var(--font-profile-headline)] text-[1.55rem] font-extrabold leading-[1.02] tracking-[-0.04em] text-[#111c2d]"
+              />
+              <HybridHeroSummaryItem
+                label="Resumo"
+                value={summaryValue}
+                valueClassName="font-[family:var(--font-profile-headline)] text-[1.35rem] font-extrabold leading-[1.05] tracking-[-0.04em] text-[#111c2d]"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-3">
-          <span className="inline-block rounded-full bg-emerald-500 px-3 py-1 text-[0.65rem] font-extrabold uppercase tracking-[0.2em] text-white">
-            {tag}
-          </span>
-          <h1 className="font-[family:var(--font-profile-headline)] text-[2.6rem] font-extrabold leading-none tracking-[-0.04em] text-white md:text-[3.2rem]">
-            {context.competitionName}
-          </h1>
-          <p className="text-sm font-medium italic text-emerald-200/70">
-            {context.seasonLabel}
-          </p>
+        <div className="relative min-h-[360px] overflow-hidden rounded-[1.6rem] border border-[rgba(8,48,35,0.18)] bg-[#0a3528] shadow-[0_36px_80px_-48px_rgba(0,53,38,0.7)]">
+          {heroImageSrc && !isHeroPhotoUnavailable ? (
+            <img
+              alt={`Celebração do campeão da ${context.competitionName}`}
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={() => setIsHeroPhotoUnavailable(true)}
+              src={heroImageSrc}
+            />
+          ) : null}
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,24,18,0.12)_0%,rgba(3,24,18,0.44)_48%,rgba(3,24,18,0.78)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,224,130,0.2),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(166,242,209,0.18),transparent_26%)]" />
+
+          {isHeroPhotoUnavailable || !heroImageSrc ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-28 w-28 rounded-full border border-white/16 bg-white/10 blur-[1px]" />
+            </div>
+          ) : null}
+
+          <div className="absolute inset-x-4 bottom-4">
+            <div className="rounded-[1.3rem] border border-white/12 bg-[rgba(7,24,18,0.52)] px-4 py-4 backdrop-blur-sm">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#bfe6d6]">
+                Campeão
+              </p>
+              <p className="mt-2 font-[family:var(--font-profile-headline)] text-[2rem] font-extrabold leading-none tracking-[-0.04em] text-white">
+                {championName}
+              </p>
+              <p className="mt-2 text-sm text-[#d7efe4]">
+                {finalDecisionDate ?? "Data da final não informada"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function CupKpiStrip({
+function CupStructureStrip({
   context,
   resolution,
 }: {
@@ -3577,40 +3692,38 @@ function CupKpiStrip({
     competitionKey: context.competitionKey,
     seasonLabel: context.seasonLabel,
   });
-  const matchCount = analyticsQuery.data?.seasonSummary.matchCount;
-  const knockoutCount = resolution.knockoutStages.length;
-  const coverageStatus = analyticsQuery.isLoading
-    ? "Calculando"
-    : analyticsQuery.coverage.status === "complete"
-      ? "Total"
-      : "Parcial";
-  const isCoverageTotal = analyticsQuery.coverage.status === "complete";
+  const championTieQuery = useStageTies({
+    competitionKey: context.competitionKey,
+    seasonLabel: context.seasonLabel,
+    stageId: resolution.finalKnockoutStage?.stageId,
+  });
+  const primaryStageCount = resolveCupPrimaryStages(resolution).length || resolution.knockoutStages.length;
+  const matchCount = analyticsQuery.isLoading
+    ? "..."
+    : formatHistoricalMatchCount(analyticsQuery.data?.seasonSummary.matchCount);
+  const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
+  const finalDecisionDate =
+    championTie ? formatLongDate(championTie.lastLegAt ?? championTie.firstLegAt) : null;
+  const stageRangeLabel = resolveCupStageRangeLabel(resolution);
 
   return (
-    <div className="flex flex-wrap gap-3">
-      <div className="rounded-xl bg-[#f0f3ff] px-6 py-4">
-        <p className="text-[0.65rem] font-bold uppercase tracking-widest text-[#515f74]">
-          {resolution.type === "hybrid" ? "Fases" : "Fases eliminatorias"}
-        </p>
-        <p className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#003526]">
-          {knockoutCount > 0 ? String(knockoutCount).padStart(2, "0") : "--"}
-        </p>
-      </div>
-      <div className="rounded-xl bg-[#f0f3ff] px-6 py-4">
-        <p className="text-[0.65rem] font-bold uppercase tracking-widest text-[#515f74]">Partidas</p>
-        <p className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#003526]">
-          {analyticsQuery.isLoading ? "..." : formatHistoricalMatchCount(matchCount)}
-        </p>
-      </div>
-      <div className={`rounded-xl px-6 py-4 ${isCoverageTotal ? "bg-[#a6f2d1]" : "bg-[#f0f3ff]"}`}>
-        <p className="text-[0.65rem] font-bold uppercase tracking-widest text-[#00513b]">Cobertura</p>
-        <div className="mt-1 flex items-center gap-1">
-          <p className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold uppercase text-[#003526]">
-            {analyticsQuery.isLoading ? "..." : coverageStatus}
-          </p>
-          {isCoverageTotal ? <span className="text-lg text-[#003526]">✓</span> : null}
-        </div>
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm font-extrabold text-[#111c2d]">Mata-mata puro</span>
+      <span className="text-[#8fa097]">•</span>
+      <span className="rounded-full border border-[rgba(191,201,195,0.52)] bg-[rgba(240,243,255,0.88)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
+        {stageRangeLabel}
+      </span>
+      <span className="rounded-full border border-[rgba(191,201,195,0.52)] bg-[rgba(240,243,255,0.88)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
+        {formatCupStageCount(primaryStageCount)}
+      </span>
+      <span className="rounded-full border border-[rgba(191,201,195,0.52)] bg-[rgba(240,243,255,0.88)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
+        {matchCount} partidas
+      </span>
+      {finalDecisionDate ? (
+        <span className="rounded-full border border-[rgba(191,201,195,0.52)] bg-[rgba(240,243,255,0.88)] px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
+          Final em {finalDecisionDate}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -3710,7 +3823,7 @@ function LeagueStructureSection({ context }: { context: CompetitionSeasonContext
         context={context}
         description="A classificação final da edição é a âncora principal da leitura da liga."
         query={finalStandingsQuery}
-        title="Classificacao final"
+        title="Classificação final"
       />
 
       {shouldShowFilteredSnapshot ? (
@@ -3738,13 +3851,81 @@ function CupOverviewSection({
   resolution: CompetitionSeasonSurfaceResolution;
 }) {
   const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
+  const championName = championTieQuery.isLoading ? null : (championTie?.winnerTeamName ?? null);
+  const primaryStages = resolveCupPrimaryStages(resolution);
+  const openingStage = resolveCupOpeningStage(resolution);
+  const finalStage = resolveCupFinalStage(resolution);
+  const participantCount = resolveCupParticipantCount(resolution);
 
   return (
-    <ChampionPathPanel
-      championName={championTie?.winnerTeamName ?? null}
-      context={context}
-      resolution={resolution}
-    />
+    <div className="space-y-5">
+      <ProfilePanel className="space-y-5">
+        <SeasonSectionHeader
+          description="Leitura direta da edição eliminatória, sem fase de grupos ou tabela classificatória."
+          eyebrow="Visão geral"
+          title="Leitura da copa"
+        />
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <HistoricalHeroCard
+            detail="A edição é tratada como torneio eliminatório puro."
+            label="Formato"
+            tone="soft"
+            value={resolution.editionLabel ?? "Mata-mata"}
+          />
+          <HistoricalHeroCard
+            detail="Primeira etapa exibida no chaveamento principal."
+            label="Entrada"
+            tone="soft"
+            value={openingStage ? localizeSeasonStageName(openingStage.stageName ?? openingStage.stageId) : "-"}
+          />
+          <HistoricalHeroCard
+            detail="Última etapa eliminatória consolidada."
+            label="Decisão"
+            tone="soft"
+            value={finalStage ? localizeSeasonStageName(finalStage.stageName ?? finalStage.stageId) : "-"}
+          />
+          <HistoricalHeroCard
+            detail={participantCount ? "Estimativa vinda da estrutura da etapa inicial." : "Participantes não consolidados na estrutura."}
+            label="Clubes"
+            tone="soft"
+            value={participantCount ? String(participantCount) : "-"}
+          />
+        </div>
+
+        {primaryStages.length > 0 ? (
+          <div className="rounded-[1.35rem] border border-[rgba(191,201,195,0.55)] bg-white/88 px-4 py-4">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
+              Trilha principal
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {primaryStages.map((stage, index) => (
+                <div className="flex items-center gap-2" key={stage.stageId}>
+                  <span className="rounded-full border border-[rgba(191,201,195,0.62)] bg-[rgba(240,243,255,0.88)] px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-[#455468]">
+                    {localizeSeasonStageName(stage.stageName ?? stage.stageId)}
+                  </span>
+                  {index < primaryStages.length - 1 ? (
+                    <span className="text-sm font-semibold text-[#8fa097]">→</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
+            description="A estrutura não trouxe fases eliminatórias suficientes para descrever a trilha."
+            title="Sem trilha consolidada"
+          />
+        )}
+      </ProfilePanel>
+
+      <ChampionPathPanel
+        championName={championName}
+        context={context}
+        resolution={resolution}
+      />
+    </div>
   );
 }
 
@@ -3758,94 +3939,10 @@ function CupStructureSection({
   return (
     <KnockoutBracketPanel
       context={context}
-      description="Chaveamento completo da edição."
+      description="Fases e confrontos da copa, com ida/volta, agregado e classificados quando o dado existe."
       resolution={resolution}
-      title="Chaveamento finalizado"
+      title="Chaveamento da copa"
     />
-  );
-}
-
-function CupFactsCard({
-  context,
-  resolution,
-}: {
-  context: CompetitionSeasonContext;
-  resolution: CompetitionSeasonSurfaceResolution;
-}) {
-  const championTieQuery = useStageTies({
-    competitionKey: context.competitionKey,
-    seasonLabel: context.seasonLabel,
-    stageId: resolution.finalKnockoutStage?.stageId,
-  });
-  const analyticsQuery = useCompetitionAnalytics({
-    competitionKey: context.competitionKey,
-    seasonLabel: context.seasonLabel,
-  });
-  const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
-
-  const facts: Array<{ label: string; value: string }> = [
-    {
-      label: "Campeao",
-      value: championTieQuery.isLoading
-        ? "..."
-        : (championTie?.winnerTeamName ?? "Não identificado"),
-    },
-    {
-      label: "Partidas",
-      value: analyticsQuery.isLoading
-        ? "..."
-        : formatHistoricalMatchCount(analyticsQuery.data?.seasonSummary.matchCount),
-    },
-    {
-      label: "Fases eliminatorias",
-      value: resolution.knockoutStages.length > 0
-        ? String(resolution.knockoutStages.length)
-        : "-",
-    },
-    {
-      label: "Formato",
-      value: resolution.editionLabel ?? "Copa",
-    },
-  ];
-
-  return (
-    <ProfilePanel className="space-y-4">
-      <div>
-        <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">Edição</p>
-        <p className="mt-2 font-[family:var(--font-profile-headline)] text-xl font-extrabold tracking-[-0.03em] text-[#111c2d]">
-          {context.competitionName}
-        </p>
-        <p className="mt-1 text-sm text-[#57657a]">{context.seasonLabel}</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        {facts.map((fact) => (
-          <div
-            className="rounded-[1.1rem] border border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)] px-3 py-3"
-            key={fact.label}
-          >
-            <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">{fact.label}</p>
-            <p className="mt-1.5 font-[family:var(--font-profile-headline)] text-base font-extrabold text-[#111c2d]">
-              {fact.value}
-            </p>
-          </div>
-        ))}
-      </div>
-    </ProfilePanel>
-  );
-}
-
-function CupEditionRail({
-  context,
-  resolution,
-}: {
-  context: CompetitionSeasonContext;
-  resolution: CompetitionSeasonSurfaceResolution;
-}) {
-  return (
-    <>
-      <CupFactsCard context={context} resolution={resolution} />
-      <EditionRailInsightsCards context={context} />
-    </>
   );
 }
 
@@ -3964,7 +4061,7 @@ function HybridHistoricalHero({
             </p>
             <div className="mt-4">
               <HybridHeroSummaryItem
-                label="Campeao"
+                label="Campeão"
                 media={championTie ? <TeamBadge size={44} teamId={championTie.winnerTeamId} teamName={championName} /> : null}
                 value={championName}
                 valueClassName="font-[family:var(--font-profile-headline)] text-[2.05rem] font-extrabold leading-none tracking-[-0.05em] text-[#111c2d]"
@@ -4011,7 +4108,7 @@ function HybridHistoricalHero({
           <div className="absolute inset-x-4 bottom-4">
             <div className="rounded-[1.3rem] border border-white/12 bg-[rgba(7,24,18,0.52)] px-4 py-4 backdrop-blur-sm">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#bfe6d6]">
-                Campeao
+                Campeão
               </p>
               <p className="mt-2 font-[family:var(--font-profile-headline)] text-[2rem] font-extrabold leading-none tracking-[-0.04em] text-white">
                 {championName}
@@ -4099,7 +4196,7 @@ function HybridTableOverviewPanel({
           context={context}
           description="A classificação final da fase de grupos segue como referência principal desta edição encerrada."
           query={finalStandingsQuery}
-          title={stage.stageName ?? resolveHybridTableSectionLabel(stage)}
+          title={localizeSeasonStageName(stage.stageName ?? resolveHybridTableSectionLabel(stage))}
         />
       );
     }
@@ -4108,7 +4205,7 @@ function HybridTableOverviewPanel({
       <ProfilePanel className="space-y-5">
         <SeasonSectionHeader
           eyebrow="Fase de tabela"
-          title={stage.stageName ?? resolveHybridTableSectionLabel(stage)}
+          title={localizeSeasonStageName(stage.stageName ?? resolveHybridTableSectionLabel(stage))}
         />
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -4227,7 +4324,7 @@ function HybridTableOverviewPanel({
       <SeasonSectionHeader
         description="Tabela final da fase classificatória, com foco no corte para o mata-mata."
         eyebrow="Fase de tabela"
-        title={stage.stageName ?? resolveHybridTableSectionLabel(stage)}
+        title={localizeSeasonStageName(stage.stageName ?? resolveHybridTableSectionLabel(stage))}
       />
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -4345,7 +4442,7 @@ function HybridFactsCard({
 
   const facts: Array<{ label: string; value: string }> = [
     {
-      label: "Campeao",
+      label: "Campeão",
       value: championTieQuery.isLoading
         ? "..."
         : (championTie?.winnerTeamName ?? "Não identificado"),
@@ -4358,7 +4455,11 @@ function HybridFactsCard({
     },
     {
       label: tableSectionLabel,
-      value: groupCount > 0 ? `${groupCount} grupos` : (resolution.primaryTableStage?.stageName ?? "-"),
+      value: groupCount > 0
+        ? `${groupCount} grupos`
+        : (resolution.primaryTableStage
+            ? localizeSeasonStageName(resolution.primaryTableStage.stageName ?? resolution.primaryTableStage.stageId)
+            : "-"),
     },
     {
       label: "Mata-mata",
@@ -4398,9 +4499,11 @@ function HybridFactsCard({
           </p>
         </div>
         <div className="rounded-[1.1rem] border border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.56)] px-3 py-3">
-          <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Decisao</p>
+          <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Decisão</p>
           <p className="mt-1 text-sm font-semibold text-[#111c2d]">
-            {resolution.finalKnockoutStage?.stageName ?? "Não identificado"}
+            {resolution.finalKnockoutStage
+              ? localizeSeasonStageName(resolution.finalKnockoutStage.stageName ?? resolution.finalKnockoutStage.stageId)
+              : "Não identificado"}
           </p>
         </div>
       </div>
@@ -4445,9 +4548,9 @@ function buildSurfaceNavLabels(
   }
 
   return {
-    highlights: "Destaques estatísticos",
-    matches: "Confrontos decisivos",
-    overview: "Caminho do título",
+    highlights: "Destaques",
+    matches: "Partidas",
+    overview: "Visão geral",
     structure: "Chaveamento",
   };
 }
@@ -4736,27 +4839,44 @@ function CupSeasonSurface({
     stageId: resolution.finalKnockoutStage?.stageId,
   });
   const navLabels = buildSurfaceNavLabels(resolution);
+  const overviewBracket = (
+    <KnockoutBracketPanel
+      context={context}
+      resolution={resolution}
+      title="Chaveamento até a final"
+      variant="snapshot"
+    />
+  );
 
   return (
     <CompetitionSeasonSurfaceShell
       context={context}
-      hero={<CupHeroBanner context={context} tag="Copa" />}
+      hero={<CupHistoricalHero context={context} resolution={resolution} />}
+      summaryStrip={activeSection === "overview" ? <CupStructureStrip context={context} resolution={resolution} /> : null}
       mainCanvas={
         <>
           {activeSection === "overview" ? (
-            <><CupKpiStrip context={context} resolution={resolution} /><CupOverviewSection championTieQuery={championTieQuery} context={context} resolution={resolution} /></>
+            <div className="space-y-6">
+              {overviewBracket}
+              <CupOverviewSection
+                championTieQuery={championTieQuery}
+                context={context}
+                resolution={resolution}
+              />
+            </div>
           ) : null}
           {activeSection === "structure" ? <CupStructureSection context={context} resolution={resolution} /> : null}
           {activeSection === "matches" ? (
             <ClosingMatchesPanel
               context={context}
-              description="Os confrontos mais importantes da edição."
-              title="Confrontos decisivos"
+              description="Partidas finais e confrontos de maior peso na edição encerrada."
+              title="Partidas da copa"
             />
           ) : null}
           {activeSection === "highlights" ? <EditionHighlightsSection context={context} structure={structure} /> : null}
         </>
       }
+      navAside={null}
       navItems={[
         {
           href: buildSeasonSurfaceHref(context, "overview", searchParams),
@@ -4783,7 +4903,9 @@ function CupSeasonSurface({
           label: navLabels.highlights,
         },
       ]}
-      secondaryRail={<CupEditionRail context={context} resolution={resolution} />}
+      secondaryRail={null}
+      showLocalBreadcrumbs={false}
+      supportingModules={null}
     />
   );
 }
