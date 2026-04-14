@@ -335,7 +335,7 @@ export function usePlatformShellState(): PlatformShellState {
       pathname === "/"
         ? [
             {
-              label: "Home",
+              label: "Início",
             },
           ]
         : [
@@ -386,7 +386,7 @@ export function usePlatformShellState(): PlatformShellState {
     }
 
     if (pathname === "/") {
-      surfaceLabel = "Home";
+      surfaceLabel = "Início";
       surfaceTitle = context
         ? `${context.competitionName} ${context.seasonLabel}`
         : "Entrada executiva do produto";
@@ -395,7 +395,7 @@ export function usePlatformShellState(): PlatformShellState {
           ? "Comece pela competição atual e siga para partidas, times, jogadores ou rankings."
           : "Comece por competições ou use a busca global para entrar direto em partidas, times e jogadores.";
       helperText = context
-        ? "A home mantém o recorte atual enquanto você abre as áreas principais."
+        ? "A página inicial mantém o recorte atual enquanto você abre as áreas principais."
         : "Escolha uma competição ou abra a busca global para começar.";
       surfaceLinks.splice(
         0,
@@ -411,7 +411,7 @@ export function usePlatformShellState(): PlatformShellState {
       description =
         "Escolha uma competição para abrir a temporada mais recente ou explorar todas as temporadas.";
       helperText =
-        "Cada card leva à competição e à temporada mais recente.";
+        "Cada item leva à competição e à temporada mais recente.";
     } else if (pathname.startsWith("/competitions/") && !context) {
       surfaceLabel = "Competição";
       surfaceTitle = competitionOnly ? competitionOnly.name : "Competição";
@@ -430,14 +430,14 @@ export function usePlatformShellState(): PlatformShellState {
       surfaceTitle = `${context.competitionName} ${context.seasonLabel}`;
       description =
         activeTab === "standings"
-          ? "Leitura estrutural da edição encerrada, com foco na classificacao final, no chaveamento ou na fase classificatoria."
+          ? "Leitura estrutural da edição encerrada, com foco na classificação final, no chaveamento ou na fase classificatória."
           : activeTab === "rankings"
             ? "Destaques individuais e coletivos da edição no mesmo recorte competitivo."
             : activeTab === "calendar"
-              ? "Confrontos e partidas concluidas da edição, sem tratamento de temporada ao vivo."
-              : "Resumo editorial da edição encerrada, orientado pelo tipo real da competicao.";
+              ? "Confrontos e partidas concluídas da edição, sem tratamento de temporada ao vivo."
+              : "Resumo editorial da edição encerrada, orientado pelo tipo real da competição.";
       helperText =
-        "Os atalhos preservam competicao, temporada e filtros extras enquanto voce muda de leitura.";
+        "Os atalhos preservam competição, temporada e filtros extras enquanto você muda de leitura.";
     } else if (isShortPlayerResolverPath(pathname)) {
       surfaceLabel = "Abrindo jogador";
       surfaceTitle = "Abrindo jogador";
@@ -524,10 +524,10 @@ export function usePlatformShellState(): PlatformShellState {
       helperText =
         "O contexto atual continua ativo ao abrir o detalhe da partida.";
     } else if (pathname.startsWith("/matches/")) {
-      surfaceLabel = "Match center";
+      surfaceLabel = "Central da partida";
       surfaceTitle = context
-        ? `Match center em ${context.competitionName} ${context.seasonLabel}`
-        : "Match center";
+        ? `Central da partida em ${context.competitionName} ${context.seasonLabel}`
+        : "Central da partida";
       description =
         "Resumo, linha do tempo, escalações e estatísticas do jogo.";
       helperText =
@@ -547,7 +547,7 @@ export function usePlatformShellState(): PlatformShellState {
       description =
         "A trilha de transferências ainda não tem contrato público estável, mas o domínio já está enquadrado na arquitetura do produto.";
       helperText =
-        "Use jogadores, times e rankings para explorar o contexto disponível hoje enquanto o feed público de mercado é fechado.";
+        "Use jogadores, times e rankings para explorar o contexto disponível hoje enquanto a lista pública de mercado é fechada.";
       breadcrumbs.push({ label: "Mercado" });
       surfaceLinks.splice(
         0,
@@ -563,15 +563,15 @@ export function usePlatformShellState(): PlatformShellState {
         buildSurfaceLink(pathname, searchParams, "Partidas", buildMatchesPath(sharedFilterInput)),
       );
     } else if (pathname === "/head-to-head") {
-      surfaceLabel = "Head-to-head";
+      surfaceLabel = "Confronto direto";
       surfaceTitle = context
         ? `Comparar times em ${context.competitionName} ${context.seasonLabel}`
-        : "Head-to-head";
+        : "Confronto direto";
       description =
-        "Compare dois times no mesmo recorte e siga dos confrontos diretos para o match center e os perfis canônicos.";
+        "Compare dois times no mesmo recorte e siga dos confrontos diretos para a central da partida e os perfis canônicos.";
       helperText =
         "Escolha dois times no contexto atual para montar o comparativo sem sair da temporada.";
-      breadcrumbs.push({ label: "Head-to-head" });
+      breadcrumbs.push({ label: "Confronto direto" });
       surfaceLinks.splice(
         0,
         surfaceLinks.length,
@@ -604,7 +604,7 @@ export function usePlatformShellState(): PlatformShellState {
       surfaceLabel = "Técnicos";
       surfaceTitle = "Perfil de técnico em preparação";
       description =
-        "O deep link de técnico já existe, mas o detalhe público ainda depende de um contrato dedicado para fechar histórico, ciclos e desempenho.";
+        "O link direto de técnico já existe, mas o detalhe público ainda depende de um contrato dedicado para fechar histórico, ciclos e desempenho.";
       helperText =
         "Use times, jogadores e partidas para navegar pelo contexto atual sem cair em rota quebrada.";
       breadcrumbs.push({ label: "Técnicos" });
@@ -621,12 +621,12 @@ export function usePlatformShellState(): PlatformShellState {
       description =
         "Esta rota não está aberta na navegação do produto.";
       helperText =
-        "Volte para home, competições ou partidas para continuar.";
+        "Volte para o início, competições ou partidas para continuar.";
       breadcrumbs.push({ label: "Auditoria" });
       surfaceLinks.splice(
         0,
         surfaceLinks.length,
-        buildSurfaceLink(pathname, searchParams, "Home", "/"),
+        buildSurfaceLink(pathname, searchParams, "Início", "/"),
         buildSurfaceLink(pathname, searchParams, "Competições", "/competitions"),
         buildSurfaceLink(pathname, searchParams, "Partidas", buildMatchesPath(sharedFilterInput)),
       );

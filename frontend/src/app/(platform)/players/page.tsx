@@ -94,7 +94,7 @@ function getInitials(name: string): string {
 
 function formatPosition(position: string | null | undefined): string {
   if (!position) {
-    return "Sem posicao";
+    return "Sem posição";
   }
 
   const normalizedPosition = position.trim();
@@ -125,14 +125,14 @@ function describeTimeWindow(params: {
   dateRangeEnd: string | null;
 }): string {
   if (params.lastN !== null) {
-    return `Ultimas ${params.lastN} partidas`;
+    return `Últimas ${params.lastN} partidas`;
   }
 
   if (params.dateRangeStart !== null || params.dateRangeEnd !== null) {
     const startLabel = params.dateRangeStart ?? "...";
     const endLabel = params.dateRangeEnd ?? "...";
 
-    return `${startLabel} ate ${endLabel}`;
+    return `${startLabel} até ${endLabel}`;
   }
 
   if (params.roundId !== null) {
@@ -159,7 +159,7 @@ export default function PlayersPage() {
   const seasonLabel = getSeasonById(seasonId)?.label;
   const pageTitle = competitionName
     ? `Jogadores - ${competitionName}${seasonLabel ? ` (${seasonLabel})` : ""}`
-    : "Jogadores Gerais";
+    : "Jogadores gerais";
 
   const normalizedMinMinutes = useMemo(() => parseMinMinutes(minMinutesInput), [minMinutesInput]);
   const selectedIdsSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -381,7 +381,7 @@ export default function PlayersPage() {
   const localFiltersDescription =
     normalizedMinMinutes === null
       ? "Sem piso local de minutos"
-      : `Minimo local de ${formatInteger(normalizedMinMinutes)} minutos`;
+      : `Mínimo local de ${formatInteger(normalizedMinMinutes)} minutos`;
   const discoverySummary =
     search.trim().length > 0
       ? `Busca refinada por "${search.trim()}"`
@@ -395,13 +395,13 @@ export default function PlayersPage() {
     : formatInteger(derivedSummary.goalInvolvements);
   const compareStatusCopy =
     selectedPlayersPreview.length === 0
-      ? "Selecione ate dois jogadores para comparar sem sair desta tela."
+      ? "Selecione até dois jogadores para comparar sem sair desta tela."
       : selectedPlayersPreview.length === 1
-        ? "Um jogador selecionado. Escolha mais um para abrir a comparacao."
-        : "Dois jogadores selecionados. A comparacao esta pronta.";
-  const resultsEmptyTitle = playersQuery.isError ? "Lista indisponivel" : "Sem jogadores";
+        ? "Um jogador selecionado. Escolha mais um para abrir a comparação."
+        : "Dois jogadores selecionados. A comparação está pronta.";
+  const resultsEmptyTitle = playersQuery.isError ? "Lista indisponível" : "Sem jogadores";
   const resultsEmptyDescription = playersQuery.isError
-    ? "Nao foi possivel consultar a lista de jogadores agora."
+    ? "Não foi possível consultar a lista de jogadores agora."
     : "Nenhum jogador encontrado com os filtros atuais.";
   const seasonHubHref = resolvedContext
     ? buildSeasonHubTabPath(resolvedContext, "rankings", {
@@ -448,7 +448,7 @@ export default function PlayersPage() {
                   {player.playerName}
                 </Link>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-[#57657a]">
-                  <span>{player.nationality ?? "Nacionalidade nao informada"}</span>
+                  <span>{player.nationality ?? "Nacionalidade não informada"}</span>
                   {typeof player.matchesPlayed === "number" ? (
                     <span className="rounded-full bg-[rgba(240,243,255,0.96)] px-2 py-0.5 font-medium text-[#57657a]">
                       {formatInteger(player.matchesPlayed)} jogos
@@ -493,7 +493,7 @@ export default function PlayersPage() {
       },
       {
         accessorKey: "position",
-        header: "Posicao",
+        header: "Posição",
         cell: ({ row }) => (
           <span className="inline-flex rounded-full bg-[rgba(240,243,255,0.96)] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
             {formatPosition(row.original.position)}
@@ -520,7 +520,7 @@ export default function PlayersPage() {
       },
       {
         accessorKey: "assists",
-        header: "Assistencias",
+        header: "Assistências",
         cell: ({ row }) => (
           <span className="font-medium tabular-nums text-[#1f2d40]">
             {formatMetricValue("assists", row.original.assists)}
@@ -529,7 +529,7 @@ export default function PlayersPage() {
       },
       {
         accessorKey: "rating",
-        header: "Rating",
+        header: "Nota",
         cell: ({ row }) => {
           const rating = row.original.rating;
 
@@ -596,7 +596,7 @@ export default function PlayersPage() {
           <section className="overflow-hidden rounded-[1.85rem] bg-[linear-gradient(135deg,#003526_0%,#004e39_100%)] p-6 text-white shadow-[0_34px_90px_-58px_rgba(0,53,38,0.9)]">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-white/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white/78">
-                Catalogo
+                Catálogo
               </span>
               <span className="rounded-full bg-white/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-white/78">
                 {activeWindowLabel}
@@ -621,25 +621,25 @@ export default function PlayersPage() {
 
             <div className="mt-6 grid gap-3 md:grid-cols-3">
               <ProfileKpi
-                hint="Apos filtros globais e locais"
+                hint="Após filtros globais e locais"
                 invert
-                label="Jogadores visiveis"
+                label="Jogadores visíveis"
                 value={loadingSummaryValue}
               />
               <ProfileKpi
                 hint={
                   derivedSummary.ratedPlayers > 0
                     ? `${formatInteger(derivedSummary.ratedPlayers)} com nota`
-                    : "Sem nota disponivel"
+                    : "Sem nota disponível"
                 }
                 invert
-                label="Media de rating"
+                label="Média de nota"
                 value={averageRatingValue}
               />
               <ProfileKpi
-                hint={`${formatInteger(derivedSummary.totalGoals)} gols e ${formatInteger(derivedSummary.totalAssists)} assist.`}
+                hint={`${formatInteger(derivedSummary.totalGoals)} gols e ${formatInteger(derivedSummary.totalAssists)} assistências`}
                 invert
-                label="Gols + assist."
+                label="Gols + assistências"
                 value={goalContributionValue}
               />
             </div>
@@ -652,7 +652,7 @@ export default function PlayersPage() {
               </p>
               <dl className="mt-4 space-y-3 text-sm text-[#1f2d40]">
                 <div className="flex items-start justify-between gap-4">
-                  <dt className="text-[#57657a]">Competicao</dt>
+                  <dt className="text-[#57657a]">Competição</dt>
                   <dd className="text-right font-medium">{competitionName ?? "Todas"}</dd>
                 </div>
                 <div className="flex items-start justify-between gap-4">
@@ -668,7 +668,7 @@ export default function PlayersPage() {
                   <dd className="text-right font-medium">{activeWindowLabel}</dd>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <dt className="text-[#57657a]">Navegacao</dt>
+                  <dt className="text-[#57657a]">Navegação</dt>
                   <dd className="max-w-[16rem] text-right font-medium">
                     {canNavigateDirectly
                       ? "Os links mantêm esta competição e temporada ao abrir jogador e time."
@@ -680,7 +680,7 @@ export default function PlayersPage() {
 
             <section className="rounded-[1.6rem] border border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)] p-5 shadow-[0_20px_56px_-48px_rgba(17,28,45,0.28)]">
               <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-                Comparacao
+                Comparação
               </p>
               <p className="mt-3 text-sm/6 text-[#1f2d40]">{compareStatusCopy}</p>
               {selectedPlayersPreview.length > 0 ? (
@@ -710,7 +710,7 @@ export default function PlayersPage() {
         <PartialDataBanner
           className="rounded-[1.35rem] border-[#ffdcc3] bg-[#fff3e8] px-4 py-3 text-[#6e3900]"
           coverage={playersQuery.coverage}
-          message="Algumas metricas ainda estao incompletas neste contexto. Use a lista como referencia, nao como leitura exaustiva."
+          message="Algumas métricas ainda estão incompletas neste contexto. Use a lista como referência, não como leitura exaustiva."
         />
       ) : null}
 
@@ -777,7 +777,7 @@ export default function PlayersPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <ProfileTag>{competitionName ?? "Todas as competicoes"}</ProfileTag>
+            <ProfileTag>{competitionName ?? "Todas as competições"}</ProfileTag>
             <ProfileTag>{seasonLabel ?? "Todas as temporadas"}</ProfileTag>
             <ProfileTag>
               {activeMode === "none" ? "Sem janela extra" : activeWindowLabel}
@@ -806,7 +806,7 @@ export default function PlayersPage() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-[#1f2d40]">
-            Minimo de minutos
+            Mínimo de minutos
             <div className="flex items-center gap-3 rounded-[1.3rem] border border-[rgba(191,201,195,0.55)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#003526]">
                 Min
@@ -838,7 +838,7 @@ export default function PlayersPage() {
               </h2>
               <p className="mt-2 max-w-2xl text-sm/6 text-[#57657a]">
                 {discoverySummary}. Clique em um nome para abrir o perfil do jogador no melhor
-                contexto disponivel.
+                contexto disponível.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -922,7 +922,7 @@ export default function PlayersPage() {
                           {formatMetricValue("player_rating", player.rating)}
                         </p>
                         <p className="mt-1 text-[0.65rem] uppercase tracking-[0.16em] text-[#57657a]">
-                          rating
+                          nota
                         </p>
                       </div>
                     </Link>
@@ -942,7 +942,7 @@ export default function PlayersPage() {
             </p>
             <div className="mt-4 space-y-3 text-sm/6 text-[#57657a]">
               <p>
-                Abra o jogador para acompanhar historico, forma recente e tendencia mensal sem sair
+                Abra o jogador para acompanhar histórico, forma recente e tendência mensal sem sair
                 da mesma temporada.
               </p>
               <p>
@@ -950,7 +950,7 @@ export default function PlayersPage() {
                 atleta.
               </p>
               <p>
-                Use a comparacao para separar dois nomes e seguir para a leitura lado a lado.
+                Use a comparação para separar dois nomes e seguir para a leitura lado a lado.
               </p>
             </div>
           </section>

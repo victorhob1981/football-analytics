@@ -17,14 +17,14 @@ export function describeTimeWindowLabel(params: {
   dateRangeEnd: string | null;
 }): string {
   if (params.lastN !== null) {
-    return `Ultimas ${params.lastN} partidas`;
+    return `Últimas ${params.lastN} partidas`;
   }
 
   if (params.dateRangeStart !== null || params.dateRangeEnd !== null) {
     const startLabel = params.dateRangeStart ?? "...";
     const endLabel = params.dateRangeEnd ?? "...";
 
-    return `${startLabel} ate ${endLabel}`;
+    return `${startLabel} até ${endLabel}`;
   }
 
   if (params.roundId !== null) {

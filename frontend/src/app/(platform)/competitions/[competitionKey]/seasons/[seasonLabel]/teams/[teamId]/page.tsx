@@ -23,9 +23,9 @@ export default async function CanonicalTeamProfilePage({ params }: CanonicalTeam
       <PlatformStateSurface
         actionHref="/competitions"
         actionLabel="Ir para competições"
-        description="Esta temporada nao corresponde a um contexto valido para abrir o time."
+        description="Esta temporada não corresponde a um contexto válido para abrir o time."
         kicker="Time"
-        title="Perfil de time indisponivel"
+        title="Perfil de time indisponível"
         tone="critical"
       />
     );

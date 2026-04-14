@@ -129,7 +129,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Team profile
+            Perfil de time
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
             Carregando perfil do time
@@ -147,7 +147,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Team profile
+            Perfil de time
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
             Falha ao carregar perfil do time
@@ -165,7 +165,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Team profile
+            Perfil de time
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
             Perfil de time indisponível
@@ -173,7 +173,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
         </header>
         <EmptyState
           title="Perfil indisponível"
-          description="O BFF respondeu sem dados suficientes para o time no contexto canônico atual."
+          description="A base retornou dados insuficientes para o time no contexto atual."
         />
       </ProfileShell>
     );
@@ -184,25 +184,26 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
     sectionCoverage?.overview,
     {
       ...profileQuery.coverage,
-      label: sectionCoverage?.overview?.label ?? "Team overview coverage",
+      label: sectionCoverage?.overview?.label ?? "Cobertura do resumo do time",
     },
   );
   const squadCoverage = resolveSectionCoverage(sectionCoverage?.squad, {
     status: squad && squad.length > 0 ? "complete" : "unknown",
-    label: "Squad coverage",
+    label: "Cobertura do elenco",
   });
   const statsCoverage = resolveSectionCoverage(sectionCoverage?.stats, {
     status: stats ? "complete" : "unknown",
-    label: "Team stats coverage",
+    label: "Cobertura das estatísticas do time",
   });
   const matchesCoverage = teamMatchesQuery.coverage;
   const tabLinks = [
-    { key: "overview" as const, label: "Overview", coverage: overviewCoverage, badge: "Resumo" },
-    { key: "journey" as const, label: "Journey", coverage: overviewCoverage, badge: "Histórico" },
+    { key: "overview" as const, label: "Resumo", coverage: overviewCoverage, badge: "Resumo" },
+    { key: "journey" as const, label: "Jornada", coverage: overviewCoverage, badge: "Histórico" },
     { key: "squad" as const, label: "Elenco", coverage: squadCoverage, badge: `${squad?.length ?? 0} jogadores` },
     { key: "matches" as const, label: "Partidas", coverage: matchesCoverage, badge: `${teamMatchesQuery.data?.items.length ?? 0} jogos` },
-    { key: "stats" as const, label: "Stats", coverage: statsCoverage, badge: `${stats?.trend?.length ?? 0} períodos` },
+    { key: "stats" as const, label: "Estatísticas", coverage: statsCoverage, badge: `${stats?.trend?.length ?? 0} períodos` },
   ];
+  const activeTabLabel = tabLinks.find((tabLink) => tabLink.key === activeTab)?.label ?? "Resumo";
 
   return (
     <ProfileShell className="space-y-6">
@@ -260,7 +261,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
               className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
               href={headToHeadHref}
             >
-              Head-to-head
+              Confronto direto
             </Link>
             <Link
               className="inline-flex items-center rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
@@ -285,7 +286,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
 
         <div className="grid gap-3 md:grid-cols-4">
           <ProfileKpi
-            hint="Standing atual"
+            hint="Classificação atual"
             invert
             label="Posição"
             value={profileQuery.data.standing?.position ? `${profileQuery.data.standing.position}º` : "-"}
@@ -297,7 +298,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
             value={profileQuery.data.summary.points ?? "-"}
           />
           <ProfileKpi hint="Jogadores identificados" invert label="Elenco" value={squad?.length ?? 0} />
-          <ProfileKpi hint="Leitura mensal" invert label="Stats" value={stats?.trend?.length ?? 0} />
+          <ProfileKpi hint="Leitura mensal" invert label="Estatísticas" value={stats?.trend?.length ?? 0} />
         </div>
       </ProfilePanel>
 
@@ -308,8 +309,8 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
       ) : null}
 
       <ProfileTabs
-        ariaLabel="Team profile tabs"
-        aside={<ProfileTag>{activeTab}</ProfileTag>}
+        ariaLabel="Abas do perfil do time"
+        aside={<ProfileTag>{activeTabLabel}</ProfileTag>}
         items={tabLinks.map((tabLink) => ({
           key: tabLink.key,
           label: tabLink.label,

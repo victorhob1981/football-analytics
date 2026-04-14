@@ -268,7 +268,7 @@ export function HeadToHeadPageContent() {
         <ProfilePanel className="space-y-5" tone="accent">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <ProfileTag className="bg-white/12 text-white/82">Head-to-head</ProfileTag>
+              <ProfileTag className="bg-white/12 text-white/82">Confronto direto</ProfileTag>
               <ProfileTag className="bg-white/12 text-white/82">Contexto obrigatório</ProfileTag>
             </div>
             <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-[-0.04em] text-white md:text-5xl">
@@ -307,7 +307,7 @@ export function HeadToHeadPageContent() {
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.95fr)]">
         <ProfilePanel className="space-y-5" tone="accent">
           <div className="flex flex-wrap items-center gap-2">
-            <ProfileTag className="bg-white/12 text-white/82">Head-to-head</ProfileTag>
+            <ProfileTag className="bg-white/12 text-white/82">Confronto direto</ProfileTag>
             <ProfileTag className="bg-white/12 text-white/82">{resolvedContext.competitionName}</ProfileTag>
             <ProfileTag className="bg-white/12 text-white/82">{resolvedContext.seasonLabel}</ProfileTag>
             <ProfileCoveragePill
@@ -322,12 +322,12 @@ export function HeadToHeadPageContent() {
             </p>
             <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-[-0.04em] text-white md:text-5xl">
               {selectedTeamA?.teamName && selectedTeamB?.teamName
-                ? `${selectedTeamA.teamName} vs ${selectedTeamB.teamName}`
+                ? `${selectedTeamA.teamName} x ${selectedTeamB.teamName}`
                 : "Compare dois times no mesmo recorte"}
             </h1>
             <p className="max-w-3xl text-sm/6 text-white/74">
               A leitura usa os confrontos já disponíveis no calendário do recorte atual e leva
-              direto para o match center e os perfis canônicos de cada time.
+              direto para a central da partida e os perfis canônicos de cada time.
             </p>
           </div>
 
@@ -574,7 +574,7 @@ export function HeadToHeadPageContent() {
                 <ProfileMetricTile label="Mando" value={venue === "all" ? "Todos" : venue === "home" ? "Casa" : "Fora"} tone="soft" />
                 <ProfileMetricTile
                   label="Janela"
-                  value={typeof lastN === "number" ? `Últimas ${lastN}` : dateRangeStart || dateRangeEnd ? "Customizada" : roundId ? `Rodada ${roundId}` : "Temporada"}
+                  value={typeof lastN === "number" ? `Últimas ${lastN}` : dateRangeStart || dateRangeEnd ? "Personalizada" : roundId ? `Rodada ${roundId}` : "Temporada"}
                   tone="soft"
                 />
               </div>
@@ -644,7 +644,7 @@ export function HeadToHeadPageContent() {
                       seasonId: resolvedContext.seasonId,
                     })}
                   >
-                    Abrir match center
+                    Abrir central da partida
                   </Link>
                 </div>
               </ProfilePanel>

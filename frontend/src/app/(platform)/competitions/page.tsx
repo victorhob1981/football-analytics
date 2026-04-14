@@ -400,7 +400,7 @@ export default function CompetitionsIndexPage() {
       <section className={styles.pageHeader}>
         <div className={styles.breadcrumbRow}>
           <Link className={styles.breadcrumbLink} href="/">
-            Home
+            Início
           </Link>
           <span className={styles.breadcrumbDivider}>/</span>
           <span className={styles.breadcrumbCurrent}>Competições</span>
@@ -409,9 +409,9 @@ export default function CompetitionsIndexPage() {
         <div className={styles.headerGrid}>
           <div className={styles.headerCopy}>
             <p className={styles.headerEyebrow}>Catálogo competitivo</p>
-            <h1 className={styles.headerTitle}>Análise de Competições</h1>
+            <h1 className={styles.headerTitle}>Análise de competições</h1>
             <p className={styles.headerLead}>
-              Explore o arquivo histórico por competição, região e tipo, com entrada direta no hub
+              Explore o arquivo histórico por competição, região e tipo, com entrada direta na página
               da competição e na edição mais recente.
             </p>
 
@@ -436,7 +436,7 @@ export default function CompetitionsIndexPage() {
               value={formatWholeNumber(totalSeasonsTracked)}
             />
             <HeaderMetricCard
-              detail="hub ou edição mais recente"
+              detail="página ou edição mais recente"
               highlight
               label="Navegação direta"
               value="100%"

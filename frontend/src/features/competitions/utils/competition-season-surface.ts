@@ -37,7 +37,7 @@ export type CompetitionSeasonSurfaceResolution = {
 export function resolveHybridTableSectionLabel(
   stage: CompetitionStructureStage | null | undefined,
 ): string {
-  return stage?.stageFormat === "group_table" ? "Fase de grupos" : "Fase classificatoria";
+  return stage?.stageFormat === "group_table" ? "Fase de grupos" : "Fase classificatória";
 }
 
 export function normalizeCompetitionSeasonSurfaceSection(

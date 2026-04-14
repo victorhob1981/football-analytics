@@ -169,7 +169,7 @@ async function fetchSeasonTopScorer(
       data: { scorer: null },
       meta: {
         coverage: {
-          label: "Ranking player-goals indisponivel no registry.",
+          label: "Ranking de artilharia indisponível no registro.",
           status: "unknown",
         },
       },
@@ -479,9 +479,9 @@ function CompetitionHistoricalStatsSection({ competition }: { competition: Compe
     return (
       <ProfilePanel className="space-y-3">
         <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-          Historico
+          Histórico
         </p>
-        <p className="text-sm/6 text-[#57657a]">Carregando estatisticas historicas.</p>
+        <p className="text-sm/6 text-[#57657a]">Carregando estatísticas históricas.</p>
       </ProfilePanel>
     );
   }
@@ -497,7 +497,7 @@ function CompetitionHistoricalStatsSection({ competition }: { competition: Compe
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-            Historico
+            Histórico
           </p>
           <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-[2.15rem] font-extrabold tracking-[-0.05em] text-[#111c2d]">
             RECORDES DA COMPETIÇÃO
@@ -513,13 +513,13 @@ function CompetitionHistoricalStatsSection({ competition }: { competition: Compe
         <HistoricalStatsTable
           competition={competition}
           group={data.champions}
-          title="Maiores campeoes"
-          valueHeader="Titulos"
+          title="Maiores campeões"
+          valueHeader="Títulos"
         />
         <HistoricalStatsTable
           competition={competition}
           group={data.scorers}
-          title="Artilheiros historicos"
+          title="Artilheiros históricos"
           valueHeader="Gols"
         />
       </div>
@@ -663,7 +663,7 @@ function CompetitionHero({
   const allTimeChampion = historicalStatsQuery.data?.champions.items[0] ?? null;
   const allTimeChampionName = historicalStatsQuery.isLoading
     ? "..."
-    : (allTimeChampion?.entityName ?? "Nao identificado");
+    : (allTimeChampion?.entityName ?? "Não identificado");
   const allTimeChampionTitles = historicalStatsQuery.isLoading
     ? "..."
     : (allTimeChampion ? formatHistoricalValue(allTimeChampion) : "-");
@@ -696,13 +696,13 @@ function CompetitionHero({
 
             <div className="space-y-3">
               <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#0a3d2c]">
-                Hub da competicao
+                Página da competição
               </p>
               <h1 className="max-w-4xl font-[family:var(--font-profile-headline)] text-[2.8rem] font-extrabold leading-[0.95] tracking-[-0.06em] text-[#111c2d] md:text-[3.55rem]">
                 {competition.name}
               </h1>
               <p className="max-w-3xl text-sm/7 text-[#57657a] md:text-[0.98rem]">
-                Uma competicao, varias edicoes. Escolha a temporada certa para abrir tabela,
+                Uma competição, várias edições. Escolha a temporada certa para abrir tabela,
                 mata-mata, partidas, rankings e perfis no contexto correto.
               </p>
             </div>
@@ -719,7 +719,7 @@ function CompetitionHero({
             </div>
             <div className="rounded-[1.35rem] border border-[rgba(191,201,195,0.52)] bg-white/92 px-4 py-4">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
-                Ultima edição
+                Última edição
               </p>
               <p className="mt-2 font-[family:var(--font-profile-headline)] text-[1.8rem] font-extrabold text-[#111c2d]">
                 {latestSeason?.label ?? "-"}
@@ -727,12 +727,12 @@ function CompetitionHero({
             </div>
             <div className="rounded-[1.35rem] border border-[rgba(191,201,195,0.52)] bg-white/92 px-4 py-4">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
-                Maior campeao
+                Maior campeão
               </p>
               <div className="mt-3 flex min-w-0 items-center gap-3">
                 {historicalStatsQuery.isLoading ? null : (
                   <ProfileMedia
-                    alt={`Maior campeao ${allTimeChampionName}`}
+                    alt={`Maior campeão ${allTimeChampionName}`}
                     assetId={allTimeChampion?.entityId}
                     category="clubs"
                     className="h-11 w-11 rounded-full"
@@ -769,7 +769,7 @@ function CompetitionHero({
           <div className="relative flex h-full min-h-[320px] flex-col justify-between p-5 md:p-6">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-white/88">
-                Catalogo de edicoes
+                Catálogo de edições
               </span>
               {latestSeason ? (
                 <span className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-white/72">
@@ -791,7 +791,7 @@ function CompetitionHero({
               />
               <div>
                 <p className="text-sm/6 text-[#d7efe4]">
-                  Entre por edição para manter filtros, rankings e calendario sempre no recorte
+                  Entre por edição para manter filtros, rankings e calendário sempre no recorte
                   correto.
                 </p>
                 <p className="mt-3 font-[family:var(--font-profile-headline)] text-[2rem] font-extrabold tracking-[-0.04em] text-white">
@@ -880,8 +880,8 @@ function SeasonCard({
   const championName = isChampionLoading
     ? "..."
     : shouldUseStandingsChampion
-      ? (championRow?.teamName ?? "Nao identificado")
-      : (championTie?.winnerTeamName ?? "Nao identificado");
+      ? (championRow?.teamName ?? "Não identificado")
+      : (championTie?.winnerTeamName ?? "Não identificado");
   const championTeamId =
     shouldUseStandingsChampion ? championRow?.teamId : championTie?.winnerTeamId;
   const runnerUpSummary = shouldUseStandingsChampion
@@ -892,11 +892,11 @@ function SeasonCard({
     : runnerUpTie;
   const runnerUpName = isChampionLoading
     ? "..."
-    : (runnerUpSummary?.teamName ?? "Nao identificado");
+    : (runnerUpSummary?.teamName ?? "Não identificado");
   const topScorer = topScorerQuery.data?.scorer ?? null;
   const topScorerName = topScorerQuery.isLoading
     ? "..."
-    : (topScorer?.entityName ?? "Nao identificado");
+    : (topScorer?.entityName ?? "Não identificado");
   const seasonHref = buildSeasonHubPath({
     competitionKey: competition.key,
     seasonLabel: season.label,
@@ -932,7 +932,7 @@ function SeasonCard({
         <div className="rounded-[1.2rem] border border-[rgba(191,201,195,0.44)] bg-white/86 px-3 py-3">
           <div className="flex items-center gap-3">
             <ProfileMedia
-              alt={`Campeao ${championName}`}
+              alt={`Campeão ${championName}`}
               assetId={championTeamId}
               category="clubs"
               className="h-11 w-11 rounded-full"
@@ -942,7 +942,7 @@ function SeasonCard({
             />
             <div className="min-w-0">
               <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
-                Campeao
+                Campeão
               </p>
               <p className="mt-1 truncate font-[family:var(--font-profile-headline)] text-[1.35rem] font-extrabold tracking-[-0.04em] text-[#111c2d]">
                 {championName}
@@ -970,11 +970,11 @@ function SeasonCard({
             value={topScorerName}
           />
           <SeasonCardStat
-            label="Vice-campeao"
+            label="Vice-campeão"
             media={
               isChampionLoading ? null : (
                 <ProfileMedia
-                  alt={`Vice-campeao ${runnerUpName}`}
+                  alt={`Vice-campeão ${runnerUpName}`}
                   assetId={runnerUpSummary?.teamId}
                   category="clubs"
                   className="h-8 w-8 rounded-full"
@@ -1011,7 +1011,7 @@ function SeasonsGrid({
       <ProfilePanel className="space-y-4">
         <EmptyState
           className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-          description="Nao encontramos temporadas disponiveis para esta competicao no catalogo atual."
+          description="Não encontramos temporadas disponíveis para esta competição no catálogo atual."
           title="Sem temporadas"
         />
       </ProfilePanel>
@@ -1023,13 +1023,13 @@ function SeasonsGrid({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-            Edicoes disponiveis
+            Edições disponíveis
           </p>
           <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-[2.15rem] font-extrabold tracking-[-0.05em] text-[#111c2d]">
             Escolha a temporada
           </h2>
           <p className="mt-2 max-w-3xl text-sm/6 text-[#57657a]">
-            Cada card abre uma edição especifica, preservando o contexto correto para partidas,
+            Cada edição abre uma página específica, preservando o contexto correto para partidas,
             tabela, mata-mata, rankings, times e jogadores.
           </p>
         </div>
@@ -1037,7 +1037,7 @@ function SeasonsGrid({
           className="inline-flex items-center justify-center rounded-full border border-[rgba(191,201,195,0.56)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#455468] transition-[transform,border-color,background-color] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:border-[#8bd6b6] hover:bg-[#f7fbf8] active:scale-[0.985]"
           href="/competitions"
         >
-          Voltar ao catalogo
+          Voltar ao catálogo
         </Link>
       </div>
 
@@ -1064,7 +1064,7 @@ export function CompetitionHubContent({ competition }: CompetitionHubContentProp
       <ProfileShell className="space-y-6" variant="plain">
         <div className="flex flex-wrap items-center gap-2 text-[0.78rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
           <Link className="transition-colors hover:text-[#003526]" href="/competitions">
-            Competicoes
+            Competições
           </Link>
           <span className="text-[#8fa097]">/</span>
           <span>{competition.shortName}</span>

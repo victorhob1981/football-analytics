@@ -9,7 +9,7 @@ const PRODUCT_PILLARS = [
   {
     title: "Profundidade por partida",
     description:
-      "Match center, lineups, timeline e estatísticas dão continuidade operacional sem quebrar o recorte.",
+      "Central da partida, escalações, linha do tempo e estatísticas dão continuidade operacional sem quebrar o recorte.",
   },
   {
     title: "Perfis contextuais",
@@ -21,7 +21,7 @@ const PRODUCT_PILLARS = [
 const PRODUCT_ENTRIES = [
   {
     href: "/",
-    title: "Home executiva",
+    title: "Página inicial executiva",
     description:
       "Entrada operacional do produto para abrir competições, rankings, partidas, times e jogadores.",
   },
@@ -33,7 +33,7 @@ const PRODUCT_ENTRIES = [
   {
     href: "/matches",
     title: "Partidas",
-    description: "Calendário transversal e porta canônica para o match center.",
+    description: "Calendário transversal e porta canônica para a central da partida.",
   },
   {
     href: "/teams",
@@ -77,7 +77,7 @@ export default function MarketingLandingPage() {
               className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
               href="/"
             >
-              Abrir home executiva
+              Abrir página inicial
             </Link>
           </div>
         </header>
@@ -86,7 +86,7 @@ export default function MarketingLandingPage() {
           <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-[rgba(216,227,251,0.78)] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[#404944]">
-                Landing institucional
+                Página institucional
               </span>
               <span className="inline-flex items-center rounded-full bg-[rgba(139,214,182,0.22)] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[#00513b]">
                 Papel editorial
@@ -99,9 +99,9 @@ export default function MarketingLandingPage() {
                 de telas.
               </h2>
               <p className="max-w-3xl text-base/8 text-[#57657a] md:text-[1.05rem]/8">
-                Esta landing apresenta o produto, deixa explícito seu papel institucional e aponta
-                para as entradas operacionais certas. A exploração diária continua na home
-                executiva, no catálogo de competições, no match center e nos perfis contextuais.
+                Esta página apresenta o produto, deixa explícito seu papel institucional e aponta
+                para as entradas operacionais certas. A exploração diária continua na página
+                inicial, no catálogo de competições, na central da partida e nos perfis contextuais.
               </p>
             </div>
 
@@ -129,23 +129,23 @@ export default function MarketingLandingPage() {
               Institucional por fora, operacional por dentro
             </h3>
             <p className="mt-4 text-sm/7 text-white/78">
-              A landing organiza narrativa, posicionamento e portas de entrada. Ela não duplica a
-              home nem tenta substituir a navegação principal do app vivo.
+              A página organiza narrativa, posicionamento e portas de entrada. Ela não duplica a
+              página inicial nem tenta substituir a navegação principal do produto em operação.
             </p>
 
             <div className="mt-6 grid gap-3">
               <div className="rounded-[1.3rem] border border-white/10 bg-white/10 px-4 py-4">
-                <p className="text-[0.72rem] uppercase tracking-[0.16em] text-white/62">Landing</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.16em] text-white/62">Página institucional</p>
                 <p className="mt-2 text-sm/6 text-white/82">
                   Explica o produto, sintetiza sua proposta e envia para a entrada correta.
                 </p>
               </div>
               <div className="rounded-[1.3rem] border border-white/10 bg-white/10 px-4 py-4">
                 <p className="text-[0.72rem] uppercase tracking-[0.16em] text-white/62">
-                  Home executiva
+                  Página inicial executiva
                 </p>
                 <p className="mt-2 text-sm/6 text-white/82">
-                  Trabalha como cockpit operacional para acervo, recortes e descoberta analítica.
+                  Funciona como painel operacional para acervo, recortes e descoberta analítica.
                 </p>
               </div>
             </div>
@@ -204,7 +204,7 @@ export default function MarketingLandingPage() {
               </h2>
             </div>
             <p className="text-sm/7 text-[#57657a]">
-              A landing não apresenta aliases legados como destino principal e não desloca a
+              A página institucional não apresenta aliases legados como destino principal e não desloca a
               navegação pública para rotas secundárias ainda em transição. O produto principal
               continua organizado em competições, partidas, rankings, times e jogadores.
             </p>

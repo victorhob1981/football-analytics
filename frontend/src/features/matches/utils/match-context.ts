@@ -87,7 +87,7 @@ function fallbackStageLabel(stageFormat: MatchStageFormat): string | null {
     case "knockout":
       return "Mata-mata";
     case "placement_match":
-      return "Disputa de colocacao";
+      return "Disputa de colocação";
     default:
       return null;
   }

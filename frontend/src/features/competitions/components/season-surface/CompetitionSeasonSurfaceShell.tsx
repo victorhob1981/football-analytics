@@ -57,7 +57,7 @@ export function CompetitionSeasonSurfaceShell({
         {showLocalBreadcrumbs ? (
           <div className="flex flex-wrap items-center gap-2 text-[0.78rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
             <Link className="transition-colors hover:text-[#003526]" href="/competitions">
-              Competicoes
+              Competições
             </Link>
             <span className="text-[#8fa097]">/</span>
             <Link
@@ -82,7 +82,7 @@ export function CompetitionSeasonSurfaceShell({
 
         {navItems.length > 0 ? (
           <ProfileTabs
-            ariaLabel="Navegacao da edição"
+            ariaLabel="Navegação da edição"
             aside={navAside}
             className={navClassName}
             density={density}

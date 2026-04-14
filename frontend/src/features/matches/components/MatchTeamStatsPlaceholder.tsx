@@ -30,7 +30,7 @@ type MetricDefinition = {
 const TEAM_STATS_METRICS: MetricDefinition[] = [
   {
     key: "totalShots",
-    label: "Finalizacoes",
+    label: "Finalizações",
     category: "Ataque",
     format: (value) => formatNumber(value),
   },
@@ -61,7 +61,7 @@ const TEAM_STATS_METRICS: MetricDefinition[] = [
   },
   {
     key: "passAccuracyPct",
-    label: "Precisao",
+    label: "Precisão",
     category: "Controle e passe",
     format: (value) => formatPercentage(value, 1),
     scaleMax: 100,
@@ -242,7 +242,7 @@ function MetricGroup({
             Comparativo lado a lado
           </h3>
         </div>
-        <ProfileTag>{visibleMetrics.length} metricas</ProfileTag>
+        <ProfileTag>{visibleMetrics.length} métricas</ProfileTag>
       </div>
       <div className="space-y-4">
         {visibleMetrics.map((metric) => (
@@ -259,7 +259,7 @@ function MetricGroup({
 }
 
 export function MatchTeamStatsPlaceholder({
-  coverage = { status: "unknown", label: "Team stats" },
+  coverage = { status: "unknown", label: "Estatísticas dos times" },
   teamStats,
   homeTeamId,
   homeTeamName,
@@ -299,7 +299,7 @@ export function MatchTeamStatsPlaceholder({
             Comparativo dos times
           </h2>
           <p className="mt-2 text-sm leading-6 text-[#57657a]">
-            Ataque, controle e disciplina lado a lado, com os numeros que ja estao disponiveis para o jogo.
+            Ataque, controle e disciplina lado a lado, com os números que já estão disponíveis para o jogo.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -333,7 +333,7 @@ export function MatchTeamStatsPlaceholder({
             </div>
           </div>
         </div>
-        <ProfileTag className="justify-center">vs</ProfileTag>
+        <ProfileTag className="justify-center">x</ProfileTag>
         <div className="rounded-[1.1rem] bg-[rgba(240,243,255,0.82)] px-4 py-3 text-center md:text-right">
           <div className="flex flex-col items-center gap-3 md:flex-row md:justify-end">
             <div>
@@ -362,12 +362,12 @@ export function MatchTeamStatsPlaceholder({
 
       <PartialDataBanner
         coverage={coverage}
-        message="Algumas estatisticas comparativas ainda estao incompletas para um dos lados."
+        message="Algumas estatísticas comparativas ainda estão incompletas para um dos lados."
       />
 
       {teamStatsItems.length === 0 || visibleCategories.length === 0 ? (
         <div className="rounded-[1.2rem] border border-dashed border-[rgba(112,121,116,0.32)] bg-[rgba(240,243,255,0.78)] px-4 py-5 text-sm text-[#57657a]">
-          Nenhum comparativo disponivel para esta partida.
+          Nenhum comparativo disponível para esta partida.
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-3">

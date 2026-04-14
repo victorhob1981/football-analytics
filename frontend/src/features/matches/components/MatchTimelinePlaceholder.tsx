@@ -42,7 +42,7 @@ function resolveMinuteLabel(event: MatchTimelineEvent): string {
     return `${event.minute}'`;
   }
 
-  return "Min ?";
+  return "Minuto não informado";
 }
 
 function resolveEventTitle(event: MatchTimelineEvent): string {
@@ -161,7 +161,7 @@ function resolveTeamHref(
 
 export function MatchTimelinePlaceholder({
   events,
-  coverage = { status: "unknown", label: "Timeline" },
+  coverage = { status: "unknown", label: "Linha do tempo" },
   competitionContext = null,
   contextInput = {},
   homeTeamId,
@@ -207,7 +207,7 @@ export function MatchTimelinePlaceholder({
 
       <PartialDataBanner
         coverage={coverage}
-        message="Alguns lances ainda nao chegaram completos para esta partida."
+        message="Alguns lances ainda não chegaram completos para esta partida."
       />
 
       {timelineEvents.length === 0 ? (

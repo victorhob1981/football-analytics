@@ -102,14 +102,14 @@ function describeTimeWindow(params: {
   dateRangeEnd: string | null;
 }): string {
   if (params.lastN !== null) {
-    return `Ultimas ${params.lastN} partidas`;
+    return `Últimas ${params.lastN} partidas`;
   }
 
   if (params.dateRangeStart !== null || params.dateRangeEnd !== null) {
     const startLabel = params.dateRangeStart ?? "...";
     const endLabel = params.dateRangeEnd ?? "...";
 
-    return `${startLabel} ate ${endLabel}`;
+    return `${startLabel} até ${endLabel}`;
   }
 
   if (params.roundId !== null) {
@@ -214,7 +214,7 @@ function formatDateHeading(value: string | null | undefined): string {
   const parsedDate = parseKickoffDate(value);
 
   if (!parsedDate) {
-    return "Data nao informada";
+    return "Data não informada";
   }
 
   return DATE_GROUP_FORMATTER.format(parsedDate);
@@ -234,7 +234,7 @@ function formatTimeLabel(value: string | null | undefined): string {
   const parsedDate = parseKickoffDate(value);
 
   if (!parsedDate) {
-    return "Horario nao informado";
+    return "Horário não informado";
   }
 
   return TIME_FORMATTER.format(parsedDate);
@@ -245,7 +245,7 @@ function formatScore(match: MatchListItem): string {
     return `${match.homeScore} - ${match.awayScore}`;
   }
 
-  return "VS";
+  return "x";
 }
 
 function getTeamMonogram(teamName: string): string {
@@ -362,7 +362,7 @@ function MatchDiscoveryCard({
 
         <div className="flex shrink-0 flex-col gap-3 lg:items-end">
           <Link
-            aria-label={`Abrir match center de ${homeTeamName} vs ${awayTeamName}`}
+            aria-label={`Abrir central da partida de ${homeTeamName} x ${awayTeamName}`}
             className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${
               isScheduled ? "bg-[rgba(216,227,251,0.92)] text-[#1f2d40]" : "bg-[#003526] text-white"
             }`}
@@ -386,7 +386,7 @@ function MatchDiscoveryCard({
               onPrefetch(match.matchId);
             }}
           >
-            {homeTeamName} vs {awayTeamName}
+            {homeTeamName} x {awayTeamName}
           </Link>
         </div>
       </div>
@@ -443,7 +443,7 @@ export default function MatchesPage() {
   const seasonLabel = getSeasonById(seasonId)?.label;
   const pageTitle = competitionName
     ? `Partidas - ${competitionName}${seasonLabel ? ` (${seasonLabel})` : ""}`
-    : "Partidas Gerais";
+    : "Partidas gerais";
 
   const detailPrefetchFilters = useMemo<MatchCenterFilters>(
     () => ({
@@ -702,7 +702,7 @@ export default function MatchesPage() {
                 Partidas
               </h1>
               <p className="mt-3 max-w-2xl text-sm/6 text-white/74">
-                {pageTitle}. Acompanhe o calendario da temporada e entre direto na central de cada
+                {pageTitle}. Acompanhe o calendário da temporada e entre direto na central de cada
                 jogo.
               </p>
             </div>
@@ -736,7 +736,7 @@ export default function MatchesPage() {
               </p>
               <dl className="mt-4 space-y-3 text-sm text-[#1f2d40]">
                 <div className="flex items-start justify-between gap-4">
-                  <dt className="text-[#57657a]">Competicao</dt>
+                  <dt className="text-[#57657a]">Competição</dt>
                   <dd className="text-right font-medium">{competitionName ?? "Todas"}</dd>
                 </div>
                 <div className="flex items-start justify-between gap-4">
@@ -752,7 +752,7 @@ export default function MatchesPage() {
                   <dd className="text-right font-medium">{activeWindowLabel}</dd>
                 </div>
                 <div className="flex items-start justify-between gap-4">
-                  <dt className="text-[#57657a]">Ordenacao</dt>
+                  <dt className="text-[#57657a]">Ordenação</dt>
                   <dd className="text-right font-medium">{sortLabel}</dd>
                 </div>
               </dl>
@@ -786,7 +786,7 @@ export default function MatchesPage() {
                       shape="circle"
                     />
                     <p className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.03em] text-[#111c2d]">
-                      {featuredMatch.homeTeamName ?? "Mandante"} vs{" "}
+                      {featuredMatch.homeTeamName ?? "Mandante"} x{" "}
                       {featuredMatch.awayTeamName ?? "Visitante"}
                     </p>
                     <ProfileMedia
@@ -815,7 +815,7 @@ export default function MatchesPage() {
                       prefetchMatchDetail(featuredMatch.matchId);
                     }}
                   >
-                    Abrir match center
+                    Abrir central da partida
                   </Link>
                 </div>
               ) : (
@@ -870,7 +870,7 @@ export default function MatchesPage() {
         <PartialDataBanner
           className="rounded-[1.35rem] border-[#ffdcc3] bg-[#fff3e8] px-4 py-3 text-[#6e3900]"
           coverage={matchesQuery.coverage}
-          message="Algumas partidas ainda estao incompletas nesta temporada. Use a lista como referencia, nao como leitura exaustiva."
+          message="Algumas partidas ainda estão incompletas nesta temporada. Use a lista como referência, não como leitura exaustiva."
         />
       ) : null}
 
@@ -881,12 +881,12 @@ export default function MatchesPage() {
               Busca e refinamento local
             </p>
             <p className="mt-2 max-w-3xl text-sm/6 text-[#57657a]">
-              Combine busca, status e ordenacao para encontrar a partida certa sem sair desta
+              Combine busca, status e ordenação para encontrar a partida certa sem sair desta
               temporada.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <ProfileTag>{competitionName ?? "Todas as competicoes"}</ProfileTag>
+            <ProfileTag>{competitionName ?? "Todas as competições"}</ProfileTag>
             <ProfileTag>{seasonLabel ?? "Todas as temporadas"}</ProfileTag>
             <ProfileTag>{filterStatusLabel}</ProfileTag>
             <ProfileTag>{sortLabel}</ProfileTag>
@@ -935,7 +935,7 @@ export default function MatchesPage() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-[#1f2d40]">
-            Ordenacao por data
+            Ordenação por data
             <div className="flex items-center gap-3 rounded-[1.3rem] border border-[rgba(191,201,195,0.55)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#003526]">
                 Ord
@@ -960,19 +960,19 @@ export default function MatchesPage() {
           <div className="flex flex-col gap-4 border-b border-[rgba(191,201,195,0.55)] pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-                Calendario
+                Calendário
               </p>
               <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-3xl font-extrabold tracking-[-0.04em] text-[#111c2d]">
                 Lista de partidas
               </h2>
               <p className="mt-2 max-w-2xl text-sm/6 text-[#57657a]">
-                Cada linha abre a central do jogo mantendo competicao, temporada e filtros atuais.
+                Cada linha abre a central do jogo mantendo competição, temporada e filtros atuais.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-[1.3rem] bg-[rgba(240,243,255,0.96)] px-4 py-3">
                 <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">
-                  Pagina atual
+                  Página atual
                 </p>
                 <p className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
                   {matchesQuery.isLoading ? "..." : `${page} de ${totalPages}`}
@@ -1052,7 +1052,7 @@ export default function MatchesPage() {
                     }}
                     type="button"
                   >
-                    Proxima
+                    Próxima
                   </button>
                 </div>
               </div>
@@ -1103,7 +1103,7 @@ export default function MatchesPage() {
               </div>
               <div className="rounded-[1.3rem] bg-white/90 px-4 py-4">
                 <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">
-                  Proximas
+                  Próximas
                 </p>
                 <p className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
                   {matchesQuery.isLoading ? "..." : formatInteger(summary.scheduled)}
@@ -1118,11 +1118,11 @@ export default function MatchesPage() {
             </p>
             <div className="mt-4 space-y-3 text-sm/6 text-[#57657a]">
               <p>
-                Abra uma partida para acompanhar timeline, escalacoes e estatisticas no mesmo
-                contexto deste calendario.
+                Abra uma partida para acompanhar linha do tempo, escalações e estatísticas no mesmo
+                contexto deste calendário.
               </p>
               <p>
-                Use o status para separar jogos ao vivo, concluidos ou agendados com menos ida e
+                Use o status para separar jogos ao vivo, concluídos ou agendados com menos ida e
                 volta.
               </p>
               <p>

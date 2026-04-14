@@ -46,7 +46,7 @@ export function TeamStatsSection({ coverage, stats }: TeamStatsSectionProps) {
       <div className="space-y-4">
         {coverage.status === "partial" ? <PartialDataBanner coverage={coverage} /> : null}
         <EmptyState
-          title="Stats indisponíveis"
+          title="Estatísticas indisponíveis"
           description="As métricas agregadas do time ainda não estão disponíveis neste contexto."
         />
       </div>
@@ -61,7 +61,7 @@ export function TeamStatsSection({ coverage, stats }: TeamStatsSectionProps) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Stats
+              Estatísticas
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
               Tendência e métricas agregadas
@@ -74,11 +74,11 @@ export function TeamStatsSection({ coverage, stats }: TeamStatsSectionProps) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          <ProfileMetricTile label="PPJ" value={formatDecimal(stats?.pointsPerMatch)} />
-          <ProfileMetricTile label="Win rate" value={formatPercentage(stats?.winRatePct)} />
-          <ProfileMetricTile label="GF / jogo" value={formatDecimal(stats?.goalsForPerMatch)} />
-          <ProfileMetricTile label="GA / jogo" value={formatDecimal(stats?.goalsAgainstPerMatch)} />
-          <ProfileMetricTile label="Clean sheets" value={stats?.cleanSheets ?? "-"} />
+          <ProfileMetricTile label="Pontos por jogo" value={formatDecimal(stats?.pointsPerMatch)} />
+          <ProfileMetricTile label="Taxa de vitórias" value={formatPercentage(stats?.winRatePct)} />
+          <ProfileMetricTile label="Gols pró / jogo" value={formatDecimal(stats?.goalsForPerMatch)} />
+          <ProfileMetricTile label="Gols contra / jogo" value={formatDecimal(stats?.goalsAgainstPerMatch)} />
+          <ProfileMetricTile label="Jogos sem sofrer gol" value={stats?.cleanSheets ?? "-"} />
           <ProfileMetricTile label="Sem marcar" value={stats?.failedToScore ?? "-"} />
         </div>
       </ProfilePanel>
@@ -98,7 +98,7 @@ export function TeamStatsSection({ coverage, stats }: TeamStatsSectionProps) {
 
             <div className="grid gap-3 sm:grid-cols-4">
               <ProfileMetricTile label="Pontos" value={point.points ?? "-"} tone="soft" />
-              <ProfileMetricTile label="W-E-D" value={`${point.wins ?? 0}-${point.draws ?? 0}-${point.losses ?? 0}`} tone="soft" />
+              <ProfileMetricTile label="V-E-D" value={`${point.wins ?? 0}-${point.draws ?? 0}-${point.losses ?? 0}`} tone="soft" />
               <ProfileMetricTile label="Gols" value={`${point.goalsFor ?? 0} / ${point.goalsAgainst ?? 0}`} tone="soft" />
               <ProfileMetricTile label="Saldo" value={point.goalDiff ?? "-"} tone="soft" />
             </div>

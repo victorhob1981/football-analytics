@@ -101,7 +101,7 @@ function getPlayerMonogram(playerName: string): string {
 }
 
 export function MatchPlayerStatsPlaceholder({
-  coverage = { status: "unknown", label: "Player stats" },
+  coverage = { status: "unknown", label: "Estatísticas dos jogadores" },
   competitionContext = null,
   contextInput = {},
   playerStats,
@@ -186,13 +186,13 @@ export function MatchPlayerStatsPlaceholder({
     {
       accessorFn: (row) => row.assists ?? null,
       id: "assists",
-      header: "Assist",
+      header: "Assistências",
       cell: ({ row }) => formatMetricValue("assists", row.original.assists),
     },
     {
       accessorFn: (row) => row.shotsTotal ?? null,
       id: "shots",
-      header: "Final.",
+      header: "Finalizações",
       cell: ({ row }) => formatMetricValue("shots_total", row.original.shotsTotal),
     },
     {
@@ -204,7 +204,7 @@ export function MatchPlayerStatsPlaceholder({
     {
       accessorFn: (row) => row.keyPasses ?? null,
       id: "key-passes",
-      header: "KP",
+      header: "Passes-chave",
       cell: ({ row }) => formatMetricValue("key_passes", row.original.keyPasses),
     },
     {
@@ -223,10 +223,10 @@ export function MatchPlayerStatsPlaceholder({
             Jogadores
           </p>
           <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
-            Atuacao individual
+            Atuação individual
           </h2>
           <p className="mt-2 text-sm leading-6 text-[#57657a]">
-            Minutos, gols, assistencias, finalizacoes, passes-chave e nota em uma leitura direta da partida.
+            Minutos, gols, assistências, finalizações, passes-chave e nota em uma leitura direta da partida.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -237,7 +237,7 @@ export function MatchPlayerStatsPlaceholder({
 
       <PartialDataBanner
         coverage={coverage}
-        message="Algumas estatisticas individuais ainda estao incompletas nesta partida."
+        message="Algumas estatísticas individuais ainda estão incompletas nesta partida."
       />
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -258,8 +258,8 @@ export function MatchPlayerStatsPlaceholder({
       <DataTable<MatchPlayerStat>
         columns={columns}
         data={statsItems}
-        emptyDescription="Nenhuma estatistica individual retornada para esta partida."
-        emptyTitle="Sem estatisticas de jogadores"
+        emptyDescription="Nenhuma estatística individual retornada para esta partida."
+        emptyTitle="Sem estatísticas de jogadores"
         initialPageSize={8}
         pageSizeOptions={[8, 12, 20]}
         variant="profile"

@@ -22,25 +22,25 @@ type TeamRouteResolverProps = {
 function buildTeamResolverFailureCopy(isError: boolean, status?: number) {
   if (status === 404) {
     return {
-      title: "Time indisponivel",
-      description: "Este time nao esta disponivel no produto agora.",
+      title: "Time indisponível",
+      description: "Este time não está disponível no produto agora.",
       detail:
-        "Volte para a lista de times ou abra competicoes para seguir por uma visao disponivel.",
+        "Volte para a lista de times ou abra competições para seguir por uma visão disponível.",
     };
   }
 
   if (isError) {
     return {
-      title: "Nao foi possivel abrir este time",
-      description: "Nao conseguimos carregar o caminho certo para este perfil agora.",
+      title: "Não foi possível abrir este time",
+      description: "Não conseguimos carregar o caminho certo para este perfil agora.",
       detail: "Tente novamente em instantes ou continue pela lista de times.",
     };
   }
 
   return {
-    title: "Nao foi possivel abrir este time",
-    description: "Nao encontramos um caminho disponivel para abrir este perfil agora.",
-    detail: "Abra a lista de times ou competicoes para continuar a navegacao.",
+    title: "Não foi possível abrir este time",
+    description: "Não encontramos um caminho disponível para abrir este perfil agora.",
+    detail: "Abra a lista de times ou competições para continuar a navegação.",
   };
 }
 
@@ -109,7 +109,7 @@ export function TeamRouteResolver({ teamId }: TeamRouteResolverProps) {
   if (canonicalHref) {
     return (
       <PlatformStateSurface
-        description="Estamos levando voce para o perfil do time na melhor temporada disponivel."
+        description="Estamos levando você para o perfil do time na melhor temporada disponível."
         kicker="Abrindo perfil"
         loading
         title="Abrindo time"
@@ -120,7 +120,7 @@ export function TeamRouteResolver({ teamId }: TeamRouteResolverProps) {
   if (!localContext && contextsQuery.isLoading) {
     return (
       <PlatformStateSurface
-        description="Estamos encontrando a competicao e a temporada certas para abrir este time."
+        description="Estamos encontrando a competição e a temporada certas para abrir este time."
         kicker="Abrindo perfil"
         loading
         title="Preparando time"
@@ -139,7 +139,7 @@ export function TeamRouteResolver({ teamId }: TeamRouteResolverProps) {
       actionLabel="Voltar para times"
       description={failureCopy.description}
       detail={<p>{failureCopy.detail}</p>}
-      kicker="Navegacao"
+      kicker="Navegação"
       secondaryAction={
         <Link
           className="inline-flex items-center rounded-full border border-[rgba(112,121,116,0.28)] bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1f2d40]"

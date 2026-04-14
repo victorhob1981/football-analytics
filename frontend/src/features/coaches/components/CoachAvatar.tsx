@@ -46,7 +46,7 @@ export function CoachAvatar({
 
   return (
     <div
-      aria-label={`Foto indisponivel de ${coachName}`}
+      aria-label={`Foto indisponível de ${coachName}`}
       className={`${sizeClassName} flex shrink-0 items-center justify-center rounded-full border border-[rgba(191,201,195,0.7)] bg-[linear-gradient(135deg,rgba(235,241,252,0.96),rgba(245,247,250,0.96))] px-2 text-center font-semibold uppercase tracking-[0.16em] text-[#57657a]`}
       role="img"
     >

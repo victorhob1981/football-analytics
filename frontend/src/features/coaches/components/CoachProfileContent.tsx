@@ -60,10 +60,10 @@ function formatDateRange(startDate: string | null | undefined, endDate: string |
   }
 
   if (normalizedEnd) {
-    return `Ate ${normalizedEnd}`;
+    return `Até ${normalizedEnd}`;
   }
 
-  return "Janela nao informada";
+  return "Janela não informada";
 }
 
 export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
@@ -97,10 +97,10 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Tecnico
+            Técnico
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Carregando perfil do tecnico
+            Carregando perfil do técnico
           </h1>
         </header>
         <LoadingSkeleton height={150} />
@@ -117,16 +117,16 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Tecnico
+            Técnico
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            {isNotFound ? "Tecnico indisponivel" : "Falha ao carregar tecnico"}
+            {isNotFound ? "Técnico indisponível" : "Falha ao carregar técnico"}
           </h1>
         </header>
         {isNotFound ? (
           <EmptyState
-            title="Tecnico indisponivel"
-            description="Nao encontramos este tecnico no produto agora."
+            title="Técnico indisponível"
+            description="Não encontramos este técnico no produto agora."
           />
         ) : (
           <ProfileAlert title="Erro no carregamento" tone="critical">
@@ -142,18 +142,18 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Tecnico
+            Técnico
           </p>
           <h1
             aria-label="Perfil de técnico indisponível"
             className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]"
           >
-            Perfil de tecnico indisponivel
+            Perfil de técnico indisponível
           </h1>
         </header>
         <EmptyState
-          title="Perfil indisponivel"
-          description="Nao ha dados suficientes para montar este perfil agora."
+          title="Perfil indisponível"
+          description="Não há dados suficientes para montar este perfil agora."
         />
       </ProfileShell>
     );
@@ -178,7 +178,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
     <ProfileShell className="space-y-6">
       <div className="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
         <Link className="transition-colors hover:text-[#00513b]" href={coachesHref}>
-          Tecnicos
+          Técnicos
         </Link>
         <span className="text-[#8fa097]">/</span>
         <span>{coach.coachName}</span>
@@ -188,7 +188,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
         <ProfilePanel className="space-y-5" tone="accent">
           <div className="flex flex-wrap items-center gap-2">
             <ProfileCoveragePill coverage={profileQuery.coverage} className="bg-white/16 text-white" />
-            <ProfileTag className="bg-white/12 text-white/82">Tecnico</ProfileTag>
+            <ProfileTag className="bg-white/12 text-white/82">Técnico</ProfileTag>
             {coach.active ? <ProfileTag className="bg-white/12 text-white/82">Ativo</ProfileTag> : null}
             {coach.temporary ? <ProfileTag className="bg-white/12 text-white/82">Interino</ProfileTag> : null}
           </div>
@@ -203,7 +203,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
 
             <div className="space-y-3">
               <p className="text-[0.72rem] uppercase tracking-[0.18em] text-white/62">
-                Perfil do tecnico
+                Perfil do técnico
               </p>
               <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-[-0.04em] text-white md:text-5xl">
                 {coach.coachName}
@@ -219,7 +219,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
           <div className="grid gap-3 md:grid-cols-4">
             <ProfileKpi hint="Campanha agregada" invert label="Jogos" value={summary.matches} />
             <ProfileKpi
-              hint="Ranking do dominio de coaches"
+              hint="Ranking do domínio de técnicos"
               invert
               label="Rendimento"
               value={formatPointsPerMatch(summary.adjustedPpm)}
@@ -254,7 +254,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
                 <dd className="text-right font-medium">{summary.activeTenures}</dd>
               </div>
               <div className="flex items-start justify-between gap-4">
-                <dt className="text-[#57657a]">Ultimo jogo</dt>
+                <dt className="text-[#57657a]">Último jogo</dt>
                 <dd className="text-right font-medium">{coach.lastMatchDate ?? "-"}</dd>
               </div>
             </dl>
@@ -300,12 +300,12 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
 
       <PartialDataBanner
         coverage={profileQuery.coverage}
-        message="Este tecnico existe no produto, mas o recorte atual nao tem todas as partidas materializadas."
+        message="Este técnico existe no produto, mas o recorte atual não tem todas as partidas materializadas."
       />
 
       {summary.matches === 0 ? (
         <ProfileAlert title="Sem partidas no recorte atual" tone="warning">
-          O tecnico foi encontrado, mas nao ha partidas materializadas neste contexto para montar
+          O técnico foi encontrado, mas não há partidas materializadas neste contexto para montar
           campanha agregada agora.
         </ProfileAlert>
       ) : null}
@@ -318,7 +318,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
                 Passagens
               </p>
               <h2 className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
-                Historico de passagens no recorte
+                Histórico de passagens no recorte
               </h2>
             </div>
             <ProfileCoveragePill coverage={sectionCoverage.tenures} />
@@ -344,7 +344,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-[family:var(--font-profile-headline)] text-xl font-extrabold text-[#111c2d]">
-                      {tenure.teamName ?? "Time nao resolvido"}
+                      {tenure.teamName ?? "Time não resolvido"}
                     </h3>
                     {tenure.active ? <ProfileTag>Ativo</ProfileTag> : null}
                     {tenure.temporary ? <ProfileTag>Interino</ProfileTag> : null}
@@ -356,7 +356,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
                   <p className="mt-1 text-sm/6 text-[#57657a]">
                     {tenure.context
                       ? `${tenure.context.competitionName} ${tenure.context.seasonLabel}`
-                      : "Sem contexto canonico resolvido"}
+                      : "Sem contexto canônico resolvido"}
                   </p>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -377,7 +377,7 @@ export function CoachProfileContent({ coachId }: CoachProfileContentProps) {
                       </p>
                     </ProfilePanel>
                     <ProfilePanel className="space-y-1" tone="soft">
-                      <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Ultimo jogo</p>
+                      <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Último jogo</p>
                       <p className="text-xl font-extrabold text-[#111c2d]">
                         {tenure.lastMatchDate ?? "-"}
                       </p>

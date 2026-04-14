@@ -26,7 +26,7 @@ export function InsightBadge({ count, highestSeverity = "info", className }: Ins
     .filter(Boolean)
     .join(" ");
 
-  const label = count === 1 ? "1 insight" : `${count} insights`;
+  const label = count === 1 ? "1 leitura" : `${count} leituras`;
 
   return <span className={classes}>{label}</span>;
 }

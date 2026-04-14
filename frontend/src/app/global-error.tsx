@@ -23,7 +23,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           actionHref="/"
           actionLabel="Voltar ao início"
           description="Encontramos um problema ao abrir a aplicação. Tente novamente ou retome por uma área estável."
-          detail="A falha aconteceu antes da renderização completa. Reabrir a home ou as competições costuma ser o caminho mais seguro."
+          detail="A falha aconteceu antes da renderização completa. Reabrir o início ou as competições costuma ser o caminho mais seguro."
           kicker="Aplicação"
           secondaryAction={
             <>

@@ -137,7 +137,7 @@ export function TeamOverviewSection({
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ProfileKpi label="Posição" value={standing?.position ? `${standing.position}º` : "-"} hint={standing?.totalTeams ? `de ${standing.totalTeams}` : "Sem tabela"} />
-            <ProfileKpi label="Pontos" value={summary.points ?? "-"} hint={`PPJ ${pointsPerMatch}`} />
+            <ProfileKpi label="Pontos" value={summary.points ?? "-"} hint={`Pontos por jogo ${pointsPerMatch}`} />
             <ProfileKpi label="Vitórias" value={summary.wins ?? "-"} hint={`Taxa ${formatPercentage(winRate)}`} />
             <ProfileKpi label="Saldo" value={formatGoalDiff(summary.goalDiff)} hint={`${summary.goalsFor ?? "-"} pró / ${summary.goalsAgainst ?? "-"} contra`} />
           </div>

@@ -8,7 +8,7 @@ type PartialDataBannerProps = {
 
 export function PartialDataBanner({
   coverage,
-  message = "Os dados exibidos estao com cobertura parcial neste recorte.",
+  message = "Os dados exibidos estão com cobertura parcial neste recorte.",
   className,
 }: PartialDataBannerProps) {
   if (coverage.status !== "partial") {

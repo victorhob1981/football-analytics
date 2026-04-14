@@ -33,7 +33,7 @@ export function DeltaIndicator({
   const classes = ["inline-flex items-center rounded border px-2 py-1 text-xs font-medium", className].filter(Boolean).join(" ");
 
   if (!isValidNumber(leftValue) || !isValidNumber(rightValue)) {
-    return <span className={`${classes} border-slate-300 bg-slate-50 text-slate-600`}>Delta: -</span>;
+    return <span className={`${classes} border-slate-300 bg-slate-50 text-slate-600`}>Variação: -</span>;
   }
 
   const absoluteDelta = rightValue - leftValue;
@@ -55,5 +55,5 @@ export function DeltaIndicator({
         ? " (n/a)"
         : "";
 
-  return <span className={`${classes} ${toneClass}`}>Delta: {absoluteText}{relativeText}</span>;
+  return <span className={`${classes} ${toneClass}`}>Variação: {absoluteText}{relativeText}</span>;
 }

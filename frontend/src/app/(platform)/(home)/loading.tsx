@@ -4,9 +4,9 @@ export default function PlatformHomeLoading() {
   return (
     <PlatformStateSurface
       description="Estamos montando a visão inicial com os blocos editoriais e atalhos principais do produto."
-      kicker="Home"
+      kicker="Início"
       loading
-      title="Preparando a home"
+      title="Preparando o início"
     />
   );
 }
