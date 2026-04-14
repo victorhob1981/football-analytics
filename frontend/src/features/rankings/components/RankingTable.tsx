@@ -76,7 +76,7 @@ function parseNullableQueryValue(value: string | null): string | null {
 function formatStageFormatLabel(stageFormat: string | null): string | null {
   switch (stageFormat) {
     case "league_table":
-      return "League phase";
+      return "Fase classificatória";
     case "group_table":
       return "Fase de grupos";
     case "knockout":
