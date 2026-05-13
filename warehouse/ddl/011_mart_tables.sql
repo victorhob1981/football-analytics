@@ -10,9 +10,29 @@ CREATE TABLE IF NOT EXISTS mart.team_match_goals_monthly (
   wins          INT NOT NULL,
   draws         INT NOT NULL,
   losses        INT NOT NULL,
+  points        INT NOT NULL,
+  goal_diff     INT NOT NULL,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT pk_team_match_goals_monthly PRIMARY KEY (season, year, month, team_name)
 );
+
+ALTER TABLE IF EXISTS mart.team_match_goals_monthly
+  ADD COLUMN IF NOT EXISTS points INT;
+
+ALTER TABLE IF EXISTS mart.team_match_goals_monthly
+  ADD COLUMN IF NOT EXISTS goal_diff INT;
+
+UPDATE mart.team_match_goals_monthly
+SET
+  points = COALESCE(wins, 0) * 3 + COALESCE(draws, 0),
+  goal_diff = COALESCE(goals_for, 0) - COALESCE(goals_against, 0)
+WHERE points IS NULL OR goal_diff IS NULL;
+
+ALTER TABLE IF EXISTS mart.team_match_goals_monthly
+  ALTER COLUMN points SET NOT NULL;
+
+ALTER TABLE IF EXISTS mart.team_match_goals_monthly
+  ALTER COLUMN goal_diff SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_team_match_goals_monthly_period
   ON mart.team_match_goals_monthly (season, year, month);
