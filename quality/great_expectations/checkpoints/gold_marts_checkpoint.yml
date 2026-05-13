@@ -1,0 +1,25 @@
+name: gold_marts_checkpoint
+config_version: 1.0
+class_name: Checkpoint
+run_name_template: "%Y%m%d-%H%M%S-gold-marts"
+
+validations:
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: gold_fact_matches_asset
+      runtime_parameters:
+        query: "SELECT * FROM gold.fact_matches"
+      batch_identifiers:
+        runtime_batch_identifier_name: gold_fact_matches
+    expectation_suite_name: gold_fact_matches_suite
+
+  - batch_request:
+      datasource_name: postgres_runtime
+      data_connector_name: default_runtime_data_connector_name
+      data_asset_name: mart_standings_evolution_asset
+      runtime_parameters:
+        query: "SELECT * FROM mart.standings_evolution"
+      batch_identifiers:
+        runtime_batch_identifier_name: mart_standings_evolution
+    expectation_suite_name: mart_standings_evolution_suite

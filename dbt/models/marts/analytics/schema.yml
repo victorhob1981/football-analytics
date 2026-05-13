@@ -1,0 +1,119 @@
+version: 2
+
+models:
+  - name: team_monthly_stats
+    description: "Agregado mensal por time."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - season
+            - year
+            - month
+            - team_sk
+    columns:
+      - name: season
+        description: "Temporada do agregado."
+        tests:
+          - not_null
+      - name: year
+        description: "Ano do periodo agregado."
+        tests:
+          - not_null
+      - name: month
+        description: "Mes do periodo agregado em formato MM."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+      - name: team_sk
+        description: "Chave substituta do time."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+      - name: team_id
+        description: "Identificador natural do time."
+        tests:
+          - not_null
+      - name: team_name
+        description: "Nome do time."
+        tests:
+          - not_null
+      - name: matches
+        description: "Quantidade de partidas do time no mes."
+        tests:
+          - not_null
+
+  - name: standings_evolution
+    description: "Evolucao rodada a rodada por time."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - season
+            - round
+            - team_sk
+    columns:
+      - name: season
+        description: "Temporada."
+        tests:
+          - not_null
+      - name: round
+        description: "Rodada no campeonato."
+        tests:
+          - not_null
+      - name: team_sk
+        description: "Chave substituta do time."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_team')
+              field: team_sk
+      - name: points_accumulated
+        description: "Pontos acumulados ate a rodada."
+        tests:
+          - not_null
+      - name: goals_for_accumulated
+        description: "Gols marcados acumulados ate a rodada."
+        tests:
+          - not_null
+      - name: goal_diff_accumulated
+        description: "Saldo de gols acumulado ate a rodada."
+        tests:
+          - not_null
+      - name: position
+        description: "Posicao no ranking da rodada."
+        tests:
+          - not_null
+
+  - name: league_summary
+    description: "Resumo por liga e temporada."
+    tests:
+      - unique_combination_of_columns:
+          combination_of_columns:
+            - competition_sk
+            - season
+    columns:
+      - name: competition_sk
+        description: "Chave substituta da competicao."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_competition')
+              field: competition_sk
+      - name: season
+        description: "Temporada da competicao."
+        tests:
+          - not_null
+      - name: total_matches
+        description: "Total de partidas contabilizadas."
+        tests:
+          - not_null
+      - name: total_goals
+        description: "Total de gols marcados na temporada."
+        tests:
+          - not_null
+      - name: avg_goals_per_match
+        description: "Media de gols por partida."
+        tests:
+          - not_null

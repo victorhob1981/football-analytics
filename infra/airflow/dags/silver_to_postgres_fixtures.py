@@ -1,12 +1,15 @@
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from datetime import datetime
+﻿from datetime import datetime, timedelta
 import os
-import boto3
-import pandas as pd
 import re
 from io import BytesIO
+
+import boto3
+import pandas as pd
+from airflow import DAG
+from airflow.operators.python import PythonOperator, get_current_context
 from sqlalchemy import create_engine, text
+
+from common.observability import DEFAULT_DAG_ARGS, StepMetrics, log_event
 
 
 SILVER_BUCKET = "football-silver"
@@ -65,14 +68,13 @@ def _latest_run(keys: list[str]) -> str:
         if match:
             runs.append(match.group(1))
     if not runs:
-        raise Exception("Nao encontrei run=... nas chaves do silver.")
+        raise RuntimeError("Nao encontrei run=... nas chaves do silver.")
     return sorted(set(runs))[-1]
 
 
 def _list_all_keys(s3, bucket: str, prefix: str) -> list[str]:
     keys = []
     token = None
-
     while True:
         params = {"Bucket": bucket, "Prefix": prefix}
         if token:
@@ -84,7 +86,6 @@ def _list_all_keys(s3, bucket: str, prefix: str) -> list[str]:
         if not resp.get("IsTruncated"):
             break
         token = resp.get("NextContinuationToken")
-
     return keys
 
 
@@ -99,7 +100,6 @@ def _assert_input_schema(df: pd.DataFrame, source_key: str):
 
 def _normalize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-
     out["fixture_id"] = pd.to_numeric(out["fixture_id"], errors="coerce").astype("Int64")
 
     int_cols = [
@@ -133,125 +133,130 @@ def _assert_target_columns(conn):
     found = {row[0] for row in conn.execute(sql)}
     missing = sorted(set(TARGET_COLUMNS) - found)
     if missing:
-        raise ValueError(
-            f"Tabela raw.fixtures sem colunas esperadas: {missing}. "
-            "Aplique/atualize o DDL antes de rodar o DAG."
-        )
+        raise ValueError(f"Tabela raw.fixtures sem colunas esperadas: {missing}. Aplique migracoes via dbmate.")
 
 
 def load_silver_to_postgres():
+    context = get_current_context()
     s3 = _s3()
     engine = create_engine(_get_required_env("FOOTBALL_PG_DSN"))
 
     prefix = f"fixtures/league={LEAGUE_ID}/season={SEASON}/"
     keys = _list_all_keys(s3, SILVER_BUCKET, prefix)
     if not keys:
-        raise Exception(f"Nenhum parquet encontrado no silver com prefix {prefix}")
+        raise RuntimeError(f"Nenhum parquet encontrado no silver com prefix {prefix}")
 
     parquet_keys = [key for key in keys if key.endswith("fixtures.parquet")]
     if not parquet_keys:
-        raise Exception("Nenhum fixtures.parquet encontrado no silver.")
+        raise RuntimeError("Nenhum fixtures.parquet encontrado no silver.")
 
     run_id = _latest_run(parquet_keys)
     run_keys = sorted([key for key in parquet_keys if f"/run={run_id}/" in key])
     if not run_keys:
-        raise Exception(f"Nao encontrei parquets para run={run_id}")
-
-    print(f"Carregando run={run_id} | arquivos={len(run_keys)}")
+        raise RuntimeError(f"Nao encontrei parquets para run={run_id}")
 
     read_rows = 0
     frames = []
 
-    for key in run_keys:
-        obj = s3.get_object(Bucket=SILVER_BUCKET, Key=key)
-        df = pd.read_parquet(BytesIO(obj["Body"].read()))
+    with StepMetrics(
+        service="airflow",
+        module="silver_to_postgres_fixtures",
+        step="load_silver_to_postgres",
+        context=context,
+        dataset="raw.fixtures",
+        table="raw.fixtures",
+    ) as metric:
+        for key in run_keys:
+            obj = s3.get_object(Bucket=SILVER_BUCKET, Key=key)
+            df = pd.read_parquet(BytesIO(obj["Body"].read()))
+            _assert_input_schema(df, key)
+            read_rows += len(df)
+            frames.append(df)
 
-        _assert_input_schema(df, key)
+        load_df = pd.concat(frames, ignore_index=True)
+        load_df = _normalize_dataframe(load_df)
 
-        read_rows += len(df)
-        frames.append(df)
-        print(f"Lido: {key} | rows={len(df)}")
+        invalid_mask = load_df["fixture_id"].isna()
+        invalid_rows = int(invalid_mask.sum())
+        if invalid_rows:
+            load_df = load_df[~invalid_mask].copy()
 
-    load_df = pd.concat(frames, ignore_index=True)
-    load_df = _normalize_dataframe(load_df)
+        before_dedup = len(load_df)
+        load_df = load_df.drop_duplicates(subset=["fixture_id"], keep="last").copy()
+        duplicated_rows = before_dedup - len(load_df)
 
-    invalid_mask = load_df["fixture_id"].isna()
-    invalid_rows = int(invalid_mask.sum())
-    if invalid_rows:
-        load_df = load_df[~invalid_mask].copy()
+        load_df["ingested_run"] = run_id
+        load_df = load_df[TARGET_COLUMNS]
 
-    before_dedup = len(load_df)
-    load_df = load_df.drop_duplicates(subset=["fixture_id"], keep="last").copy()
-    duplicated_rows = before_dedup - len(load_df)
+        compare_columns = [col for col in TARGET_COLUMNS if col != "fixture_id"]
+        distinct_predicate = " OR ".join([f"t.{col} IS DISTINCT FROM s.{col}" for col in compare_columns])
 
-    load_df["ingested_run"] = run_id
-    load_df = load_df[TARGET_COLUMNS]
-
-    compare_columns = [col for col in TARGET_COLUMNS if col != "fixture_id"]
-    distinct_predicate = " OR ".join([f"t.{col} IS DISTINCT FROM s.{col}" for col in compare_columns])
-
-    insert_cols = ", ".join(TARGET_COLUMNS)
-    select_cols = ", ".join([f"s.{col}" for col in TARGET_COLUMNS])
-    update_set = ", ".join([f"{col} = EXCLUDED.{col}" for col in TARGET_COLUMNS if col != "fixture_id"])
-    conflict_where = " OR ".join(
-        [f"raw.fixtures.{col} IS DISTINCT FROM EXCLUDED.{col}" for col in TARGET_COLUMNS if col != "fixture_id"]
-    )
-
-    with engine.begin() as conn:
-        _assert_target_columns(conn)
-
-        conn.execute(text("CREATE TEMP TABLE staging_fixtures (LIKE raw.fixtures INCLUDING DEFAULTS) ON COMMIT DROP"))
-
-        load_df.to_sql(
-            "staging_fixtures",
-            con=conn,
-            if_exists="append",
-            index=False,
-            method="multi",
+        insert_cols = ", ".join(TARGET_COLUMNS)
+        select_cols = ", ".join([f"s.{col}" for col in TARGET_COLUMNS])
+        update_set = ", ".join([f"{col} = EXCLUDED.{col}" for col in TARGET_COLUMNS if col != "fixture_id"])
+        conflict_where = " OR ".join(
+            [f"raw.fixtures.{col} IS DISTINCT FROM EXCLUDED.{col}" for col in TARGET_COLUMNS if col != "fixture_id"]
         )
 
-        inserted = conn.execute(
-            text(
-                """
-                SELECT COUNT(*)
-                FROM staging_fixtures s
-                LEFT JOIN raw.fixtures t ON t.fixture_id = s.fixture_id
-                WHERE t.fixture_id IS NULL
-                """
+        with engine.begin() as conn:
+            _assert_target_columns(conn)
+            conn.execute(text("CREATE TEMP TABLE staging_fixtures (LIKE raw.fixtures INCLUDING DEFAULTS) ON COMMIT DROP"))
+
+            load_df.to_sql("staging_fixtures", con=conn, if_exists="append", index=False, method="multi")
+
+            inserted = conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM staging_fixtures s
+                    LEFT JOIN raw.fixtures t ON t.fixture_id = s.fixture_id
+                    WHERE t.fixture_id IS NULL
+                    """
+                )
+            ).scalar_one()
+
+            updated = conn.execute(
+                text(
+                    f"""
+                    SELECT COUNT(*)
+                    FROM staging_fixtures s
+                    JOIN raw.fixtures t ON t.fixture_id = s.fixture_id
+                    WHERE {distinct_predicate}
+                    """
+                )
+            ).scalar_one()
+
+            conn.execute(
+                text(
+                    f"""
+                    INSERT INTO raw.fixtures ({insert_cols})
+                    SELECT {select_cols}
+                    FROM staging_fixtures s
+                    ON CONFLICT (fixture_id) DO UPDATE
+                    SET {update_set}
+                    WHERE {conflict_where}
+                    """
+                )
             )
-        ).scalar_one()
 
-        updated = conn.execute(
-            text(
-                f"""
-                SELECT COUNT(*)
-                FROM staging_fixtures s
-                JOIN raw.fixtures t ON t.fixture_id = s.fixture_id
-                WHERE {distinct_predicate}
-                """
-            )
-        ).scalar_one()
+            ignored = len(load_df) - inserted - updated
 
-        conn.execute(
-            text(
-                f"""
-                INSERT INTO raw.fixtures ({insert_cols})
-                SELECT {select_cols}
-                FROM staging_fixtures s
-                ON CONFLICT (fixture_id) DO UPDATE
-                SET {update_set}
-                WHERE {conflict_where}
-                """
-            )
-        )
+        metric.set_counts(rows_in=read_rows, rows_out=len(load_df), row_count=len(load_df))
 
-        ignored = len(load_df) - inserted - updated
-
-    print(
-        "Load concluido | "
-        f"run={run_id} | lidas={read_rows} | validas={len(load_df)} | "
-        f"inseridas={inserted} | atualizadas={updated} | ignoradas={ignored} | "
-        f"invalidas_sem_fixture_id={invalid_rows} | duplicadas_no_lote={duplicated_rows}"
+    log_event(
+        service="airflow",
+        module="silver_to_postgres_fixtures",
+        step="summary",
+        status="success",
+        context=context,
+        dataset="raw.fixtures",
+        rows_in=read_rows,
+        rows_out=len(load_df),
+        row_count=len(load_df),
+        message=(
+            f"Load concluido | run={run_id} | inseridas={inserted} | atualizadas={updated} | "
+            f"ignoradas={ignored} | invalidas={invalid_rows} | duplicadas={duplicated_rows}"
+        ),
     )
 
 
@@ -260,10 +265,11 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,
+    default_args=DEFAULT_DAG_ARGS,
     tags=["warehouse", "load"],
 ) as dag:
-
     PythonOperator(
         task_id="load_silver_to_postgres",
         python_callable=load_silver_to_postgres,
+        execution_timeout=timedelta(minutes=25),
     )
