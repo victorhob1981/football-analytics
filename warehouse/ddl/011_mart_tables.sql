@@ -73,3 +73,24 @@ CREATE INDEX IF NOT EXISTS idx_standings_evolution_season_round_position
 
 CREATE INDEX IF NOT EXISTS idx_standings_evolution_team
   ON mart.standings_evolution (team_id);
+
+CREATE TABLE IF NOT EXISTS mart.team_performance_monthly (
+  season               INT NOT NULL,
+  year                 TEXT NOT NULL,
+  month                TEXT NOT NULL,
+  team_id              BIGINT NOT NULL,
+  avg_ball_possession  NUMERIC(6,2),
+  total_shots          INT NOT NULL,
+  shots_on_target      INT NOT NULL,
+  conversion_rate      NUMERIC(8,2),
+  pass_accuracy        NUMERIC(6,2),
+  fouls_committed      INT NOT NULL,
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT pk_team_performance_monthly PRIMARY KEY (season, year, month, team_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_performance_monthly_period
+  ON mart.team_performance_monthly (season, year, month);
+
+CREATE INDEX IF NOT EXISTS idx_team_performance_monthly_team
+  ON mart.team_performance_monthly (team_id);
