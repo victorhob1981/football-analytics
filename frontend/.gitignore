@@ -1,0 +1,6 @@
+﻿# See https://nextjs.org/docs/app/api-reference/file-conventions
+/node_modules
+/.next
+/out
+/playwright-report
+/test-results

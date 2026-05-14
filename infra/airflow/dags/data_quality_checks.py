@@ -65,6 +65,81 @@ CHECKS = [
               AND total_goals = 0
         """,
     },
+    {
+        "check_name": "raw_fixture_lineups_duplicate_grain",
+        "description": "raw.fixture_lineups possui duplicidade no grain provider/fixture_id/team_id/lineup_id.",
+        "sql": """
+            SELECT provider, fixture_id, team_id, lineup_id, COUNT(*) AS duplicate_rows
+            FROM raw.fixture_lineups
+            GROUP BY provider, fixture_id, team_id, lineup_id
+            HAVING COUNT(*) > 1
+        """,
+    },
+    {
+        "check_name": "raw_fixture_player_statistics_duplicate_grain",
+        "description": "raw.fixture_player_statistics possui duplicidade no grain provider/fixture_id/team_id/player_id.",
+        "sql": """
+            SELECT provider, fixture_id, team_id, player_id, COUNT(*) AS duplicate_rows
+            FROM raw.fixture_player_statistics
+            GROUP BY provider, fixture_id, team_id, player_id
+            HAVING COUNT(*) > 1
+        """,
+    },
+    {
+        "check_name": "raw_standings_snapshots_duplicate_grain",
+        "description": "raw.standings_snapshots possui duplicidade no grain provider/season_id/stage_id/round_id/team_id.",
+        "sql": """
+            SELECT provider, season_id, stage_id, round_id, team_id, COUNT(*) AS duplicate_rows
+            FROM raw.standings_snapshots
+            GROUP BY provider, season_id, stage_id, round_id, team_id
+            HAVING COUNT(*) > 1
+        """,
+    },
+    {
+        "check_name": "raw_fixture_player_statistics_orphan_fixture",
+        "description": "raw.fixture_player_statistics possui fixture_id inexistente em raw.fixtures.",
+        "sql": """
+            SELECT s.*
+            FROM raw.fixture_player_statistics s
+            LEFT JOIN raw.fixtures f
+              ON f.fixture_id = s.fixture_id
+            WHERE f.fixture_id IS NULL
+        """,
+    },
+    {
+        "check_name": "raw_fixture_lineups_min_starters",
+        "description": "Fixtures finalizadas com lineup carregada devem ter ao menos 11 titulares por time.",
+        "sql": """
+            WITH fixtures_with_lineups AS (
+                SELECT DISTINCT l.fixture_id
+                FROM raw.fixture_lineups l
+            ),
+            final_fixtures AS (
+                SELECT f.fixture_id, f.home_team_id, f.away_team_id
+                FROM raw.fixtures f
+                JOIN fixtures_with_lineups fl
+                  ON fl.fixture_id = f.fixture_id
+                WHERE f.status_short IN ('FT', 'AET', 'PEN')
+            ),
+            expected_teams AS (
+                SELECT fixture_id, home_team_id AS team_id FROM final_fixtures
+                UNION ALL
+                SELECT fixture_id, away_team_id AS team_id FROM final_fixtures
+            ),
+            starters AS (
+                SELECT fixture_id, team_id, COUNT(*) AS starters
+                FROM raw.fixture_lineups
+                WHERE lineup_type_id IN (1, 11)
+                GROUP BY fixture_id, team_id
+            )
+            SELECT e.fixture_id, e.team_id, COALESCE(s.starters, 0) AS starters
+            FROM expected_teams e
+            LEFT JOIN starters s
+              ON s.fixture_id = e.fixture_id
+             AND s.team_id = e.team_id
+            WHERE COALESCE(s.starters, 0) < 11
+        """,
+    },
 ]
 
 

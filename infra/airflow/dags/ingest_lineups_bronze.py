@@ -1,0 +1,36 @@
+from datetime import datetime, timedelta
+
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+
+from common.observability import DEFAULT_DAG_ARGS
+from common.providers import get_default_league_id, get_default_provider
+from common.services.ingestion_service import ingest_fixture_lineups_raw
+
+DEFAULT_PROVIDER = get_default_provider()
+DEFAULT_LEAGUE_ID = get_default_league_id(DEFAULT_PROVIDER)
+
+
+with DAG(
+    dag_id="ingest_lineups_bronze",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval=None,
+    catchup=False,
+    params={
+        "league_id": DEFAULT_LEAGUE_ID,
+        "season": 2024,
+        "season_id": None,
+        "provider": DEFAULT_PROVIDER,
+        "mode": "incremental",
+        "fixture_ids": [],
+    },
+    render_template_as_native_obj=True,
+    default_args=DEFAULT_DAG_ARGS,
+    tags=["bronze", "lineups"],
+) as dag:
+    PythonOperator(
+        task_id="ingest_fixture_lineups",
+        python_callable=ingest_fixture_lineups_raw,
+        execution_timeout=timedelta(hours=4),
+    )
+

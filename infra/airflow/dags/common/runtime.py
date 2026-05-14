@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any
 import os
 
-from common.providers import get_default_provider, normalize_provider_name, provider_env_prefix
+from common.providers import get_default_league_id, get_default_provider, normalize_provider_name, provider_env_prefix
 
 
-DEFAULT_LEAGUE_ID = 71
+DEFAULT_LEAGUE_ID = get_default_league_id()
 DEFAULT_SEASON = 2024
 DEFAULT_PROVIDER = get_default_provider()
 
@@ -41,9 +41,10 @@ def resolve_runtime_params(context: dict[str, Any]) -> dict[str, Any]:
     provider_value = str(raw_provider or "").strip()
     provider = normalize_provider_name(provider_value) if provider_value else DEFAULT_PROVIDER
     env_prefix = provider_env_prefix(provider)
+    provider_default_league = get_default_league_id(provider)
     default_league = _safe_int(
-        os.getenv(f"{env_prefix}_DEFAULT_LEAGUE_ID", str(DEFAULT_LEAGUE_ID)),
-        DEFAULT_LEAGUE_ID,
+        os.getenv(f"{env_prefix}_DEFAULT_LEAGUE_ID", str(provider_default_league)),
+        provider_default_league,
         "default_league_id",
     )
     default_season = _safe_int(
@@ -57,7 +58,7 @@ def resolve_runtime_params(context: dict[str, Any]) -> dict[str, Any]:
         "league_id",
     )
     season = _safe_int(
-        conf.get("season", params.get("season", default_season)),
+        conf.get("season", conf.get("season_id", params.get("season", params.get("season_id", default_season)))),
         default_season,
         "season",
     )
