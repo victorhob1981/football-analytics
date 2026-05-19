@@ -20,6 +20,7 @@ __pycache__/
 *.pyo
 *.pyd
 *.pytest_cache/
+.ruff_cache/
 .mypy_cache/
 .coverage
 coverage.xml
@@ -30,6 +31,7 @@ build/
 .venv/
 venv/
 env/
+*.tsbuildinfo
 
 # =========================
 # AIRFLOW
@@ -83,6 +85,8 @@ data/visual_assets/*
 !data/visual_assets/champions/
 !data/visual_assets/champions/**
 tmp/
+.tmp/
+__codex_write_probe.tmp
 
 # =========================
 # IDE / EDITOR
@@ -97,3 +101,14 @@ tmp/
 # =========================
 .DS_Store
 Thumbs.db
+
+# =========================
+# LOCAL RUNTIME / CODEX
+# =========================
+.codex-local/
+.codex-temp/
+artifacts/local-run/
+frontend/artifacts/block1-isolation/
+frontend/artifacts/runtime-validation/
+.tmp*.log
+*.pid

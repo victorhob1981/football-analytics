@@ -4,7 +4,6 @@ import { useMemo, type ReactNode } from "react";
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { useQueries } from "@tanstack/react-query";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -14,7 +13,9 @@ import { getRankingDefinition } from "@/config/ranking.registry";
 import type { RankingDefinition, RankingSortDirection } from "@/config/ranking.types";
 import { SeasonCompetitionAnalyticsSection } from "@/features/competitions/components/SeasonCompetitionAnalyticsSection";
 import { CompetitionSeasonSurfaceShell } from "@/features/competitions/components/season-surface/CompetitionSeasonSurfaceShell";
-import { useCompetitionStructure, useStageTies } from "@/features/competitions/hooks";
+import { useCompetitionAnalytics } from "@/features/competitions/hooks/useCompetitionAnalytics";
+import { useCompetitionStructure } from "@/features/competitions/hooks/useCompetitionStructure";
+import { useStageTies } from "@/features/competitions/hooks/useStageTies";
 import { competitionStructureQueryKeys } from "@/features/competitions/queryKeys";
 import { fetchStageTies } from "@/features/competitions/services/competition-hub.service";
 import type {
@@ -30,9 +31,8 @@ import {
   type CompetitionSeasonSurfaceSection,
 } from "@/features/competitions/utils/competition-season-surface";
 import { getStageFormatLabel } from "@/features/competitions/utils/competition-structure";
-import { resolveSeasonChampionArtwork } from "@/features/competitions/utils/champion-media";
 import { fetchMatchesList } from "@/features/matches/services/matches.service";
-import type { MatchListItem, MatchesListData } from "@/features/matches/types";
+import type { MatchesListData } from "@/features/matches/types";
 import { resolveMatchDisplayContext } from "@/features/matches/utils/match-context";
 import { useRankingTable } from "@/features/rankings/hooks";
 import { useStandingsTable } from "@/features/standings/hooks";
@@ -58,7 +58,6 @@ import type { CompetitionSeasonContext } from "@/shared/types/context.types";
 import {
   buildCanonicalPlayerPath,
   buildCanonicalTeamPath,
-  buildCompetitionHubPath,
   buildMatchesPath,
   buildPlayersPath,
   buildRankingPath,
@@ -146,26 +145,6 @@ function formatDateWindow(
   }
 
   return null;
-}
-
-function formatMatchesWindow(matches: MatchListItem[]): string | null {
-  if (matches.length === 0) {
-    return null;
-  }
-
-  const datedMatches = matches
-    .map((match) => (match.kickoffAt ? new Date(match.kickoffAt) : null))
-    .filter((value): value is Date => value !== null && !Number.isNaN(value.getTime()))
-    .sort((left, right) => left.getTime() - right.getTime());
-
-  if (datedMatches.length === 0) {
-    return null;
-  }
-
-  return formatDateWindow(
-    datedMatches[0].toISOString(),
-    datedMatches[datedMatches.length - 1].toISOString(),
-  );
 }
 
 function getSurfaceTypeLabel(resolution: CompetitionSeasonSurfaceResolution): string {
@@ -381,71 +360,54 @@ function EditionSummaryGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-3 md:grid-cols-3">{children}</div>;
 }
 
-function ChampionArtworkAside({
-  championName,
-  context,
-  eyebrow,
-  summary,
+function HistoricalHeroCard({
+  detail,
+  label,
+  tone = "base",
+  value,
 }: {
-  championName: string | null;
-  context: CompetitionSeasonContext;
-  eyebrow: string;
-  summary: string;
+  detail: string;
+  label: string;
+  tone?: "base" | "soft";
+  value: ReactNode;
 }) {
-  const artwork = championName
-    ? resolveSeasonChampionArtwork(context.competitionKey, context.seasonLabel)
-    : null;
+  return (
+    <article
+      className={
+        tone === "soft"
+          ? "rounded-[1.25rem] border border-[rgba(216,227,251,0.7)] bg-[rgba(240,243,255,0.76)] px-4 py-4"
+          : "rounded-[1.25rem] border border-white/70 bg-[rgba(255,255,255,0.78)] px-4 py-4"
+      }
+    >
+      <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">{label}</p>
+      <p className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
+        {value}
+      </p>
+      <p className="mt-2 text-xs/5 text-[#57657a]">{detail}</p>
+    </article>
+  );
+}
 
-  if (!artwork || !championName) {
-    return (
-      <ProfilePanel className="space-y-4" tone="soft">
-        <ProfileTag>{eyebrow}</ProfileTag>
-        <div>
-          <p className="text-sm/6 text-[#57657a]">{summary}</p>
-          <p className="mt-3 font-[family:var(--font-profile-headline)] text-[2rem] font-extrabold tracking-[-0.04em] text-[#111c2d]">
-            {championName ?? "Campeao ainda nao identificado"}
-          </p>
-          <p className="mt-2 text-sm text-[#57657a]">
-            {context.competitionName} {context.seasonLabel}
-          </p>
-        </div>
-      </ProfilePanel>
-    );
+function formatHistoricalMatchCount(matchCount: number | null | undefined) {
+  if (typeof matchCount !== "number" || !Number.isFinite(matchCount)) {
+    return "-";
   }
 
-  return (
-    <aside className="relative isolate min-h-[320px] overflow-hidden rounded-[1.9rem] border border-white/10 bg-[#071c14] shadow-[0_34px_84px_-56px_rgba(8,25,20,0.65)]">
-      <Image
-        alt={`Campeao ${artwork.teamName} em ${context.competitionName} ${context.seasonLabel}`}
-        className="object-cover object-center"
-        fill
-        priority
-        sizes="(min-width: 1280px) 360px, 100vw"
-        src={artwork.src}
-      />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,28,20,0.08)_0%,rgba(7,28,20,0.42)_38%,rgba(7,28,20,0.94)_100%)]" />
-      <div className="relative flex h-full flex-col justify-between p-5 md:p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-white/88">
-            {eyebrow}
-          </span>
-          <span className="inline-flex items-center rounded-full bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-white/72">
-            {context.seasonLabel}
-          </span>
-        </div>
+  return matchCount.toLocaleString("pt-BR");
+}
 
-        <div className="space-y-3">
-          <p className="max-w-sm text-sm/6 text-white/72">{summary}</p>
-          <div className="space-y-1">
-            <h2 className="font-[family:var(--font-profile-headline)] text-[2.15rem] font-extrabold tracking-[-0.04em] text-white">
-              {championName}
-            </h2>
-            <p className="text-sm text-white/72">{context.competitionName}</p>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
+function resolveLeagueMatchCountFromStandings(rows: StandingsTableRow[]): number | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const totalMatchesPlayed = rows.reduce((sum, row) => sum + row.matchesPlayed, 0);
+
+  if (!Number.isFinite(totalMatchesPlayed) || totalMatchesPlayed <= 0 || totalMatchesPlayed % 2 !== 0) {
+    return null;
+  }
+
+  return totalMatchesPlayed / 2;
 }
 
 function FinalStandingsPanel({
@@ -1078,41 +1040,94 @@ function EditionHighlightsSection({
 
 function LeagueHeroSummary({ context }: { context: CompetitionSeasonContext }) {
   const standingsQuery = useSeasonFinalStandings(context);
-  const matchesQuery = useSeasonClosingMatches(context, 4);
+  const analyticsQuery = useCompetitionAnalytics({
+    competitionKey: context.competitionKey,
+    seasonLabel: context.seasonLabel,
+  });
   const champion = resolveChampionFromStandings(standingsQuery.data?.rows ?? []);
+  const analyticsMatchCount = analyticsQuery.data?.seasonSummary.matchCount;
+  const standingsMatchCount = resolveLeagueMatchCountFromStandings(standingsQuery.data?.rows ?? []);
+  const resolvedMatchCount = analyticsMatchCount ?? standingsMatchCount;
 
   return (
     <EditionSummaryGrid>
-      <ProfileMetricTile label="Campeao" value={standingsQuery.isLoading ? "..." : champion?.teamName ?? "-"} />
-      <ProfileMetricTile
-        label="Classificacao final"
-        value={standingsQuery.isLoading ? "..." : standingsQuery.data?.currentRound?.label ?? "Edicao encerrada"}
+      <HistoricalHeroCard
+        detail={
+          champion
+            ? "Fonte: classificacao final."
+            : "Sem lider consolidado na classificacao final."
+        }
+        label="Campeao"
+        value={standingsQuery.isLoading ? "..." : champion?.teamName ?? "Nao identificado"}
       />
-      <ProfileMetricTile
-        label="Janela final"
-        value={matchesQuery.isLoading ? "..." : formatMatchesWindow(matchesQuery.data?.items ?? []) ?? "Sem datas"}
+      <HistoricalHeroCard
+        detail="Sem fonte oficial: o ranking de gols atual exige amostra minima de 180 min e aceita recortes."
+        label="Artilheiro"
+        tone="soft"
+        value="Sem fonte oficial"
+      />
+      <HistoricalHeroCard
+        detail={
+          analyticsMatchCount !== undefined
+            ? "Fonte: analytics da edicao."
+            : standingsMatchCount !== null
+              ? "Fonte: classificacao final."
+              : "Total da edicao indisponivel no contrato atual."
+        }
+        label="Partidas jogadas"
+        value={
+          analyticsQuery.isLoading && resolvedMatchCount === null
+            ? "..."
+            : formatHistoricalMatchCount(resolvedMatchCount)
+        }
       />
     </EditionSummaryGrid>
   );
 }
 
 function CupHeroSummary({
+  context,
   championTieQuery,
-  resolution,
 }: {
+  context: CompetitionSeasonContext;
   championTieQuery: ReturnType<typeof useStageTies>;
-  resolution: CompetitionSeasonSurfaceResolution;
 }) {
+  const analyticsQuery = useCompetitionAnalytics({
+    competitionKey: context.competitionKey,
+    seasonLabel: context.seasonLabel,
+  });
   const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
 
   return (
     <EditionSummaryGrid>
-      <ProfileMetricTile label="Campeao" value={championTieQuery.isLoading ? "..." : championTie?.winnerTeamName ?? "-"} />
-      <ProfileMetricTile
-        label="Decisao"
-        value={championTieQuery.isLoading ? "..." : resolution.finalKnockoutStage?.stageName ?? "Final"}
+      <HistoricalHeroCard
+        detail={
+          championTie?.winnerTeamName
+            ? "Fonte: chave final."
+            : "Chave final sem vencedor consolidado no contrato atual."
+        }
+        label="Campeao"
+        value={championTieQuery.isLoading ? "..." : championTie?.winnerTeamName ?? "Nao identificado"}
       />
-      <ProfileMetricTile label="Fases eliminatorias" value={resolution.knockoutStages.length} />
+      <HistoricalHeroCard
+        detail="Sem fonte oficial: o ranking de gols atual exige amostra minima de 180 min e aceita recortes."
+        label="Artilheiro"
+        tone="soft"
+        value="Sem fonte oficial"
+      />
+      <HistoricalHeroCard
+        detail={
+          analyticsQuery.data?.seasonSummary.matchCount !== undefined
+            ? "Fonte: analytics da edicao."
+            : "Total da edicao indisponivel no contrato atual."
+        }
+        label="Partidas jogadas"
+        value={
+          analyticsQuery.isLoading
+            ? "..."
+            : formatHistoricalMatchCount(analyticsQuery.data?.seasonSummary.matchCount)
+        }
+      />
     </EditionSummaryGrid>
   );
 }
@@ -1120,27 +1135,46 @@ function CupHeroSummary({
 function HybridHeroSummary({
   championTieQuery,
   context,
-  resolution,
 }: {
   championTieQuery: ReturnType<typeof useStageTies>;
   context: CompetitionSeasonContext;
-  resolution: CompetitionSeasonSurfaceResolution;
 }) {
-  const tableQuery = useSeasonFinalStandings(context, resolution.primaryTableStage?.stageId);
+  const analyticsQuery = useCompetitionAnalytics({
+    competitionKey: context.competitionKey,
+    seasonLabel: context.seasonLabel,
+  });
   const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
-  const champion = resolveChampionFromStandings(tableQuery.data?.rows ?? []);
 
   return (
     <EditionSummaryGrid>
-      <ProfileMetricTile
-        label="Fase classificatoria"
-        value={tableQuery.isLoading ? "..." : resolution.primaryTableStage?.stageName ?? "Tabela"}
-      />
-      <ProfileMetricTile
+      <HistoricalHeroCard
+        detail={
+          championTie?.winnerTeamName
+            ? "Fonte: mata-mata final."
+            : "Mata-mata final sem vencedor consolidado no contrato atual."
+        }
         label="Campeao"
-        value={championTieQuery.isLoading ? "..." : championTie?.winnerTeamName ?? champion?.teamName ?? "-"}
+        value={championTieQuery.isLoading ? "..." : championTie?.winnerTeamName ?? "Nao identificado"}
       />
-      <ProfileMetricTile label="Mata-mata" value={resolution.knockoutStages.length} />
+      <HistoricalHeroCard
+        detail="Sem fonte oficial: o ranking de gols atual exige amostra minima de 180 min e aceita recortes."
+        label="Artilheiro"
+        tone="soft"
+        value="Sem fonte oficial"
+      />
+      <HistoricalHeroCard
+        detail={
+          analyticsQuery.data?.seasonSummary.matchCount !== undefined
+            ? "Fonte: analytics da edicao."
+            : "Total da edicao indisponivel no contrato atual."
+        }
+        label="Partidas jogadas"
+        value={
+          analyticsQuery.isLoading
+            ? "..."
+            : formatHistoricalMatchCount(analyticsQuery.data?.seasonSummary.matchCount)
+        }
+      />
     </EditionSummaryGrid>
   );
 }
@@ -1382,34 +1416,11 @@ function LeagueSeasonSurface({
 }) {
   const searchParams = useSearchParams();
   const filterInput = useSeasonFilterInput(context);
-  const finalStandingsQuery = useSeasonFinalStandings(context);
-  const champion = resolveChampionFromStandings(finalStandingsQuery.data?.rows ?? []);
   const navLabels = buildSurfaceNavLabels(resolution.type);
 
   return (
     <CompetitionSeasonSurfaceShell
       context={context}
-      heroActions={[
-        {
-          href: buildSeasonSurfaceHref(context, "structure", searchParams),
-          label: "Abrir classificacao final",
-        },
-        {
-          href: buildCompetitionHubPath(context.competitionKey),
-          label: "Voltar para competicao",
-          tone: "secondary",
-        },
-      ]}
-      heroAside={
-        <ChampionArtworkAside
-          championName={champion?.teamName ?? null}
-          context={context}
-          eyebrow="Campeao da edicao"
-          summary="Liga encerrada com classificacao final como centro da leitura, sem linguagem de temporada em andamento."
-        />
-      }
-      heroDescription="Edicao encerrada, com classificacao final, campeao e fechamento de temporada como leitura principal."
-      heroEyebrow="Liga encerrada"
       heroSummary={<LeagueHeroSummary context={context} />}
       navItems={[
         {
@@ -1438,11 +1449,7 @@ function LeagueSeasonSurface({
         },
       ]}
       routeCards={buildRouteCards(filterInput)}
-      tags={[
-        getSurfaceTypeLabel(resolution),
-        context.seasonLabel,
-        finalStandingsQuery.data?.currentRound?.label ?? "Edicao concluida",
-      ]}
+      tags={[getSurfaceTypeLabel(resolution), context.seasonLabel]}
     >
       {activeSection === "overview" ? <LeagueOverviewSection context={context} /> : null}
       {activeSection === "structure" ? <LeagueStructureSection context={context} /> : null}
@@ -1476,34 +1483,12 @@ function CupSeasonSurface({
     seasonLabel: context.seasonLabel,
     stageId: resolution.finalKnockoutStage?.stageId,
   });
-  const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
   const navLabels = buildSurfaceNavLabels(resolution.type);
 
   return (
     <CompetitionSeasonSurfaceShell
       context={context}
-      heroActions={[
-        {
-          href: buildSeasonSurfaceHref(context, "structure", searchParams),
-          label: "Abrir chaveamento",
-        },
-        {
-          href: buildCompetitionHubPath(context.competitionKey),
-          label: "Voltar para competicao",
-          tone: "secondary",
-        },
-      ]}
-      heroAside={
-        <ChampionArtworkAside
-          championName={championTie?.winnerTeamName ?? null}
-          context={context}
-          eyebrow="Campeao da copa"
-          summary="Copa encerrada com caminho do campeao, confrontos concluidos e decisao final como eixo principal."
-        />
-      }
-      heroDescription="Edicao concluida com chaveamento finalizado, confrontos encerrados e decisao consolidada."
-      heroEyebrow="Copa encerrada"
-      heroSummary={<CupHeroSummary championTieQuery={championTieQuery} resolution={resolution} />}
+      heroSummary={<CupHeroSummary championTieQuery={championTieQuery} context={context} />}
       navItems={[
         {
           href: buildSeasonSurfaceHref(context, "overview", searchParams),
@@ -1531,11 +1516,7 @@ function CupSeasonSurface({
         },
       ]}
       routeCards={buildRouteCards(filterInput)}
-      tags={[
-        getSurfaceTypeLabel(resolution),
-        context.seasonLabel,
-        resolution.finalKnockoutStage?.stageName ?? "Decisao concluida",
-      ]}
+      tags={[getSurfaceTypeLabel(resolution), context.seasonLabel]}
     >
       {activeSection === "overview" ? (
         <CupOverviewSection championTieQuery={championTieQuery} context={context} resolution={resolution} />
@@ -1571,34 +1552,12 @@ function HybridSeasonSurface({
     seasonLabel: context.seasonLabel,
     stageId: resolution.finalKnockoutStage?.stageId,
   });
-  const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
   const navLabels = buildSurfaceNavLabels(resolution.type);
 
   return (
     <CompetitionSeasonSurfaceShell
       context={context}
-      heroActions={[
-        {
-          href: buildSeasonSurfaceHref(context, "structure", searchParams),
-          label: "Abrir fase classificatoria",
-        },
-        {
-          href: buildCompetitionHubPath(context.competitionKey),
-          label: "Voltar para competicao",
-          tone: "secondary",
-        },
-      ]}
-      heroAside={
-        <ChampionArtworkAside
-          championName={championTie?.winnerTeamName ?? null}
-          context={context}
-          eyebrow="Campeao da edicao"
-          summary="Edicao hibrida com fase classificatoria concluida e mata-mata finalizado na mesma superficie."
-        />
-      }
-      heroDescription="A mesma edicao expande duas leituras: fase classificatoria encerrada e progressao concluida do mata-mata."
-      heroEyebrow="Edicao hibrida encerrada"
-      heroSummary={<HybridHeroSummary championTieQuery={championTieQuery} context={context} resolution={resolution} />}
+      heroSummary={<HybridHeroSummary championTieQuery={championTieQuery} context={context} />}
       navItems={[
         {
           href: buildSeasonSurfaceHref(context, "overview", searchParams),
@@ -1626,11 +1585,7 @@ function HybridSeasonSurface({
         },
       ]}
       routeCards={buildRouteCards(filterInput)}
-      tags={[
-        getSurfaceTypeLabel(resolution),
-        context.seasonLabel,
-        resolution.editionLabel ?? "Liga + mata-mata",
-      ]}
+      tags={[getSurfaceTypeLabel(resolution), context.seasonLabel]}
     >
       {activeSection === "overview" ? <HybridOverviewSection context={context} resolution={resolution} /> : null}
       {activeSection === "structure" ? <GroupPhaseSummaryPanel context={context} stage={resolution.primaryTableStage} /> : null}
@@ -1671,12 +1626,6 @@ export function CompetitionSeasonSurface({
     return (
       <CompetitionSeasonSurfaceShell
         context={context}
-        heroActions={[
-          {
-            href: buildCompetitionHubPath(context.competitionKey),
-            label: "Voltar para competicao",
-          },
-        ]}
         heroDescription="A surface orientada por tipo depende da estrutura da edicao para diferenciar copa e formato hibrido com seguranca."
         heroEyebrow="Estrutura indisponivel"
         navItems={[

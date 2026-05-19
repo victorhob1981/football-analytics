@@ -147,6 +147,22 @@ export function resolveCompetitionSeasonContextFromSearchParams(
   });
 }
 
+export function resolveCompetitionSeasonContextFromPathname(
+  pathname: string,
+): CompetitionSeasonContext | null {
+  const normalizedPathname = normalizePathname(pathname);
+  const match = normalizedPathname.match(/^\/competitions\/([^/]+)\/seasons\/([^/]+)(?:\/|$)/);
+
+  if (!match) {
+    return null;
+  }
+
+  return resolveCompetitionSeasonContext({
+    competitionKey: match[1],
+    seasonLabel: match[2],
+  });
+}
+
 export function buildCompetitionSeasonBasePath(context: CompetitionSeasonContext): string {
   return `/competitions/${encodePathSegment(context.competitionKey)}/seasons/${encodePathSegment(context.seasonLabel)}`;
 }

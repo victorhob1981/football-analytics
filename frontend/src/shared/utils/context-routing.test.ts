@@ -19,6 +19,7 @@ import {
   getContextQueryKeysToLockForPath,
   getContextQueryKeysToOmitForPath,
   resolveCompetitionSeasonContext,
+  resolveCompetitionSeasonContextFromPathname,
   resolveCompetitionSeasonContextFromSearchParams,
 } from "@/shared/utils/context-routing";
 import { getCompetitionByKey } from "@/config/competitions.registry";
@@ -72,6 +73,20 @@ describe("context-routing", () => {
     });
 
     expect(resolveCompetitionSeasonContextFromSearchParams(searchParams)).toEqual({
+      competitionId: "8",
+      competitionKey: "premier_league",
+      competitionName: "Premier League",
+      seasonId: "2024",
+      seasonLabel: "2024/2025",
+    });
+  });
+
+  it("resolve contexto a partir do pathname canonico da season hub", () => {
+    expect(
+      resolveCompetitionSeasonContextFromPathname(
+        "/competitions/premier_league/seasons/2024%2F2025/teams/33",
+      ),
+    ).toEqual({
       competitionId: "8",
       competitionKey: "premier_league",
       competitionName: "Premier League",

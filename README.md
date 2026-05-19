@@ -44,6 +44,27 @@ URLs:
 - MinIO Console: `http://localhost:9001`
 - Metabase: `http://localhost:3000`
 
+## Subir ambiente local completo (PowerShell)
+Comando unico a partir da raiz do repo:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\start-local.ps1
+```
+
+O script:
+- sobe/valida `docker compose`;
+- repara dependencias do frontend quando o `node_modules` estiver inconsistente;
+- sobe a BFF em `http://127.0.0.1:8010`;
+- sobe o frontend em `http://127.0.0.1:3001`;
+- grava logs em `artifacts/local-run/`.
+
+Se voce ja estiver dentro de uma sessao PowerShell e preferir liberar so para a sessao atual:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\tools\start-local.ps1
+```
+
 ## Migracoes de schema (caminho unico)
 Schema evolui apenas por `dbmate` em `db/migrations/`.
 
