@@ -90,7 +90,7 @@ export function TeamMatchesSection({
             Partidas
           </p>
           <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
-            Calendário e resultados do time
+            Calendário e resultados do clube
           </h2>
           <p className="max-w-3xl text-sm leading-6 text-[#57657a]">
             Use a aba para seguir da campanha do time até a central do jogo sem perder o contexto
