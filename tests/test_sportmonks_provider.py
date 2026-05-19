@@ -33,6 +33,7 @@ def test_sportmonks_provider_maps_fixtures_payload():
                 "state": {"short_name": "FT", "name": "Finished"},
                 "venue": {"id": 7, "name": "Arena", "city_name": "Sao Paulo"},
                 "league": {"name": "Serie A"},
+                "season": {"id": 23265, "name": "2024", "starting_at": "2024-04-13", "ending_at": "2024-12-08"},
                 "round": {"name": "Round 5"},
                 "stage": {"name": "Regular Season"},
             },
@@ -137,8 +138,15 @@ def test_sportmonks_provider_maps_extended_entities_payload():
                     "data": {
                         "id": 648,
                         "name": "Serie A",
+                        "country_id": 32,
                         "seasons": [
-                            {"id": 23265, "name": "2024", "starting_at": "2024-04-01", "ending_at": "2024-12-15"}
+                            {
+                                "id": 23265,
+                                "league_id": 648,
+                                "name": "2024",
+                                "starting_at": "2024-04-01",
+                                "ending_at": "2024-12-15",
+                            }
                         ],
                     },
                     "rate_limit": {"remaining": 1000},
@@ -379,3 +387,321 @@ def test_sportmonks_provider_maps_extended_entities_payload():
 
     assert h2h_payload["entity_type"] == "head_to_head"
     assert h2h_payload["response"][0]["fixture"]["id"] == 4001
+
+
+def test_sportmonks_provider_player_statistics_uses_dedicated_payload_helper():
+    provider = SportMonksProvider(api_key="test-key", base_url="https://api.test")
+
+    provider._fixture_lineups_payload = lambda **_kwargs: (_ for _ in ()).throw(
+        AssertionError("Nao deveria usar _fixture_lineups_payload para fixture_player_statistics")
+    )
+    provider._fixture_player_statistics_payload = lambda **_kwargs: (
+        {
+            "data": {
+                "participants": [{"id": 10, "name": "Home FC"}],
+                "lineups": [
+                    {
+                        "team_id": 10,
+                        "player_id": 100,
+                        "player_name": "Player A",
+                        "details": [
+                            {
+                                "value": 2,
+                                "type": {"name": "Shots Total", "developer_name": "SHOTS_TOTAL"},
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+        {"x-ratelimit-remaining": "997"},
+        "/fixtures/1001",
+    )
+
+    payload, headers = provider.get_fixture_player_statistics(fixture_id=1001)
+
+    assert payload["entity_type"] == "fixture_player_statistics"
+    assert payload["response"][0]["player"]["id"] == 100
+    assert payload["response"][0]["statistics"][0]["type"] == "total_shots"
+    assert headers["x-ratelimit-remaining"] == "997"
+
+
+def test_sportmonks_provider_resolves_cross_year_season_by_exact_start_year():
+    provider = SportMonksProvider(api_key="test-key", base_url="https://api.test")
+
+    provider._request = lambda **kwargs: (
+        {
+            "data": {
+                "id": 8,
+                "name": "Premier League",
+                "country_id": 462,
+                "seasons": [
+                    {
+                        "id": 21646,
+                        "league_id": 8,
+                        "name": "2023/2024",
+                        "starting_at": "2023-08-11",
+                        "ending_at": "2024-05-19",
+                    },
+                    {
+                        "id": 23614,
+                        "league_id": 8,
+                        "name": "2024/2025",
+                        "starting_at": "2024-08-16",
+                        "ending_at": "2025-05-25",
+                    },
+                ],
+            }
+        },
+        {},
+    )
+
+    assert provider._resolve_season_id(league_id=8, season=2023) == 21646
+    assert provider._resolve_season_id(league_id=8, season=2024) == 23614
+
+
+def test_sportmonks_provider_uses_explicit_provider_season_id_when_history_is_missing_from_discovery():
+    provider = SportMonksProvider(api_key="test-key", base_url="https://api.test")
+    request_calls = []
+
+    def _fake_request(*, endpoint, params):
+        request_calls.append((endpoint, params))
+        if endpoint == "/leagues/8":
+            return (
+                {
+                    "data": {
+                        "id": 8,
+                        "name": "Premier League",
+                        "country_id": 462,
+                        "seasons": [
+                            {
+                                "id": 21646,
+                                "league_id": 8,
+                                "name": "2023/2024",
+                                "starting_at": "2023-08-11",
+                                "ending_at": "2024-05-19",
+                            },
+                            {
+                                "id": 23614,
+                                "league_id": 8,
+                                "name": "2024/2025",
+                                "starting_at": "2024-08-16",
+                                "ending_at": "2025-05-25",
+                            },
+                            {
+                                "id": 25796,
+                                "league_id": 8,
+                                "name": "2025/2026",
+                                "starting_at": "2025-08-15",
+                                "ending_at": "2026-05-24",
+                            },
+                        ],
+                    }
+                },
+                {},
+            )
+        if endpoint == "/standings/seasons/17420":
+            return ({"data": []}, {})
+        raise AssertionError(f"Unexpected endpoint: {endpoint}")
+
+    provider._request = _fake_request
+
+    payload, _ = provider.get_standings(
+        league_id=8,
+        season=2020,
+        season_label="2020_21",
+        provider_season_id=17420,
+        season_start_date="2020-09-12",
+        season_end_date="2021-05-23",
+    )
+
+    assert request_calls == [
+        ("/leagues/8", {"include": "seasons"}),
+        ("/standings/seasons/17420", {"include": "participant;details.type"}),
+    ]
+    assert payload["source_params"]["season_id"] == 17420
+    assert payload["source_params"]["season_label"] == "2020_21"
+    assert payload["source_params"]["provider_season_id"] == 17420
+
+
+def test_sportmonks_provider_filters_cross_year_fixtures_by_exact_start_year():
+    provider = SportMonksProvider(api_key="test-key", base_url="https://api.test")
+
+    provider._paginate_fixtures_between = lambda date_from, date_to: (
+        [
+            {
+                "id": 1001,
+                "league_id": 8,
+                "starting_at": "2024-05-01 20:00:00",
+                "starting_at_timestamp": 1714593600,
+                "participants": [
+                    {"id": 10, "name": "Home FC", "meta": {"location": "home"}},
+                    {"id": 11, "name": "Away FC", "meta": {"location": "away"}},
+                ],
+                "scores": [],
+                "season": {"id": 21646, "name": "2023/2024", "starting_at": "2023-08-11", "ending_at": "2024-05-19"},
+                "state": {"short_name": "FT", "name": "Finished"},
+                "venue": {"id": 7, "name": "Arena", "city_name": "London"},
+                "league": {"name": "Premier League"},
+            },
+            {
+                "id": 1002,
+                "league_id": 8,
+                "starting_at": "2024-09-01 20:00:00",
+                "starting_at_timestamp": 1725220800,
+                "participants": [
+                    {"id": 10, "name": "Home FC", "meta": {"location": "home"}},
+                    {"id": 11, "name": "Away FC", "meta": {"location": "away"}},
+                ],
+                "scores": [],
+                "season": {"id": 23614, "name": "2024/2025", "starting_at": "2024-08-16", "ending_at": "2025-05-25"},
+                "state": {"short_name": "FT", "name": "Finished"},
+                "venue": {"id": 7, "name": "Arena", "city_name": "London"},
+                "league": {"name": "Premier League"},
+            },
+        ],
+        {"x-ratelimit-remaining": "99"},
+        {"pagination": {"total": 2}},
+    )
+
+    payload_2023, _ = provider.get_fixtures(
+        league_id=8,
+        season=2023,
+        date_from="2024-01-01",
+        date_to="2024-12-31",
+    )
+    payload_2024, _ = provider.get_fixtures(
+        league_id=8,
+        season=2024,
+        date_from="2024-01-01",
+        date_to="2024-12-31",
+    )
+
+    assert [row["fixture"]["id"] for row in payload_2023["response"]] == [1001]
+    assert [row["fixture"]["id"] for row in payload_2024["response"]] == [1002]
+
+
+def test_sportmonks_provider_filters_head_to_head_by_exact_scope():
+    provider = SportMonksProvider(api_key="test-key", base_url="https://api.test")
+
+    provider._request = lambda **_kwargs: (
+        {
+            "data": [
+                {
+                    "id": 4001,
+                    "league_id": 648,
+                    "season_id": 23265,
+                    "starting_at": "2024-07-01 20:00:00",
+                    "starting_at_timestamp": 1720000000,
+                    "participants": [
+                        {"id": 10, "name": "Home FC", "meta": {"location": "home"}},
+                        {"id": 11, "name": "Away FC", "meta": {"location": "away"}},
+                    ],
+                    "scores": [
+                        {"participant_id": 10, "description": "FT", "score": {"goals": 1}},
+                        {"participant_id": 11, "description": "FT", "score": {"goals": 0}},
+                    ],
+                    "league": {"id": 648, "name": "Serie A"},
+                    "season": {"id": 23265, "name": "2024", "starting_at": "2024-04-13", "ending_at": "2024-12-08"},
+                    "state": {"short_name": "FT", "name": "Finished"},
+                },
+                {
+                    "id": 4002,
+                    "league_id": 39,
+                    "season_id": 23614,
+                    "starting_at": "2025-01-25 17:30:00",
+                    "starting_at_timestamp": 1737826200,
+                    "participants": [
+                        {"id": 10, "name": "Home FC", "meta": {"location": "home"}},
+                        {"id": 11, "name": "Away FC", "meta": {"location": "away"}},
+                    ],
+                    "scores": [],
+                    "league": {"id": 39, "name": "Premier League"},
+                    "season": {"id": 23614, "name": "2024/2025", "starting_at": "2024-08-01", "ending_at": "2025-05-25"},
+                    "state": {"short_name": "FT", "name": "Finished"},
+                },
+                {
+                    "id": 4003,
+                    "league_id": 648,
+                    "season_id": 21638,
+                    "starting_at": "2023-10-03 19:00:00",
+                    "starting_at_timestamp": 1696359600,
+                    "participants": [
+                        {"id": 10, "name": "Home FC", "meta": {"location": "home"}},
+                        {"id": 11, "name": "Away FC", "meta": {"location": "away"}},
+                    ],
+                    "scores": [],
+                    "league": {"id": 648, "name": "Serie A"},
+                    "season": {"id": 21638, "name": "2023/2024", "starting_at": "2023-08-01", "ending_at": "2024-05-25"},
+                    "state": {"short_name": "FT", "name": "Finished"},
+                },
+            ]
+        },
+        {},
+    )
+
+    payload, _ = provider.get_head_to_head(
+        team_id=10,
+        opponent_id=11,
+        league_id=648,
+        season=2024,
+        season_label="2024",
+        provider_season_id=23265,
+    )
+
+    assert [row["fixture"]["id"] for row in payload["response"]] == [4001]
+    assert payload["provider_meta"]["rows_received_total"] == 3
+    assert payload["provider_meta"]["rows_kept_total"] == 1
+    assert payload["provider_meta"]["rows_rejected_by_scope_total"] == 2
+
+
+def test_sportmonks_provider_filters_player_season_statistics_by_exact_scope():
+    provider = SportMonksProvider(api_key="test-key", base_url="https://api.test")
+
+    provider._request = lambda **_kwargs: (
+        {
+            "data": {
+                "id": 100,
+                "name": "Player A",
+                "statistics": [
+                    {
+                        "team": {"id": 10, "name": "Team A"},
+                        "season": {
+                            "id": 16029,
+                            "name": "2019/2020",
+                            "league_id": 2,
+                            "starting_at": "2019-09-17",
+                            "ending_at": "2020-08-23",
+                        },
+                        "position": {"name": "Midfielder"},
+                        "details": [{"type": {"name": "Goals", "developer_name": "GOALS"}, "value": 2}],
+                    },
+                    {
+                        "team": {"id": 10, "name": "Team A"},
+                        "season": {
+                            "id": 17299,
+                            "name": "2020/2021",
+                            "league_id": 2,
+                            "starting_at": "2020-08-08",
+                            "ending_at": "2021-05-29",
+                        },
+                        "position": {"name": "Midfielder"},
+                        "details": [{"type": {"name": "Goals", "developer_name": "GOALS"}, "value": 4}],
+                    },
+                ],
+            }
+        },
+        {},
+    )
+
+    payload, _ = provider.get_player_season_statistics(
+        player_id=100,
+        season=2020,
+        league_id=2,
+        season_label="2020_21",
+        provider_season_id=17299,
+    )
+
+    assert len(payload["response"]) == 1
+    assert payload["response"][0]["season"]["id"] == 17299
+    assert payload["response"][0]["season"]["name"] == "2020/2021"

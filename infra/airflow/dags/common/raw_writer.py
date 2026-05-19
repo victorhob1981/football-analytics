@@ -16,6 +16,14 @@ def _stable_hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _resolve_source_endpoint(payload: dict[str, Any], endpoint: str) -> str:
+    provider_meta = payload.get("provider_meta") or {}
+    provider_endpoint = provider_meta.get("endpoint")
+    if isinstance(provider_endpoint, str) and provider_endpoint.strip():
+        return provider_endpoint
+    return endpoint
+
+
 def enrich_raw_payload(
     *,
     payload: dict[str, Any],
@@ -26,9 +34,11 @@ def enrich_raw_payload(
     schema_version: str = "2.0.0",
 ) -> dict[str, Any]:
     out = dict(payload)
+    source_endpoint = _resolve_source_endpoint(payload, endpoint)
     out["provider"] = provider
     out["entity_type"] = entity_type
-    out["source_endpoint"] = endpoint
+    out["source_endpoint"] = source_endpoint
+    out["artifact_endpoint"] = endpoint
     out["source_params"] = source_params
     out.setdefault("schema_version", schema_version)
     out.setdefault("ingested_at", _utc_now())

@@ -20,6 +20,9 @@ class Settings:
     environment: str
     log_level: str
     pg_dsn: str
+    pg_pool_min_size: int
+    pg_pool_max_size: int
+    pg_pool_timeout_s: float
 
 
 @lru_cache(maxsize=1)
@@ -31,4 +34,7 @@ def get_settings() -> Settings:
         environment=os.getenv("ENVIRONMENT", "local"),
         log_level=os.getenv("BFF_LOG_LEVEL", "INFO").upper(),
         pg_dsn=pg_dsn,
+        pg_pool_min_size=int(os.getenv("FOOTBALL_PG_POOL_MIN_SIZE", "1")),
+        pg_pool_max_size=int(os.getenv("FOOTBALL_PG_POOL_MAX_SIZE", "10")),
+        pg_pool_timeout_s=float(os.getenv("FOOTBALL_PG_POOL_TIMEOUT_S", "10")),
     )

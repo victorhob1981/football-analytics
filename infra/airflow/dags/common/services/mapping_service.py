@@ -13,6 +13,7 @@ from airflow.operators.python import get_current_context
 
 from common.mappers import (
     build_competition_structure_dataframes,
+    build_coaches_dataframe,
     build_fixture_lineups_dataframe,
     build_fixture_player_statistics_dataframe,
     build_fixtures_dataframe,
@@ -36,6 +37,7 @@ FIXTURE_RUN_PATTERN = re.compile(r"/fixture_id=(\d+)/run=([^/]+)/")
 PLAYER_RUN_PATTERN = re.compile(r"/player_id=(\d+)/run=([^/]+)/")
 TEAM_RUN_PATTERN = re.compile(r"/team_id=(\d+)/run=([^/]+)/")
 PAIR_RUN_PATTERN = re.compile(r"/pair_index=(\d+)/run=([^/]+)/")
+COACH_RUN_PATTERN = re.compile(r"/coach_id=(\d+)/run=([^/]+)/")
 
 
 def _get_required_env(name: str) -> str:
@@ -566,6 +568,24 @@ def map_team_coaches_raw_to_silver():
         scope_name="team_id",
         builder=build_team_coaches_dataframe,
         output_key_builder=lambda run_utc: f"team_coaches/league={league_id}/season={season}/run={run_utc}/team_coaches.parquet",
+    )
+
+
+def map_coaches_raw_to_silver():
+    context = get_current_context()
+    runtime = resolve_runtime_params(context)
+    league_id = runtime["league_id"]
+    season = runtime["season"]
+    _map_scoped_entity_raw_to_silver(
+        context=context,
+        league_id=league_id,
+        season=season,
+        dataset="coaches",
+        prefix=f"coaches/league={league_id}/season={season}/",
+        scope_pattern=COACH_RUN_PATTERN,
+        scope_name="coach_id",
+        builder=build_coaches_dataframe,
+        output_key_builder=lambda run_utc: f"coaches/league={league_id}/season={season}/run={run_utc}/coaches.parquet",
     )
 
 

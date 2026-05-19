@@ -1,4 +1,4 @@
-import { PlayerProfileContent } from "./PlayerProfileContent";
+import { PlayerRouteResolver } from "./PlayerRouteResolver";
 
 type PlayerDetailsPageProps = {
   params: Promise<{ playerId: string }>;
@@ -7,5 +7,5 @@ type PlayerDetailsPageProps = {
 export default async function PlayerDetailsPage({ params }: PlayerDetailsPageProps) {
   const { playerId } = await params;
 
-  return <PlayerProfileContent playerId={playerId} />;
+  return <PlayerRouteResolver playerId={playerId} />;
 }

@@ -1,3 +1,5 @@
+{{ config(materialized='table') }}
+
 with source_stats as (
     select * from {{ source('postgres_raw', 'fixture_player_statistics') }}
 ),

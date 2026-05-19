@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint --max-warnings=0 --dir src",
+    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\" --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:regression": "playwright test --reporter=line --workers=1",
+    "test:smoke": "playwright test e2e/home-executive.spec.ts e2e/competition-season-core.spec.ts e2e/global-search-shell.spec.ts e2e/team-domain-core.spec.ts e2e/player-domain-core.spec.ts e2e/match-center-depth.spec.ts e2e/platform-system-surfaces.spec.ts --reporter=line --workers=1",
+    "validate:release": "pnpm lint && pnpm typecheck && pnpm test:smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -26,13 +29,16 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitest/coverage-v8": "^4.0.18",
+    "autoprefixer": "^10.4.27",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
     "eslint-config-prettier": "^10.1.8",
@@ -40,7 +46,9 @@
     "eslint-plugin-boundaries": "^5.4.0",
     "eslint-plugin-import": "^2.32.0",
     "jsdom": "^28.1.0",
+    "postcss": "^8.5.8",
     "prettier": "^3.8.1",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.7.2",
     "vitest": "^4.0.18"
   }

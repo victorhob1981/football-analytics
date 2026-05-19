@@ -1,0 +1,16 @@
+export type {
+  CoachListItem,
+  CoachProfile,
+  CoachProfileCoach,
+  CoachProfileFilters,
+  CoachProfileLocalFilters,
+  CoachProfileSectionCoverage,
+  CoachProfileSummary,
+  CoachTenure,
+  CoachesGlobalFilters,
+  CoachesListData,
+  CoachesListFilters,
+  CoachesListLocalFilters,
+  CoachesListSortBy,
+  CoachesListSortDirection,
+} from "@/features/coaches/types/coaches.types";

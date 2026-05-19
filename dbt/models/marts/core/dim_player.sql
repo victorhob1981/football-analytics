@@ -9,6 +9,9 @@ lineups as (
 player_stats as (
     select * from {{ ref('stg_fixture_player_statistics') }}
 ),
+season_stats as (
+    select * from {{ ref('stg_player_season_statistics') }}
+),
 player_ids_union as (
     select player_id
     from events
@@ -30,6 +33,12 @@ player_ids_union as (
 
     select player_id
     from player_stats
+    where player_id is not null
+
+    union
+
+    select player_id
+    from season_stats
     where player_id is not null
 ),
 player_attribute_candidates as (
@@ -95,12 +104,37 @@ ranked_players as (
     from player_ids_union ids
     left join player_attribute_candidates attrs
       on attrs.player_id = ids.player_id
+),
+player_nationality_candidates as (
+    select
+        player_id,
+        nullif(trim(player_nationality), '') as player_nationality,
+        updated_at,
+        ingested_run,
+        season_id,
+        row_number() over (
+            partition by player_id
+            order by
+                case when nullif(trim(player_nationality), '') is null then 1 else 0 end,
+                updated_at desc nulls last,
+                ingested_run desc nulls last,
+                season_id desc nulls last
+        ) as row_num
+    from season_stats
+    where player_id is not null
 )
 select
-    md5(concat('player:', player_id::text)) as player_sk,
-    player_id,
-    coalesce(player_name, concat('Unknown Player #', player_id::text)) as player_name,
+    md5(concat('player:', ranked_players.player_id::text)) as player_sk,
+    ranked_players.player_id as player_id,
+    coalesce(
+        ranked_players.player_name,
+        concat('Unknown Player #', ranked_players.player_id::text)
+    ) as player_name,
+    nationality.player_nationality as nationality,
     now() as updated_at
 from ranked_players
-where row_num = 1
-  and player_id is not null
+left join player_nationality_candidates nationality
+  on nationality.player_id = ranked_players.player_id
+ and nationality.row_num = 1
+where ranked_players.row_num = 1
+  and ranked_players.player_id is not null

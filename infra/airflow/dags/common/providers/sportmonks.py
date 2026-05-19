@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import re
 from typing import Any
+from functools import lru_cache
 
 from common.http_client import ProviderHttpClient
 
@@ -87,6 +88,24 @@ class SportMonksProvider(ProviderAdapter):
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _relation_name(value: Any) -> str | None:
+        if isinstance(value, dict):
+            candidate = value.get("name")
+            if isinstance(candidate, str):
+                candidate = candidate.strip()
+                return candidate or None
+            return None
+        if isinstance(value, str):
+            candidate = value.strip()
+            return candidate or None
+        return None
+
+    def _player_nationality_name(self, player_data: dict[str, Any]) -> str | None:
+        return self._relation_name(player_data.get("nationality")) or self._relation_name(
+            player_data.get("country")
+        )
 
     def _paginate_fixtures_between(
         self,
@@ -255,47 +274,163 @@ class SportMonksProvider(ProviderAdapter):
             },
         }
 
-    @staticmethod
-    def _season_matches(row: dict[str, Any], season: int) -> bool:
-        if str(row.get("season_id")) == str(season):
-            return True
+    @classmethod
+    def _season_matches(cls, row: dict[str, Any], season: int) -> bool:
         season_obj = row.get("season") or {}
-        season_name = str(season_obj.get("name") or "")
-        start_at = str(season_obj.get("starting_at") or "")
-        end_at = str(season_obj.get("ending_at") or "")
-        season_text = str(season)
-        return season_text in season_name or start_at.startswith(season_text) or end_at.startswith(season_text)
+        if season_obj:
+            return cls._season_scope_matches(season_obj, season=season)
+        return False
+
+    @classmethod
+    def _season_row_matches(cls, season_row: dict[str, Any], season: int) -> bool:
+        return cls._season_scope_matches(season_row, season=season)
+
+    @classmethod
+    def _season_start_year(cls, season_row: dict[str, Any]) -> int | None:
+        year_value = cls._as_int(season_row.get("year"))
+        if year_value is not None:
+            return year_value
+
+        for field_name in ("starting_at", "start_date"):
+            raw_value = season_row.get(field_name)
+            if raw_value:
+                match = re.match(r"^(\d{4})-", str(raw_value))
+                if match:
+                    return int(match.group(1))
+
+        name = str(season_row.get("name") or "").strip()
+        match = re.match(r"^(\d{4})(?:[/-](\d{2,4}))?$", name)
+        if match:
+            return int(match.group(1))
+        return None
+
+    @classmethod
+    def _season_label_from_row(cls, season_row: dict[str, Any]) -> str | None:
+        name = str(season_row.get("name") or "").strip()
+        if re.fullmatch(r"\d{4}", name):
+            return name
+
+        match = re.fullmatch(r"(\d{4})[/-](\d{2,4})", name)
+        if match:
+            start_year = int(match.group(1))
+            end_token = match.group(2)
+            end_year = int(end_token[-2:])
+            return f"{start_year}_{end_year:02d}"
+
+        start_year = cls._season_start_year(season_row)
+        if start_year is None:
+            return None
+
+        end_raw = season_row.get("ending_at") or season_row.get("end_date")
+        if end_raw:
+            end_match = re.match(r"^(\d{4})-", str(end_raw))
+            if end_match:
+                end_year = int(end_match.group(1))
+                if end_year != start_year:
+                    return f"{start_year}_{end_year % 100:02d}"
+        return str(start_year)
+
+    @classmethod
+    def _season_scope_matches(
+        cls,
+        season_row: dict[str, Any],
+        *,
+        season: int | None = None,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
+    ) -> bool:
+        season_id = cls._as_int(season_row.get("id")) or cls._as_int(season_row.get("season_id"))
+        if provider_season_id is not None and season_id != provider_season_id:
+            return False
+
+        if season_label is not None:
+            derived_label = cls._season_label_from_row(season_row)
+            if derived_label != season_label:
+                return False
+
+        if season is not None:
+            start_year = cls._season_start_year(season_row)
+            if start_year != season:
+                return False
+
+        return True
 
     @staticmethod
-    def _season_row_matches(season_row: dict[str, Any], season: int) -> bool:
-        season_text = str(season)
-        if str(season_row.get("id")) == season_text:
-            return True
-        if str(season_row.get("year")) == season_text:
-            return True
-        name = str(season_row.get("name") or "")
-        start_at = str(season_row.get("starting_at") or "")
-        end_at = str(season_row.get("ending_at") or "")
-        return season_text in name or start_at.startswith(season_text) or end_at.startswith(season_text)
+    def _season_name_from_label(
+        season_label: str | None,
+        *,
+        season: int | None = None,
+        season_end_date: str | None = None,
+    ) -> str | None:
+        raw_label = str(season_label or "").strip()
+        if raw_label:
+            if re.fullmatch(r"\d{4}", raw_label):
+                return raw_label
 
-    def _resolve_season_id(self, *, league_id: int, season: int) -> int:
-        payload, _headers = self._request(
-            endpoint=f"/leagues/{league_id}",
-            params={"include": "seasons"},
+            match = re.fullmatch(r"(\d{4})_(\d{2,4})", raw_label)
+            if match:
+                start_year = int(match.group(1))
+                end_token = match.group(2)
+                if len(end_token) == 2:
+                    end_year = (start_year // 100) * 100 + int(end_token)
+                    if end_year < start_year:
+                        end_year += 100
+                else:
+                    end_year = int(end_token)
+                return f"{start_year}/{end_year}"
+
+            return raw_label.replace("_", "/")
+
+        if season is not None:
+            if season_end_date and str(season_end_date).startswith(str(season + 1)):
+                return f"{season}/{season + 1}"
+            return str(season)
+        return None
+
+    @classmethod
+    def _catalog_season_row(
+        cls,
+        *,
+        league_id: int,
+        season: int,
+        season_label: str | None,
+        provider_season_id: int,
+        season_start_date: str | None = None,
+        season_end_date: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "id": provider_season_id,
+            "season_id": provider_season_id,
+            "league_id": league_id,
+            "year": season,
+            "name": cls._season_name_from_label(
+                season_label,
+                season=season,
+                season_end_date=season_end_date,
+            ),
+            "starting_at": season_start_date,
+            "ending_at": season_end_date,
+        }
+
+    def _resolve_season_id(
+        self,
+        *,
+        league_id: int,
+        season: int,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
+        season_start_date: str | None = None,
+        season_end_date: str | None = None,
+    ) -> int:
+        season_id, _league_data, _season_row, _headers = self._resolve_season_context(
+            league_id=league_id,
+            season=season,
+            season_label=season_label,
+            provider_season_id=provider_season_id,
+            season_start_date=season_start_date,
+            season_end_date=season_end_date,
         )
-        league_data = payload.get("data") or {}
-        seasons = league_data.get("seasons") or []
-        if isinstance(seasons, dict):
-            seasons = [seasons]
-        for season_row in seasons:
-            if self._season_row_matches(season_row, season):
-                season_id = self._as_int(season_row.get("id"))
-                if season_id is not None:
-                    return season_id
-        raise RuntimeError(
-            "Nao foi possivel resolver season_id no SportMonks "
-            f"para league_id={league_id} season={season}."
-        )
+        return season_id
 
     def get_fixtures(
         self,
@@ -363,17 +498,7 @@ class SportMonksProvider(ProviderAdapter):
             return raw
         return raw
 
-    def get_fixture_statistics(
-        self,
-        *,
-        fixture_id: int,
-    ) -> tuple[dict[str, Any], dict[str, str]]:
-        endpoint = f"/fixtures/{fixture_id}"
-        payload, headers = self._request(
-            endpoint=endpoint,
-            params={"include": "statistics;statistics.type;statistics.participant"},
-        )
-        fixture_data = payload.get("data") or {}
+    def _parse_fixture_statistics(self, fixture_id: int, fixture_data: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
         stats_rows = fixture_data.get("statistics") or []
         grouped: dict[int, dict[str, Any]] = defaultdict(
             lambda: {"team": {"id": None, "name": None}, "statistics": []}
@@ -397,21 +522,15 @@ class SportMonksProvider(ProviderAdapter):
             )
 
         response_rows = list(grouped.values())
-        canonical = build_envelope(
+        return build_envelope(
             provider=self.name,
             entity_type="statistics",
             response=response_rows,
             source_params={"fixture": fixture_id},
-            provider_meta={
-                "endpoint": endpoint,
-                "rate_limit": payload.get("rate_limit", {}),
-                "subscription": payload.get("subscription", {}),
-                "timezone": payload.get("timezone"),
-            },
+            provider_meta=meta,
         )
-        return canonical, headers
 
-    def get_fixture_events(
+    def get_fixture_statistics(
         self,
         *,
         fixture_id: int,
@@ -419,11 +538,19 @@ class SportMonksProvider(ProviderAdapter):
         endpoint = f"/fixtures/{fixture_id}"
         payload, headers = self._request(
             endpoint=endpoint,
-            params={
-                "include": "events;events.type;events.participant;events.player;events.relatedplayer"
-            },
+            params={"include": "statistics;statistics.type;statistics.participant"},
         )
         fixture_data = payload.get("data") or {}
+        meta = {
+            "endpoint": endpoint,
+            "rate_limit": payload.get("rate_limit", {}),
+            "subscription": payload.get("subscription", {}),
+            "timezone": payload.get("timezone"),
+        }
+        canonical = self._parse_fixture_statistics(fixture_id, fixture_data, meta)
+        return canonical, headers
+
+    def _parse_fixture_events(self, fixture_id: int, fixture_data: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
         events = fixture_data.get("events") or []
         response_rows = []
         for event in events:
@@ -455,19 +582,34 @@ class SportMonksProvider(ProviderAdapter):
                     "comments": event.get("result"),
                 }
             )
-
-        canonical = build_envelope(
+        return build_envelope(
             provider=self.name,
             entity_type="match_events",
             response=response_rows,
             source_params={"fixture": fixture_id},
-            provider_meta={
-                "endpoint": endpoint,
-                "rate_limit": payload.get("rate_limit", {}),
-                "subscription": payload.get("subscription", {}),
-                "timezone": payload.get("timezone"),
+            provider_meta=meta,
+        )
+
+    def get_fixture_events(
+        self,
+        *,
+        fixture_id: int,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        endpoint = f"/fixtures/{fixture_id}"
+        payload, headers = self._request(
+            endpoint=endpoint,
+            params={
+                "include": "events;events.type;events.participant;events.player;events.relatedplayer"
             },
         )
+        fixture_data = payload.get("data") or {}
+        meta = {
+            "endpoint": endpoint,
+            "rate_limit": payload.get("rate_limit", {}),
+            "subscription": payload.get("subscription", {}),
+            "timezone": payload.get("timezone"),
+        }
+        canonical = self._parse_fixture_events(fixture_id, fixture_data, meta)
         return canonical, headers
 
     def get_standings(
@@ -475,8 +617,19 @@ class SportMonksProvider(ProviderAdapter):
         *,
         league_id: int,
         season: int,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
+        season_start_date: str | None = None,
+        season_end_date: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, str]]:
-        season_id = self._resolve_season_id(league_id=league_id, season=season)
+        season_id = self._resolve_season_id(
+            league_id=league_id,
+            season=season,
+            season_label=season_label,
+            provider_season_id=provider_season_id,
+            season_start_date=season_start_date,
+            season_end_date=season_end_date,
+        )
         endpoint = f"/standings/seasons/{season_id}"
         payload, headers = self._request(
             endpoint=endpoint,
@@ -493,6 +646,8 @@ class SportMonksProvider(ProviderAdapter):
                 "league_id": league_id,
                 "season": season,
                 "season_id": season_id,
+                "season_label": season_label,
+                "provider_season_id": provider_season_id or season_id,
             },
             provider_meta={
                 "endpoint": endpoint,
@@ -503,12 +658,11 @@ class SportMonksProvider(ProviderAdapter):
         )
         return canonical, headers
 
-    def _resolve_season_context(
+    @lru_cache(maxsize=128)
+    def _list_seasons_for_league(
         self,
-        *,
         league_id: int,
-        season: int,
-    ) -> tuple[int, dict[str, Any], dict[str, Any], dict[str, str]]:
+    ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, str]]:
         payload, headers = self._request(
             endpoint=f"/leagues/{league_id}",
             params={"include": "seasons"},
@@ -517,16 +671,68 @@ class SportMonksProvider(ProviderAdapter):
         seasons = league_data.get("seasons") or []
         if isinstance(seasons, dict):
             seasons = [seasons]
+        return league_data, seasons, headers
 
-        for season_row in seasons:
-            if self._season_row_matches(season_row, season):
-                season_id = self._as_int(season_row.get("id"))
-                if season_id is not None:
-                    return season_id, league_data, season_row, headers
+    @lru_cache(maxsize=128)
+    def _resolve_season_context(
+        self,
+        *,
+        league_id: int,
+        season: int,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
+        season_start_date: str | None = None,
+        season_end_date: str | None = None,
+    ) -> tuple[int, dict[str, Any], dict[str, Any], dict[str, str]]:
+        league_data, seasons, headers = self._list_seasons_for_league(league_id)
+        matching_seasons = [
+            season_row
+            for season_row in seasons
+            if self._season_scope_matches(
+                season_row,
+                season=season,
+                season_label=season_label,
+                provider_season_id=provider_season_id,
+            )
+        ]
+
+        if len(matching_seasons) == 1:
+            season_row = matching_seasons[0]
+            season_id = self._as_int(season_row.get("id"))
+            if season_id is not None:
+                return season_id, league_data, season_row, headers
+        if len(matching_seasons) > 1:
+            candidates = [
+                {
+                    "id": self._as_int(season_row.get("id")),
+                    "name": season_row.get("name"),
+                    "starting_at": season_row.get("starting_at"),
+                    "ending_at": season_row.get("ending_at"),
+                }
+                for season_row in matching_seasons
+            ]
+            raise RuntimeError(
+                "Resolucao de season ambigua no SportMonks "
+                f"para league_id={league_id} season={season}. Candidatas: {candidates}"
+            )
+
+        if provider_season_id is not None:
+            synthetic_row = self._catalog_season_row(
+                league_id=league_id,
+                season=season,
+                season_label=season_label,
+                provider_season_id=provider_season_id,
+                season_start_date=season_start_date,
+                season_end_date=season_end_date,
+            )
+            league_payload = league_data if isinstance(league_data, dict) else {}
+            if not league_payload:
+                league_payload = {"id": league_id}
+            return provider_season_id, league_payload, synthetic_row, headers
 
         raise RuntimeError(
             "Nao foi possivel resolver season_id no SportMonks "
-            f"para league_id={league_id} season={season}."
+            f"para league_id={league_id} season={season} via discovery atual do provider."
         )
 
     def get_competition_structure(
@@ -534,10 +740,18 @@ class SportMonksProvider(ProviderAdapter):
         *,
         league_id: int,
         season: int,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
+        season_start_date: str | None = None,
+        season_end_date: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, str]]:
         season_id, league_data, season_row, league_headers = self._resolve_season_context(
             league_id=league_id,
             season=season,
+            season_label=season_label,
+            provider_season_id=provider_season_id,
+            season_start_date=season_start_date,
+            season_end_date=season_end_date,
         )
         stages_payload, stages_headers = self._request(
             endpoint=f"/stages/seasons/{season_id}",
@@ -572,6 +786,8 @@ class SportMonksProvider(ProviderAdapter):
                 "league_id": league_id,
                 "season": season,
                 "season_id": season_id,
+                "season_label": season_label,
+                "provider_season_id": provider_season_id or season_id,
             },
             provider_meta={
                 "endpoint": "/leagues/{id} + /stages/seasons/{season_id} + /rounds/seasons/{season_id}",
@@ -615,13 +831,28 @@ class SportMonksProvider(ProviderAdapter):
         )
         return payload, headers, endpoint
 
-    def get_fixture_lineups(
+    def _fixture_player_statistics_payload(
         self,
         *,
         fixture_id: int,
-    ) -> tuple[dict[str, Any], dict[str, str]]:
-        payload, headers, endpoint = self._fixture_lineups_payload(fixture_id=fixture_id)
-        fixture_data = payload.get("data") or {}
+    ) -> tuple[dict[str, Any], dict[str, str], str]:
+        endpoint = f"/fixtures/{fixture_id}"
+        payload, headers = self._request(
+            endpoint=endpoint,
+            params={
+                "include": (
+                    "participants;"
+                    "lineups;"
+                    "lineups.player;"
+                    "lineups.position;"
+                    "lineups.details;"
+                    "lineups.details.type"
+                )
+            },
+        )
+        return payload, headers, endpoint
+
+    def _parse_fixture_lineups(self, fixture_id: int, fixture_data: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
         participants = fixture_data.get("participants") or []
         team_names = {self._as_int(participant.get("id")): participant.get("name") for participant in participants}
 
@@ -667,27 +898,31 @@ class SportMonksProvider(ProviderAdapter):
                 }
             )
 
-        canonical = build_envelope(
+        return build_envelope(
             provider=self.name,
             entity_type="fixture_lineups",
             response=response_rows,
             source_params={"fixture": fixture_id},
-            provider_meta={
-                "endpoint": endpoint,
-                "rate_limit": payload.get("rate_limit", {}),
-                "subscription": payload.get("subscription", {}),
-                "timezone": payload.get("timezone"),
-            },
+            provider_meta=meta,
         )
-        return canonical, headers
 
-    def get_fixture_player_statistics(
+    def get_fixture_lineups(
         self,
         *,
         fixture_id: int,
     ) -> tuple[dict[str, Any], dict[str, str]]:
         payload, headers, endpoint = self._fixture_lineups_payload(fixture_id=fixture_id)
         fixture_data = payload.get("data") or {}
+        meta = {
+            "endpoint": endpoint,
+            "rate_limit": payload.get("rate_limit", {}),
+            "subscription": payload.get("subscription", {}),
+            "timezone": payload.get("timezone"),
+        }
+        canonical = self._parse_fixture_lineups(fixture_id, fixture_data, meta)
+        return canonical, headers
+
+    def _parse_fixture_player_statistics(self, fixture_id: int, fixture_data: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
         participants = fixture_data.get("participants") or []
         team_names = {self._as_int(participant.get("id")): participant.get("name") for participant in participants}
         lineups = fixture_data.get("lineups") or []
@@ -722,19 +957,76 @@ class SportMonksProvider(ProviderAdapter):
                 )
 
         response_rows = list(grouped.values())
-        canonical = build_envelope(
+        return build_envelope(
             provider=self.name,
             entity_type="fixture_player_statistics",
             response=response_rows,
             source_params={"fixture": fixture_id},
-            provider_meta={
-                "endpoint": endpoint,
-                "rate_limit": payload.get("rate_limit", {}),
-                "subscription": payload.get("subscription", {}),
-                "timezone": payload.get("timezone"),
+            provider_meta=meta,
+        )
+
+    def get_fixture_player_statistics(
+        self,
+        *,
+        fixture_id: int,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        payload, headers, endpoint = self._fixture_player_statistics_payload(fixture_id=fixture_id)
+        fixture_data = payload.get("data") or {}
+        meta = {
+            "endpoint": endpoint,
+            "rate_limit": payload.get("rate_limit", {}),
+            "subscription": payload.get("subscription", {}),
+            "timezone": payload.get("timezone"),
+        }
+        canonical = self._parse_fixture_player_statistics(fixture_id, fixture_data, meta)
+        return canonical, headers
+
+    def get_fixtures_multi_enrichments(
+        self,
+        *,
+        fixture_ids: list[int],
+    ) -> tuple[dict[int, dict[str, Any]], dict[str, str]]:
+        if not fixture_ids:
+            return {}, {}
+            
+        ids_str = ",".join(str(fid) for fid in fixture_ids)
+        endpoint = f"/fixtures/multi/{ids_str}"
+        payload, headers = self._request(
+            endpoint=endpoint,
+            params={
+                "include": (
+                    "events;events.type;events.participant;events.player;events.relatedplayer;"
+                    "statistics;statistics.type;statistics.participant;"
+                    "participants;lineups;lineups.player;lineups.position;lineups.details;lineups.details.type"
+                )
             },
         )
-        return canonical, headers
+        
+        provider_meta = {
+            "endpoint": endpoint,
+            "rate_limit": payload.get("rate_limit", {}),
+            "subscription": payload.get("subscription", {}),
+            "timezone": payload.get("timezone"),
+        }
+        
+        fixtures_data = payload.get("data") or []
+        if isinstance(fixtures_data, dict):
+            fixtures_data = [fixtures_data]
+
+        result = {}
+        for row in fixtures_data:
+            fid = self._as_int(row.get("id"))
+            if fid is None:
+                continue
+            
+            result[fid] = {
+                "match_events": self._parse_fixture_events(fid, row, provider_meta),
+                "statistics": self._parse_fixture_statistics(fid, row, provider_meta),
+                "fixture_lineups": self._parse_fixture_lineups(fid, row, provider_meta),
+                "fixture_player_statistics": self._parse_fixture_player_statistics(fid, row, provider_meta),
+            }
+            
+        return result, headers
 
     def get_player_season_statistics(
         self,
@@ -742,18 +1034,28 @@ class SportMonksProvider(ProviderAdapter):
         player_id: int,
         season: int | None = None,
         league_id: int | None = None,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, str]]:
         endpoint = f"/players/{player_id}"
         payload, headers = self._request(
             endpoint=endpoint,
-            params={"include": "statistics.details.type;statistics.season;statistics.team;statistics.position"},
+            params={
+                "include": "statistics.details.type;statistics.season;statistics.team;statistics.position;country;nationality"
+            },
         )
         player_data = payload.get("data") or {}
+        player_nationality = self._player_nationality_name(player_data)
         stats_rows = player_data.get("statistics") or []
         response_rows = []
         for stat in stats_rows:
             season_info = stat.get("season") or {}
-            if season is not None and not self._season_row_matches(season_info, season):
+            if not self._season_scope_matches(
+                season_info,
+                season=season,
+                season_label=season_label,
+                provider_season_id=provider_season_id,
+            ):
                 continue
             if league_id is not None and str(season_info.get("league_id")) != str(league_id):
                 continue
@@ -775,6 +1077,7 @@ class SportMonksProvider(ProviderAdapter):
                     "player": {
                         "id": self._as_int(player_data.get("id")),
                         "name": player_data.get("display_name") or player_data.get("name"),
+                        "nationality": player_nationality,
                     },
                     "team": {
                         "id": self._as_int((stat.get("team") or {}).get("id")),
@@ -796,7 +1099,13 @@ class SportMonksProvider(ProviderAdapter):
             provider=self.name,
             entity_type="player_season_statistics",
             response=response_rows,
-            source_params={"player_id": player_id, "season": season, "league_id": league_id},
+            source_params={
+                "player_id": player_id,
+                "season": season,
+                "league_id": league_id,
+                "season_label": season_label,
+                "provider_season_id": provider_season_id,
+            },
             provider_meta={
                 "endpoint": endpoint,
                 "rate_limit": payload.get("rate_limit", {}),
@@ -933,11 +1242,46 @@ class SportMonksProvider(ProviderAdapter):
         )
         return canonical, headers
 
+    def get_coach(
+        self,
+        *,
+        coach_id: int,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        endpoint = f"/coaches/{coach_id}"
+        payload, headers = self._request(
+            endpoint=endpoint,
+            params={"select": "id,name,image_path"},
+        )
+        coach_data = payload.get("data") or {}
+        canonical = build_envelope(
+            provider=self.name,
+            entity_type="coaches",
+            response=[
+                {
+                    "coach_id": self._as_int(coach_data.get("id")),
+                    "coach_name": coach_data.get("name"),
+                    "image_path": coach_data.get("image_path"),
+                }
+            ],
+            source_params={"coach_id": coach_id},
+            provider_meta={
+                "endpoint": endpoint,
+                "rate_limit": payload.get("rate_limit", {}),
+                "subscription": payload.get("subscription", {}),
+                "timezone": payload.get("timezone"),
+            },
+        )
+        return canonical, headers
+
     def get_head_to_head(
         self,
         *,
         team_id: int,
         opponent_id: int,
+        league_id: int | None = None,
+        season: int | None = None,
+        season_label: str | None = None,
+        provider_season_id: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, str]]:
         endpoint = f"/fixtures/head-to-head/{team_id}/{opponent_id}"
         payload, headers = self._request(
@@ -949,7 +1293,32 @@ class SportMonksProvider(ProviderAdapter):
             fixtures = [fixtures]
 
         mapped_rows = []
+        rows_received_total = len(fixtures)
+        rows_rejected_by_league = 0
+        rows_rejected_by_season = 0
         for row in fixtures:
+            row_league = row.get("league") or {}
+            row_league_id = self._as_int(row.get("league_id")) or self._as_int(row_league.get("id"))
+            season_info = row.get("season") or {}
+            season_scope = {
+                "id": self._as_int(row.get("season_id")) or self._as_int(season_info.get("id")),
+                "name": season_info.get("name"),
+                "year": season_info.get("year"),
+                "starting_at": season_info.get("starting_at"),
+                "ending_at": season_info.get("ending_at"),
+            }
+            if league_id is not None and row_league_id != league_id:
+                rows_rejected_by_league += 1
+                continue
+            if not self._season_scope_matches(
+                season_scope,
+                season=season,
+                season_label=season_label,
+                provider_season_id=provider_season_id,
+            ):
+                rows_rejected_by_season += 1
+                continue
+
             participants = row.get("participants") or []
             home_team, away_team = self._resolve_home_away(participants)
             home_team_id = self._as_int(home_team.get("id"))
@@ -962,8 +1331,7 @@ class SportMonksProvider(ProviderAdapter):
             )
             state = row.get("state") or {}
             venue = row.get("venue") or {}
-            league = row.get("league") or {}
-            season_info = row.get("season") or {}
+            league = row_league
             round_info = row.get("round") or {}
             stage_info = row.get("stage") or {}
             round_name = round_info.get("name")
@@ -1010,12 +1378,24 @@ class SportMonksProvider(ProviderAdapter):
             provider=self.name,
             entity_type="head_to_head",
             response=mapped_rows,
-            source_params={"team_id": team_id, "opponent_id": opponent_id},
+            source_params={
+                "team_id": team_id,
+                "opponent_id": opponent_id,
+                "league_id": league_id,
+                "season": season,
+                "season_label": season_label,
+                "provider_season_id": provider_season_id,
+            },
             provider_meta={
                 "endpoint": endpoint,
                 "rate_limit": payload.get("rate_limit", {}),
                 "subscription": payload.get("subscription", {}),
                 "timezone": payload.get("timezone"),
+                "rows_received_total": rows_received_total,
+                "rows_kept_total": len(mapped_rows),
+                "rows_rejected_by_scope_total": rows_rejected_by_league + rows_rejected_by_season,
+                "rows_rejected_by_league": rows_rejected_by_league,
+                "rows_rejected_by_season": rows_rejected_by_season,
             },
         )
         return canonical, headers

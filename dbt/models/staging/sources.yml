@@ -19,4 +19,5 @@ sources:
       - name: player_transfers
       - name: team_sidelined
       - name: team_coaches
+      - name: coaches
       - name: head_to_head_fixtures

@@ -1,0 +1,953 @@
+.homeRoot {
+  --home-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --home-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --home-ring: 0 0 0 4px rgba(0, 78, 57, 0.12);
+}
+
+.heroShell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 2rem;
+  background: linear-gradient(180deg, rgba(247, 250, 248, 0.18), rgba(243, 248, 245, 0.14));
+  box-shadow:
+    0 36px 80px -54px rgba(17, 28, 45, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  padding: clamp(1.2rem, 2vw, 1.6rem);
+}
+
+.heroShell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 30, 23, 0.12), rgba(5, 30, 23, 0.03)),
+    url("/home/maracana-hero-backdrop.png");
+  background-position: center 18%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: saturate(1.06) contrast(1.02) brightness(1.06);
+  opacity: 0.9;
+  pointer-events: none;
+  transform: scale(1.02);
+}
+
+.heroShell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(196, 220, 255, 0.14), transparent 24%),
+    radial-gradient(circle at 8% 88%, rgba(216, 227, 251, 0.14), transparent 28%),
+    linear-gradient(
+      112deg,
+      rgba(248, 251, 249, 0.18) 0%,
+      rgba(248, 251, 249, 0.1) 26%,
+      rgba(244, 249, 246, 0.01) 56%,
+      rgba(240, 246, 243, 0.14) 100%
+    );
+  pointer-events: none;
+}
+
+.heroGrid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.heroContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: clamp(6.5rem, 14vw, 9.5rem);
+  padding: clamp(0.3rem, 1vw, 0.65rem);
+}
+
+.heroTitle {
+  max-width: 8.8ch;
+  margin: 0;
+  font-family: var(--font-app-headline);
+  font-size: clamp(3.6rem, 6.3vw, 5.5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.07em;
+  color: #003526;
+  text-shadow:
+    0 18px 42px rgba(255, 255, 255, 0.18),
+    0 2px 0 rgba(255, 255, 255, 0.14);
+}
+
+.sectionEyebrow,
+.panelEyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #57657a;
+}
+
+.coverageBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+}
+
+.heroCtaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.primaryCta,
+.secondaryCta,
+.sectionAction,
+.footerLink,
+.editorialCta {
+  transition:
+    transform 180ms var(--home-ease-out),
+    box-shadow 180ms var(--home-ease-out),
+    border-color 180ms var(--home-ease-out),
+    background-color 180ms var(--home-ease-out),
+    color 180ms var(--home-ease-out),
+    opacity 180ms var(--home-ease-out);
+}
+
+.primaryCta,
+.secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 3rem;
+  border-radius: 999px;
+  padding: 0.9rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.primaryCta {
+  background: linear-gradient(135deg, #003526 0%, #00513b 100%);
+  color: #ffffff;
+  box-shadow: 0 18px 36px -26px rgba(0, 53, 38, 0.56);
+}
+
+.secondaryCta {
+  border: 1px solid rgba(191, 201, 195, 0.5);
+  background: rgba(255, 255, 255, 0.88);
+  color: #003526;
+  box-shadow: 0 14px 28px -24px rgba(17, 28, 45, 0.24);
+}
+
+.inlineArrow {
+  transition: transform 160ms var(--home-ease-out);
+}
+
+.heroMetricsPanel {
+  position: relative;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  backdrop-filter: none;
+}
+
+.heroMetricsHeader,
+.quickActionsHeader,
+.sectionHeader,
+.footerShell {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.panelTitle {
+  margin-top: 0.45rem;
+  font-family: var(--font-app-headline);
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: #003526;
+}
+
+.panelTag,
+.sectionCount,
+.quickLinkBadge,
+.metaPill,
+.editorialBadgeStrong,
+.editorialBadgeSoft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.panelTag {
+  align-self: flex-start;
+  background: rgba(0, 53, 38, 0.08);
+  color: #003526;
+}
+
+.heroMetricsGrid {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 7.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.09);
+  padding: 0.95rem 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+
+.metricLabel,
+.metricDetail,
+.statLabel,
+.editorialMetricLabel {
+  margin: 0;
+  color: #57657a;
+}
+
+.metricLabel,
+.statLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.metricLabel {
+  color: #0d2240;
+}
+
+.metricValue,
+.statValue,
+.editorialMetricValue {
+  margin: 0.55rem 0 0;
+  font-family: var(--font-app-headline);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: #0d2240;
+}
+
+.metricValue {
+  font-size: 2rem;
+  line-height: 0.95;
+}
+
+.metricDetail {
+  margin-top: 0.55rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #0d2240;
+}
+
+.panelNote {
+  margin: 1rem 0 0;
+  max-width: 28rem;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: #57657a;
+}
+
+.quickActionsShell,
+.sectionPanel,
+.editorialShell,
+.footerShell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(191, 201, 195, 0.28);
+  border-radius: 1.7rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 248, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 28px 52px -44px rgba(17, 28, 45, 0.22);
+  padding: clamp(1.2rem, 2vw, 1.6rem);
+}
+
+.quickActionsShell {
+  margin-top: 1.1rem;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(245, 249, 246, 0.14)),
+    rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 30px 56px -44px rgba(17, 28, 45, 0.08);
+}
+
+.quickLinkCard,
+.competitionCard,
+.editorialCard,
+.interactiveCard {
+  transition:
+    transform 180ms var(--home-ease-out),
+    box-shadow 180ms var(--home-ease-out),
+    border-color 180ms var(--home-ease-out),
+    background-color 180ms var(--home-ease-out),
+    opacity 180ms var(--home-ease-out);
+}
+
+.quickLinkCard,
+.competitionCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(244, 248, 245, 0.04));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 20px 38px -34px rgba(17, 28, 45, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.quickLinkCard {
+  border-radius: 1.4rem;
+  padding: 1.1rem;
+}
+
+.quickLinkTop,
+.quickLinkFooter,
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.quickLinkIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(237, 249, 242, 0.96), rgba(225, 244, 234, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition:
+    transform 180ms var(--home-ease-out),
+    background-color 180ms var(--home-ease-out);
+}
+
+.quickLinkBadge {
+  background: rgba(216, 227, 251, 0.7);
+  color: #33425b;
+}
+
+.quickLinkFooter,
+.cardFooterLabel,
+.sectionAction,
+.editorialCta {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #003526;
+}
+
+.quickLinkFooter {
+  margin-top: auto;
+  padding-top: 0.2rem;
+}
+
+.quickLinkArrow,
+.cardFooterArrow,
+.editorialArrow {
+  color: #003526;
+  transition: transform 160ms var(--home-ease-out);
+}
+
+.sectionHeader {
+  margin-bottom: 1.75rem;
+}
+
+.sectionHeaderLead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.sectionHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sectionCount {
+  background: rgba(216, 227, 251, 0.7);
+  color: #33425b;
+}
+
+.sectionAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(191, 201, 195, 0.42);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.72rem 1rem;
+  box-shadow: 0 14px 28px -24px rgba(17, 28, 45, 0.22);
+}
+
+.competitionCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.55rem;
+  min-height: clamp(21.5rem, 22vw, 23rem);
+  padding: 1.35rem 1.3rem 1.25rem;
+}
+
+.competitionCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 7.4rem;
+  background:
+    radial-gradient(circle at top right, rgba(139, 214, 182, 0.25), transparent 42%),
+    linear-gradient(180deg, rgba(240, 247, 244, 0.9), rgba(240, 247, 244, 0));
+  pointer-events: none;
+}
+
+.competitionCardContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 100%;
+  gap: 1.8rem;
+}
+
+.competitionCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 1.3rem;
+}
+
+.competitionCardTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.competitionIdentity {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.competitionLogoFrame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.6rem;
+  height: 3.6rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid rgba(191, 201, 195, 0.26);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 16px 28px -24px rgba(17, 28, 45, 0.2);
+  transition:
+    transform 180ms var(--home-ease-out),
+    border-color 180ms var(--home-ease-out),
+    box-shadow 180ms var(--home-ease-out);
+}
+
+.competitionLogo {
+  transition: transform 180ms var(--home-ease-out);
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.metaPill {
+  background: rgba(216, 227, 251, 0.62);
+  color: #404944;
+}
+
+.competitionTitle {
+  margin: 0;
+  font-family: var(--font-app-headline);
+  font-size: clamp(1.5rem, 1.28rem + 0.7vw, 1.82rem);
+  font-weight: 800;
+  line-height: 1.03;
+  letter-spacing: -0.05em;
+  color: #003526;
+  text-wrap: balance;
+}
+
+.competitionCardBottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.secondarySurfaceCard {
+  min-height: clamp(17rem, 18vw, 18.4rem);
+}
+
+.secondarySurfaceCard::before {
+  height: 6.4rem;
+}
+
+.secondarySurfaceCardHeader,
+.secondarySurfaceCardBody,
+.secondarySurfaceCardFooter {
+  display: flex;
+  justify-content: center;
+}
+
+.secondarySurfaceCardHeader {
+  padding-top: 0.15rem;
+}
+
+.secondarySurfaceMark {
+  font-family: var(--font-app-headline);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #003526;
+}
+
+.secondarySurfaceCardBody {
+  flex: 1;
+  align-items: center;
+  text-align: center;
+}
+
+.secondarySurfaceTitle {
+  max-width: 11ch;
+  margin: 0;
+  font-family: var(--font-app-headline);
+  font-size: clamp(1.6rem, 1.42rem + 0.36vw, 1.85rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  color: #003526;
+  text-wrap: balance;
+}
+
+.secondarySurfaceCardFooter {
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.statsGrid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.statTile {
+  display: flex;
+  min-height: 5.9rem;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid rgba(191, 201, 195, 0.22);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 0.85rem 0.95rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.statValue {
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.cardFooter {
+  padding-top: 1.15rem;
+  border-top: 1px solid rgba(191, 201, 195, 0.18);
+}
+
+.cardFooter.secondarySurfaceCardFooter {
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.editorialShell {
+  background:
+    radial-gradient(circle at top right, rgba(216, 227, 251, 0.58), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(241, 246, 255, 0.76));
+}
+
+.editorialHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.editorialCard {
+  position: relative;
+  min-height: 29rem;
+  overflow: hidden;
+  border: 1px solid rgba(191, 201, 195, 0.18);
+  border-radius: 2rem;
+  background: #003526;
+  box-shadow: 0 26px 52px -40px rgba(0, 53, 38, 0.46);
+}
+
+.editorialImage {
+  transition:
+    transform 240ms var(--home-ease-out),
+    filter 240ms var(--home-ease-out);
+}
+
+.editorialFallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #003526 0%, #004e39 100%);
+}
+
+.editorialOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 53, 38, 0.14) 0%,
+    rgba(0, 53, 38, 0.32) 40%,
+    rgba(0, 53, 38, 0.94) 100%
+  );
+}
+
+.editorialContent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: clamp(1.2rem, 2vw, 1.6rem);
+  color: #ffffff;
+}
+
+.editorialBadgeStrong {
+  background: rgba(16, 185, 129, 0.92);
+  color: #ffffff;
+}
+
+.editorialBadgeSoft {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.editorialEyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(236, 255, 244, 0.88);
+}
+
+.editorialFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.editorialMetricList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.editorialMetricPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(7, 19, 16, 0.34);
+  padding: 0.55rem 0.8rem;
+  backdrop-filter: blur(14px);
+}
+
+.editorialMetricValue {
+  font-size: 1rem;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.editorialMetricLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(236, 255, 244, 0.82);
+}
+
+.editorialCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  padding: 0.72rem 0.95rem;
+  backdrop-filter: blur(10px);
+}
+
+.footerShell {
+  align-items: center;
+}
+
+.footerLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  border: 1px solid rgba(191, 201, 195, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0.65rem 0.95rem;
+  box-shadow: 0 12px 24px -24px rgba(17, 28, 45, 0.18);
+}
+
+.interactiveCard:focus-visible,
+.primaryCta:focus-visible,
+.secondaryCta:focus-visible,
+.sectionAction:focus-visible,
+.footerLink:focus-visible,
+.editorialCta:focus-visible {
+  outline: none;
+  box-shadow: var(--home-ring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primaryCta:hover,
+  .secondaryCta:hover,
+  .sectionAction:hover,
+  .footerLink:hover,
+  .editorialCta:hover {
+    transform: translateY(-0.125rem);
+  }
+
+  .primaryCta:hover {
+    box-shadow: 0 24px 42px -28px rgba(0, 53, 38, 0.62);
+  }
+
+  .secondaryCta:hover,
+  .sectionAction:hover,
+  .footerLink:hover {
+    border-color: rgba(0, 78, 57, 0.24);
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 32px -26px rgba(17, 28, 45, 0.26);
+  }
+
+  .primaryCta:hover .inlineArrow,
+  .sectionAction:hover .inlineArrow,
+  .quickLinkCard:hover .quickLinkArrow,
+  .competitionCard:hover .cardFooterArrow,
+  .editorialCta:hover .editorialArrow {
+    transform: translateX(0.22rem);
+  }
+
+  .quickLinkCard:hover,
+  .competitionCard:hover,
+  .editorialCard:hover {
+    transform: translateY(-0.22rem);
+  }
+
+  .quickLinkCard:hover,
+  .competitionCard:hover {
+    border-color: rgba(0, 78, 57, 0.18);
+    box-shadow: 0 24px 44px -30px rgba(17, 28, 45, 0.28);
+  }
+
+  .quickLinkCard:hover .quickLinkIconWrap {
+    transform: scale(1.03);
+    background: linear-gradient(180deg, rgba(231, 248, 239, 0.98), rgba(213, 240, 224, 0.96));
+  }
+
+  .competitionCard:hover .competitionLogoFrame {
+    transform: scale(1.03);
+    border-color: rgba(0, 78, 57, 0.18);
+    box-shadow: 0 18px 30px -24px rgba(17, 28, 45, 0.26);
+  }
+
+  .competitionCard:hover .competitionLogo {
+    transform: scale(1.04);
+  }
+
+  .editorialCard:hover {
+    box-shadow: 0 32px 64px -40px rgba(0, 53, 38, 0.52);
+  }
+
+  .editorialCard:hover .editorialImage {
+    transform: scale(1.04);
+    filter: saturate(1.06);
+  }
+}
+
+.primaryCta:active,
+.secondaryCta:active,
+.sectionAction:active,
+.footerLink:active,
+.editorialCta:active,
+.interactiveCard:active {
+  transform: scale(0.98);
+}
+
+@media (min-width: 1024px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(21rem, 0.85fr);
+    align-items: stretch;
+  }
+
+  .quickActionsHeader {
+    align-items: flex-end;
+  }
+
+  .editorialFooter {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 767px) {
+  .heroShell::before {
+    background-position: center 16%;
+    opacity: 0.8;
+  }
+
+  .heroShell::after {
+    background:
+      radial-gradient(circle at 78% 12%, rgba(196, 220, 255, 0.12), transparent 24%),
+      linear-gradient(
+        180deg,
+        rgba(249, 251, 249, 0.18) 0%,
+        rgba(247, 250, 248, 0.06) 44%,
+        rgba(242, 247, 244, 0.18) 100%
+      );
+  }
+
+  .heroContent {
+    padding-top: 1rem;
+    gap: 4.75rem;
+  }
+
+  .heroTitle {
+    max-width: 7.2ch;
+    font-size: clamp(2.55rem, 9vw, 3.45rem);
+    line-height: 0.94;
+    padding-top: 0.22rem;
+  }
+
+  .heroMetricsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .coverageBadge,
+  .sectionCount,
+  .quickLinkBadge,
+  .metaPill,
+    .editorialBadgeStrong,
+    .editorialBadgeSoft {
+    letter-spacing: 0.12em;
+  }
+
+  .competitionCard {
+    min-height: 20.5rem;
+  }
+}
+
+@media (max-width: 479px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .competitionCardTopRow {
+    gap: 0.75rem;
+  }
+
+  .competitionIdentity {
+    gap: 0.7rem;
+  }
+
+  .competitionTitle {
+    font-size: 1.48rem;
+    line-height: 1.02;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryCta,
+  .secondaryCta,
+  .sectionAction,
+  .footerLink,
+  .editorialCta,
+  .quickLinkCard,
+  .competitionCard,
+  .editorialCard,
+  .inlineArrow,
+  .quickLinkArrow,
+  .cardFooterArrow,
+  .editorialArrow,
+  .quickLinkIconWrap,
+  .competitionLogoFrame,
+  .competitionLogo,
+  .editorialImage {
+    transition-duration: 1ms !important;
+  }
+
+  .primaryCta:active,
+  .secondaryCta:active,
+  .sectionAction:active,
+  .footerLink:active,
+  .editorialCta:active,
+  .interactiveCard:active {
+    transform: none;
+  }
+}

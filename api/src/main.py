@@ -12,11 +12,18 @@ from fastapi.responses import JSONResponse
 
 from .core.config import get_settings
 from .core.errors import AppError, error_payload
+from .routers.coaches import router as coaches_router
+from .routers.competition_hub import router as competition_hub_router
 from .routers.health import router as health_router
+from .routers.home import router as home_router
 from .routers.insights import router as insights_router
+from .routers.market import router as market_router
 from .routers.matches import router as matches_router
 from .routers.players import router as players_router
 from .routers.rankings import router as rankings_router
+from .routers.search import router as search_router
+from .routers.standings import router as standings_router
+from .routers.teams import router as teams_router
 
 
 def _configure_logging() -> logging.Logger:
@@ -155,7 +162,14 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
 
 
 app.include_router(health_router)
+app.include_router(competition_hub_router)
+app.include_router(home_router)
+app.include_router(coaches_router)
+app.include_router(market_router)
 app.include_router(players_router)
+app.include_router(teams_router)
 app.include_router(rankings_router)
+app.include_router(search_router)
+app.include_router(standings_router)
 app.include_router(matches_router)
 app.include_router(insights_router)
