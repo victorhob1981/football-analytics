@@ -139,12 +139,12 @@ def test_data_quality_checks_include_pss_semantic_guards():
 
 
 def test_raw_checkpoint_and_suite_cover_player_season_statistics():
-    checkpoint_text = Path("quality/great_expectations/checkpoints/raw_checkpoint.yml").read_text()
+    checkpoint_text = Path("platform/quality/great_expectations/checkpoints/raw_checkpoint.yml").read_text()
     assert "data_asset_name: raw_player_season_statistics_asset" in checkpoint_text
     assert "expectation_suite_name: raw_player_season_statistics_suite" in checkpoint_text
 
     expectation_suite = json.loads(
-        Path("quality/great_expectations/expectations/raw_player_season_statistics_suite.json").read_text()
+        Path("platform/quality/great_expectations/expectations/raw_player_season_statistics_suite.json").read_text()
     )
     not_null_columns = {
         expectation["kwargs"]["column"]

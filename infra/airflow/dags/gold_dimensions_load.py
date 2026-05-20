@@ -43,7 +43,7 @@ def _assert_gold_objects(conn):
         text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'gold')")
     ).scalar_one()
     if not schema_exists:
-        raise ValueError("Schema gold nao existe. Aplique warehouse/ddl/020_gold_dimensions.sql.")
+        raise ValueError("Schema gold nao existe. Aplique platform/warehouse/ddl/020_gold_dimensions.sql.")
 
     required_tables = {"dim_team", "dim_venue", "dim_competition", "dim_player", "dim_date"}
     found_tables = {
@@ -62,7 +62,7 @@ def _assert_gold_objects(conn):
     if missing_tables:
         raise ValueError(
             f"Tabelas gold ausentes: {missing_tables}. "
-            "Aplique warehouse/ddl/020_gold_dimensions.sql."
+            "Aplique platform/warehouse/ddl/020_gold_dimensions.sql."
         )
 
 

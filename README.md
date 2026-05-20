@@ -7,9 +7,9 @@ Plataforma de dados para analise de futebol com fluxo oficial:
 - Airflow (orquestracao): `infra/airflow/dags/`
 - MinIO (lake bronze/silver): buckets `football-bronze`, `football-silver`
 - Postgres (warehouse): schemas `raw`, `mart` (dbt target), `gold` (legacy historico)
-- dbt (transformacao): `dbt/`
-- Great Expectations + SQL assertions (quality gates): `quality/great_expectations/` + `infra/airflow/dags/data_quality_checks.py`
-- Metabase (BI): `bi/metabase/`
+- dbt (transformacao): `platform/dbt/`
+- Great Expectations + SQL assertions (quality gates): `platform/quality/great_expectations/` + `infra/airflow/dags/data_quality_checks.py`
+- Metabase (BI): `tools/metabase/`
 - Providers de ingestao: `sportmonks` (default) e `api_football` (fallback), selecionados por `ACTIVE_PROVIDER`
 - CI: `.github/workflows/ci.yml`
 
@@ -194,7 +194,7 @@ Se ja houve ingestao via `api_football` para a mesma temporada, limpe o recorte 
 
 Exemplo (temporada 2024):
 ```powershell
-Get-Content 'warehouse/queries/reset_provider_api_football_brasileirao_2024.sql' | docker compose exec -T postgres psql -U football -d football_dw
+Get-Content 'platform/warehouse/queries/reset_provider_api_football_brasileirao_2024.sql' | docker compose exec -T postgres psql -U football -d football_dw
 ```
 
 Depois rode a ingestao SportMonks com `league_id=648`.
@@ -225,13 +225,13 @@ make dbt-docs
 ```
 
 Arquivos gerados:
-- `dbt/target/index.html`
-- `dbt/target/manifest.json`
-- `dbt/target/catalog.json`
+- `platform/dbt/target/index.html`
+- `platform/dbt/target/manifest.json`
+- `platform/dbt/target/catalog.json`
 
 Abrir localmente:
 ```powershell
-python -m http.server 8088 --directory dbt/target
+python -m http.server 8088 --directory platform/dbt/target
 ```
 Depois acesse `http://localhost:8088`.
 
@@ -353,7 +353,7 @@ python tools/p2_verify.py
 
 O alvo `p2-verify` executa, nesta ordem:
 1. `pytest -q -m "not integration"`
-2. Queries de diagnostico em `warehouse/queries/`:
+2. Queries de diagnostico em `platform/warehouse/queries/`:
 - `fixtures_missing_stats.sql`
 - `stats_duplicates.sql`
 - `coverage_by_season.sql`
@@ -380,10 +380,10 @@ Conexao do Metabase ao DW:
 - Database: `POSTGRES_DB`
 
 Versionamento de dashboards:
-- Guia: `bi/metabase/README.md`
-- Export: `bi/metabase/scripts/export_metabase.py`
-- Import/restore: `bi/metabase/scripts/import_metabase.py`
-- Artefatos versionados: `bi/metabase/exports/`
+- Guia: `tools/metabase/README.md`
+- Export: `tools/metabase/scripts/export_metabase.py`
+- Import/restore: `tools/metabase/scripts/import_metabase.py`
+- Artefatos versionados: `tools/metabase/exports/`
 
 ## Referencias
 - Guia mestre da aplicacao: `docs/GUIA_MESTRE_APLICACAO.md`
@@ -391,7 +391,7 @@ Versionamento de dashboards:
 - Contratos frontend/BFF: `docs/MART_FRONTEND_BFF_CONTRACTS.md`
 - Contrato publico do BFF: `docs/BFF_API_CONTRACT.md`
 - Cobertura Copa do Mundo: `docs/WORLD_CUP_DATA_READY_BY_EDITION.md`
-- DDL legado (somente referencia): `warehouse/ddl/`
+- DDL legado (somente referencia): `platform/warehouse/ddl/`
 
 
 

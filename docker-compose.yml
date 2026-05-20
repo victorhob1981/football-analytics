@@ -146,9 +146,9 @@
     volumes:
       - ./infra/airflow/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
-      - ./warehouse:/opt/airflow/warehouse
-      - ./dbt:/opt/airflow/dbt
-      - ./quality:/opt/airflow/quality
+      - ./platform/warehouse:/opt/airflow/warehouse
+      - ./platform/dbt:/opt/airflow/dbt
+      - ./platform/quality:/opt/airflow/quality
       - ./data:/opt/airflow/data
     ports:
       - "8080:8080"
@@ -190,9 +190,9 @@
     volumes:
       - ./infra/airflow/dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
-      - ./warehouse:/opt/airflow/warehouse
-      - ./dbt:/opt/airflow/dbt
-      - ./quality:/opt/airflow/quality
+      - ./platform/warehouse:/opt/airflow/warehouse
+      - ./platform/dbt:/opt/airflow/dbt
+      - ./platform/quality:/opt/airflow/quality
       - ./data:/opt/airflow/data
     command: scheduler
 

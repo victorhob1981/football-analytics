@@ -204,12 +204,12 @@ def test_data_quality_checks_and_ge_cover_head_to_head() -> None:
     assert "raw_head_to_head_outside_catalog" in check_names
     assert "raw_head_to_head_fixture_scope_mismatch" in check_names
 
-    checkpoint_text = Path("quality/great_expectations/checkpoints/raw_checkpoint.yml").read_text()
+    checkpoint_text = Path("platform/quality/great_expectations/checkpoints/raw_checkpoint.yml").read_text()
     assert "data_asset_name: raw_head_to_head_fixtures_asset" in checkpoint_text
     assert "expectation_suite_name: raw_head_to_head_fixtures_suite" in checkpoint_text
 
     expectation_suite = json.loads(
-        Path("quality/great_expectations/expectations/raw_head_to_head_fixtures_suite.json").read_text()
+        Path("platform/quality/great_expectations/expectations/raw_head_to_head_fixtures_suite.json").read_text()
     )
     not_null_columns = {
         expectation["kwargs"]["column"]
