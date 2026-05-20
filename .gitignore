@@ -52,6 +52,7 @@ profiles.yml
 dbt/.user.yml
 platform/dbt/target*/
 platform/dbt/logs/
+platform/dbt/dbt_packages/
 platform/dbt/.user.yml
 
 # =========================
@@ -73,6 +74,7 @@ frontend/node_modules/
 frontend/.next/
 frontend/dist/
 frontend/build/
+frontend/coverage/
 frontend/.vite/
 frontend/.env
 frontend/test-results/
@@ -96,11 +98,7 @@ docker-compose.override.yml
 *.db
 *.sqlite3
 artifacts/
-data/*
-!data/visual_assets/
-data/visual_assets/*
-!data/visual_assets/champions/
-!data/visual_assets/champions/**
+data/
 tmp/
 .tmp/
 __codex_write_probe.tmp
