@@ -16,10 +16,15 @@ import {
 } from "@/config/seasons.registry";
 import {
   useCompetitionAnalytics,
+  useCompetitionHistoricalStats,
   useCompetitionStructure,
   useStageTies,
 } from "@/features/competitions/hooks";
-import type { StageTie } from "@/features/competitions/types";
+import type {
+  CompetitionHistoricalStatGroup,
+  CompetitionHistoricalStatItem,
+  StageTie,
+} from "@/features/competitions/types";
 import { resolveSeasonChampionArtwork } from "@/features/competitions/utils/champion-media";
 import { resolveCompetitionSeasonSurface } from "@/features/competitions/utils/competition-season-surface";
 import { fetchStandings } from "@/features/standings/services/standings.service";
@@ -29,16 +34,24 @@ import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
 import {
   ProfilePanel,
+  ProfileCoveragePill,
   ProfileShell,
   ProfileTag,
 } from "@/shared/components/profile/ProfilePrimitives";
 import { CompetitionRouteContextSync } from "@/shared/components/routing/CompetitionRouteContextSync";
 import { useQueryWithCoverage } from "@/shared/hooks/useQueryWithCoverage";
-import { buildSeasonHubPath } from "@/shared/utils/context-routing";
+import {
+  buildPlayerResolverPath,
+  buildSeasonHubPath,
+  buildTeamResolverPath,
+} from "@/shared/utils/context-routing";
 
 type CompetitionHubContentProps = {
   competition: CompetitionDef;
 };
+
+const HISTORICAL_STATS_AS_OF_YEAR = 2025;
+const HISTORICAL_TABLE_LIMIT = 6;
 
 function joinClasses(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -101,6 +114,274 @@ function formatWholeNumber(value: number | null | undefined): string {
   }
 
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatHistoricalValue(item: CompetitionHistoricalStatItem): string {
+  if (item.valueLabel && item.valueLabel.trim().length > 0) {
+    return item.valueLabel;
+  }
+
+  if (typeof item.value === "number") {
+    return formatWholeNumber(item.value);
+  }
+
+  if (typeof item.value === "string" && item.value.trim().length > 0) {
+    return item.value;
+  }
+
+  return "-";
+}
+
+function isHistoricalStatsDataEmpty(data: ReturnType<typeof useCompetitionHistoricalStats>["data"]) {
+  if (!data) {
+    return true;
+  }
+
+  return (
+    data.champions.items.length === 0 &&
+    data.scorers.items.length === 0 &&
+    data.teamRecords.items.length === 0 &&
+    data.matchRecords.items.length === 0 &&
+    data.playerRecords.items.length === 0
+  );
+}
+
+function buildHistoricalEntityHref(
+  item: CompetitionHistoricalStatItem,
+  competition: CompetitionDef,
+): string | null {
+  if (!item.entityId) {
+    return null;
+  }
+
+  const contextFilters = {
+    competitionId: competition.id,
+    competitionKey: competition.key,
+  };
+
+  if (item.entityType === "team") {
+    return buildTeamResolverPath(item.entityId, contextFilters);
+  }
+
+  if (item.entityType === "player") {
+    return buildPlayerResolverPath(item.entityId, contextFilters);
+  }
+
+  return null;
+}
+
+function HistoricalEntityLabel({
+  competition,
+  item,
+}: {
+  competition: CompetitionDef;
+  item: CompetitionHistoricalStatItem;
+}) {
+  const href = buildHistoricalEntityHref(item, competition);
+
+  if (!href || !item.entityId) {
+    return <span className="truncate font-semibold text-[#111c2d]">{item.entityName}</span>;
+  }
+
+  const mediaCategory = item.entityType === "player" ? "players" : "clubs";
+
+  return (
+    <Link
+      className="inline-flex min-w-0 items-center gap-2 font-semibold text-[#111c2d] transition-colors hover:text-[#00513b]"
+      href={href}
+    >
+      <ProfileMedia
+        alt={item.entityName}
+        assetId={item.entityId}
+        category={mediaCategory}
+        className="h-7 w-7 rounded-full"
+        fallback={buildFallbackLabel(item.entityName)}
+        imageClassName="p-1"
+        shape="circle"
+      />
+      <span className="truncate">{item.entityName}</span>
+    </Link>
+  );
+}
+
+function HistoricalStatsTable({
+  competition,
+  group,
+  title,
+  valueHeader,
+}: {
+  competition: CompetitionDef;
+  group: CompetitionHistoricalStatGroup;
+  title: string;
+  valueHeader: string;
+}) {
+  const rows = group.items.slice(0, HISTORICAL_TABLE_LIMIT);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-white/82">
+      <div className="border-b border-[rgba(191,201,195,0.42)] px-4 py-3">
+        <h3 className="font-[family:var(--font-profile-headline)] text-[1.25rem] font-extrabold tracking-[-0.03em] text-[#111c2d]">
+          {title}
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[360px] text-left text-sm">
+          <thead className="bg-[rgba(240,243,255,0.66)] text-[0.66rem] uppercase tracking-[0.16em] text-[#57657a]">
+            <tr>
+              <th className="w-12 px-4 py-3 font-semibold">#</th>
+              <th className="px-4 py-3 font-semibold">Nome</th>
+              <th className="px-4 py-3 text-right font-semibold">{valueHeader}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[rgba(191,201,195,0.38)]">
+            {rows.map((item, index) => (
+              <tr key={`${item.statCode}-${item.entityName}-${item.rank ?? index}`}>
+                <td className="px-4 py-3 text-[#57657a]">{item.rank ?? index + 1}</td>
+                <td className="max-w-[16rem] px-4 py-3">
+                  <HistoricalEntityLabel competition={competition} item={item} />
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-[#111c2d]">
+                  {formatHistoricalValue(item)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function HistoricalRecordCard({
+  competition,
+  item,
+}: {
+  competition: CompetitionDef;
+  item: CompetitionHistoricalStatItem;
+}) {
+  return (
+    <article className="rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-white/82 px-4 py-4">
+      <p className="text-[0.66rem] font-semibold uppercase tracking-[0.16em] text-[#57657a]">
+        {item.label}
+      </p>
+      <p className="mt-3 font-[family:var(--font-profile-headline)] text-[1.85rem] font-extrabold leading-none tracking-[-0.04em] text-[#111c2d]">
+        {formatHistoricalValue(item)}
+      </p>
+      <div className="mt-4 flex min-w-0 items-center gap-2 text-sm">
+        <HistoricalEntityLabel competition={competition} item={item} />
+      </div>
+      {item.seasonLabel ? (
+        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#57657a]">
+          Temporada {item.seasonLabel}
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
+function HistoricalRecordGroup({
+  competition,
+  group,
+  title,
+}: {
+  competition: CompetitionDef;
+  group: CompetitionHistoricalStatGroup;
+  title: string;
+}) {
+  if (group.items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      <h3 className="font-[family:var(--font-profile-headline)] text-[1.25rem] font-extrabold tracking-[-0.03em] text-[#111c2d]">
+        {title}
+      </h3>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {group.items.map((item, index) => (
+          <HistoricalRecordCard
+            competition={competition}
+            item={item}
+            key={`${item.statCode}-${item.entityName}-${item.seasonLabel ?? index}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompetitionHistoricalStatsSection({ competition }: { competition: CompetitionDef }) {
+  const historicalStatsQuery = useCompetitionHistoricalStats({
+    competitionKey: competition.key,
+    asOfYear: HISTORICAL_STATS_AS_OF_YEAR,
+  });
+
+  if (historicalStatsQuery.isLoading) {
+    return (
+      <ProfilePanel className="space-y-3">
+        <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
+          Historico
+        </p>
+        <p className="text-sm/6 text-[#57657a]">Carregando estatisticas historicas.</p>
+      </ProfilePanel>
+    );
+  }
+
+  const data = historicalStatsQuery.data;
+
+  if (historicalStatsQuery.isError || !data || isHistoricalStatsDataEmpty(data)) {
+    return null;
+  }
+
+  return (
+    <ProfilePanel className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
+            Historico
+          </p>
+          <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-[2.15rem] font-extrabold tracking-[-0.05em] text-[#111c2d]">
+            Recordes da competicao
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm/6 text-[#57657a]">
+            Dados historicos extraidos da Wikipedia, com IDs internos usados apenas quando a
+            correspondencia foi resolvida com seguranca.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ProfileCoveragePill coverage={historicalStatsQuery.coverage} />
+          <ProfileTag>Base {HISTORICAL_STATS_AS_OF_YEAR}</ProfileTag>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <HistoricalStatsTable
+          competition={competition}
+          group={data.champions}
+          title="Maiores campeoes"
+          valueHeader="Titulos"
+        />
+        <HistoricalStatsTable
+          competition={competition}
+          group={data.scorers}
+          title="Artilheiros historicos"
+          valueHeader="Gols"
+        />
+      </div>
+
+      <HistoricalRecordGroup competition={competition} group={data.teamRecords} title="Recordes de time" />
+      <HistoricalRecordGroup competition={competition} group={data.matchRecords} title="Recordes de jogo" />
+      <HistoricalRecordGroup
+        competition={competition}
+        group={data.playerRecords}
+        title="Recordes individuais"
+      />
+    </ProfilePanel>
+  );
 }
 
 function resolveChampionFromStandings(rows: StandingsTableRow[]): StandingsTableRow | null {
@@ -218,7 +499,7 @@ function CompetitionHero({
         <aside className="relative min-h-[320px] overflow-hidden rounded-[1.7rem] border border-[rgba(8,48,35,0.16)] bg-[linear-gradient(135deg,#042f22_0%,#0a4a37_100%)] shadow-[0_34px_84px_-56px_rgba(8,25,20,0.62)]">
           {artwork ? (
             <Image
-              alt={`Campeao ${artwork.teamName} em ${competition.name} ${latestSeason?.label ?? ""}`}
+              alt={`Imagem da edicao ${competition.name} ${latestSeason?.label ?? ""}`}
               className="object-cover object-center"
               fill
               priority
@@ -480,7 +761,7 @@ export function CompetitionHubContent({ competition }: CompetitionHubContentProp
 
   return (
     <CompetitionRouteContextSync competition={competition}>
-      <ProfileShell className="space-y-6">
+      <ProfileShell className="space-y-6" variant="plain">
         <div className="flex flex-wrap items-center gap-2 text-[0.78rem] font-semibold uppercase tracking-[0.16em] text-[#455468]">
           <Link className="transition-colors hover:text-[#003526]" href="/competitions">
             Competicoes
@@ -496,6 +777,8 @@ export function CompetitionHubContent({ competition }: CompetitionHubContentProp
         />
 
         <SeasonsGrid competition={competition} latestSeason={latestSeason} seasons={seasons} />
+
+        <CompetitionHistoricalStatsSection competition={competition} />
       </ProfileShell>
     </CompetitionRouteContextSync>
   );

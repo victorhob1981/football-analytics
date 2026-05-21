@@ -40,22 +40,31 @@ const PROFILE_ALERT_CLASSES = {
 export function ProfileShell({
   children,
   className,
+  variant = "surface",
 }: {
   children: ReactNode;
   className?: string;
+  variant?: "plain" | "surface";
 }) {
+  const isPlain = variant === "plain";
+  const Element = isPlain ? "div" : "main";
+
   return (
-    <main
+    <Element
       className={joinClasses(
         profileTypographyClassName,
         profileHeadlineVariableClassName,
-        "relative isolate overflow-hidden rounded-[2.1rem] border border-white/60 bg-[linear-gradient(180deg,rgba(243,247,241,0.96)_0%,rgba(248,250,255,0.98)_46%,rgba(245,249,245,0.96)_100%)] p-4 text-[#111c2d] shadow-[0_36px_92px_-58px_rgba(9,25,20,0.28)] md:p-6 xl:p-8",
+        isPlain
+          ? "text-[#111c2d]"
+          : "relative isolate overflow-hidden rounded-[2.1rem] border border-white/60 bg-[linear-gradient(180deg,rgba(243,247,241,0.96)_0%,rgba(248,250,255,0.98)_46%,rgba(245,249,245,0.96)_100%)] p-4 text-[#111c2d] shadow-[0_36px_92px_-58px_rgba(9,25,20,0.28)] md:p-6 xl:p-8",
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top_left,rgba(216,227,251,0.82),transparent_50%),radial-gradient(circle_at_top_right,rgba(139,214,182,0.28),transparent_42%)]" />
-      <div className="relative z-10 space-y-6">{children}</div>
-    </main>
+      {!isPlain ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top_left,rgba(216,227,251,0.82),transparent_50%),radial-gradient(circle_at_top_right,rgba(139,214,182,0.28),transparent_42%)]" />
+      ) : null}
+      <div className={isPlain ? "space-y-6" : "relative z-10 space-y-6"}>{children}</div>
+    </Element>
   );
 }
 

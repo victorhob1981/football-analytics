@@ -1276,6 +1276,139 @@ def _build_team_journey_coverage(seasons: list[dict[str, Any]]) -> dict[str, Any
     )
 
 
+HISTORICAL_STATS_GROUP_KEYS = {
+    "champions": "champions",
+    "scorers": "scorers",
+    "team_records": "teamRecords",
+    "match_records": "matchRecords",
+    "player_records": "playerRecords",
+}
+
+HISTORICAL_STATS_COMPETITION_ALIASES = {
+    "serie_a_italy": "serie_a_it",
+}
+
+
+def _normalize_historical_stats_competition_key(competition_key: str) -> str:
+    return HISTORICAL_STATS_COMPETITION_ALIASES.get(competition_key, competition_key)
+
+
+def _empty_historical_stats_payload(as_of_year: int) -> dict[str, Any]:
+    return {
+        "champions": {"items": [], "source": "wikipedia", "asOfYear": as_of_year},
+        "scorers": {"items": [], "source": "wikipedia", "asOfYear": as_of_year},
+        "teamRecords": {"items": [], "source": "wikipedia", "asOfYear": as_of_year},
+        "matchRecords": {"items": [], "source": "wikipedia", "asOfYear": as_of_year},
+        "playerRecords": {"items": [], "source": "wikipedia", "asOfYear": as_of_year},
+    }
+
+
+def _fetch_competition_historical_stats(competition_key: str, as_of_year: int) -> list[dict[str, Any]]:
+    return db_client.fetch_all(
+        """
+        select
+          h.stat_code,
+          h.stat_group,
+          d.display_name,
+          h.entity_type,
+          h.entity_id,
+          h.entity_name,
+          h.value_numeric,
+          h.value_label,
+          h.rank,
+          h.season_label,
+          h.occurred_on,
+          h.source,
+          h.source_url,
+          h.as_of_year,
+          h.metadata
+        from mart.competition_historical_stats h
+        join control.historical_stat_definitions d
+          on d.stat_code = h.stat_code
+        where h.competition_key = %s
+          and h.as_of_year = %s
+        order by
+          case h.stat_group
+            when 'champions' then 1
+            when 'scorers' then 2
+            when 'team_records' then 3
+            when 'match_records' then 4
+            when 'player_records' then 5
+            else 99
+          end,
+          h.stat_code,
+          h.rank nulls last,
+          h.value_numeric desc nulls last,
+          h.entity_name nulls last;
+        """,
+        [competition_key, as_of_year],
+    )
+
+
+def _serialize_historical_stat_row(row: dict[str, Any]) -> dict[str, Any]:
+    value = row.get("value_numeric")
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+
+    return {
+        "statCode": row.get("stat_code"),
+        "label": row.get("display_name"),
+        "entityType": row.get("entity_type"),
+        "entityId": str(row["entity_id"]) if row.get("entity_id") is not None else None,
+        "entityName": row.get("entity_name"),
+        "value": value,
+        "valueLabel": row.get("value_label"),
+        "rank": int(row["rank"]) if row.get("rank") is not None else None,
+        "seasonLabel": row.get("season_label"),
+        "occurredOn": row.get("occurred_on"),
+        "sourceUrl": row.get("source_url"),
+        "metadata": row.get("metadata") or {},
+    }
+
+
+def _build_historical_stats_coverage(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not rows:
+        return {"status": "empty", "percentage": 0, "label": "Historical stats coverage"}
+    return build_coverage_from_counts(len(rows), len(rows), "Historical stats coverage")
+
+
+@router.get("/api/v1/competition-historical-stats")
+def get_competition_historical_stats(
+    request: Request,
+    competitionKey: str | None = None,
+    asOfYear: str | None = None,
+) -> dict[str, Any]:
+    normalized_competition_key = (competitionKey or "").strip()
+    if normalized_competition_key == "":
+        raise AppError(
+            message="'competitionKey' is required.",
+            code="INVALID_QUERY_PARAM",
+            status=400,
+            details={"missing": ["competitionKey"]},
+        )
+
+    normalized_as_of_year = _parse_optional_int(asOfYear, field_name="asOfYear") or 2025
+    resolved_competition_key = _normalize_historical_stats_competition_key(normalized_competition_key)
+    rows = _fetch_competition_historical_stats(resolved_competition_key, normalized_as_of_year)
+    data = _empty_historical_stats_payload(normalized_as_of_year)
+
+    for row in rows:
+        group_key = HISTORICAL_STATS_GROUP_KEYS.get(str(row.get("stat_group") or ""))
+        if group_key is None:
+            continue
+        data[group_key]["items"].append(_serialize_historical_stat_row(row))
+        data[group_key]["source"] = row.get("source") or "wikipedia"
+        data[group_key]["asOfYear"] = row.get("as_of_year") or normalized_as_of_year
+
+    data["updatedAt"] = datetime.now(UTC).isoformat()
+
+    return build_api_response(
+        data,
+        request_id=_request_id(request),
+        coverage=_build_historical_stats_coverage(rows),
+    )
+
+
 @router.get("/api/v1/competition-structure")
 def get_competition_structure(
     request: Request,
