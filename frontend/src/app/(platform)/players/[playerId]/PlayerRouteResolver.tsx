@@ -22,25 +22,25 @@ type PlayerRouteResolverProps = {
 function buildPlayerResolverFailureCopy(isError: boolean, status?: number) {
   if (status === 404) {
     return {
-      title: "Jogador indisponivel",
-      description: "Este jogador nao esta disponivel no produto agora.",
+      title: "Jogador indisponível",
+      description: "Este jogador não está disponível no produto agora.",
       detail:
-        "Volte para a lista de jogadores ou abra competicoes para seguir por uma visao disponivel.",
+        "Volte para a lista de jogadores ou abra competições para seguir por uma visão disponível.",
     };
   }
 
   if (isError) {
     return {
-      title: "Nao foi possivel abrir este jogador",
-      description: "Nao conseguimos carregar o caminho certo para este perfil agora.",
+      title: "Não foi possível abrir este jogador",
+      description: "Não conseguimos carregar o caminho certo para este perfil agora.",
       detail: "Tente novamente em instantes ou continue pela lista de jogadores.",
     };
   }
 
   return {
-    title: "Nao foi possivel abrir este jogador",
-    description: "Nao encontramos um caminho disponivel para abrir este perfil agora.",
-    detail: "Abra a lista de jogadores ou competicoes para continuar a navegacao.",
+    title: "Não foi possível abrir este jogador",
+    description: "Não encontramos um caminho disponível para abrir este perfil agora.",
+    detail: "Abra a lista de jogadores ou competições para continuar a navegação.",
   };
 }
 
@@ -109,7 +109,7 @@ export function PlayerRouteResolver({ playerId }: PlayerRouteResolverProps) {
   if (canonicalHref) {
     return (
       <PlatformStateSurface
-        description="Estamos levando voce para o perfil do jogador na melhor temporada disponivel."
+        description="Estamos levando você para o perfil do jogador na melhor temporada disponível."
         kicker="Abrindo perfil"
         loading
         title="Abrindo jogador"
@@ -120,7 +120,7 @@ export function PlayerRouteResolver({ playerId }: PlayerRouteResolverProps) {
   if (!localContext && contextsQuery.isLoading) {
     return (
       <PlatformStateSurface
-        description="Estamos encontrando a competicao e a temporada certas para abrir este jogador."
+        description="Estamos encontrando a competição e a temporada certas para abrir este jogador."
         kicker="Abrindo perfil"
         loading
         title="Preparando jogador"
@@ -139,7 +139,7 @@ export function PlayerRouteResolver({ playerId }: PlayerRouteResolverProps) {
       actionLabel="Voltar para jogadores"
       description={failureCopy.description}
       detail={<p>{failureCopy.detail}</p>}
-      kicker="Navegacao"
+      kicker="Navegação"
       secondaryAction={
         <Link
           className="inline-flex items-center rounded-full border border-[rgba(112,121,116,0.28)] bg-white/92 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1f2d40]"

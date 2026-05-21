@@ -17,7 +17,7 @@ const appHeadlineFont = Manrope({
 
 export const metadata: Metadata = {
   title: "Football Analytics",
-  description: "Historical football analytics platform",
+  description: "Plataforma histórica de análise de futebol",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

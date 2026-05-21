@@ -25,9 +25,9 @@ export default async function CanonicalPlayerProfilePage({
       <PlatformStateSurface
         actionHref="/competitions"
         actionLabel="Ir para competições"
-        description="Esta temporada nao corresponde a um contexto valido para abrir o jogador."
+        description="Esta temporada não corresponde a um contexto válido para abrir o jogador."
         kicker="Jogador"
-        title="Perfil de jogador indisponivel"
+        title="Perfil de jogador indisponível"
         tone="critical"
       />
     );

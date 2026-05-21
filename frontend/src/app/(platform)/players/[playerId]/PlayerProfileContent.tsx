@@ -191,7 +191,7 @@ export function PlayerProfileContent({
         </header>
         <EmptyState
           title="Perfil indisponível"
-          description="Nao ha dados suficientes para montar este perfil agora."
+          description="Não há dados suficientes para montar este perfil agora."
         />
       </ProfileShell>
     );
@@ -209,41 +209,43 @@ export function PlayerProfileContent({
     : null;
   const overviewCoverage = resolveSectionCoverage(sectionCoverage?.overview, {
     ...profileQuery.coverage,
-    label: sectionCoverage?.overview?.label ?? "Player overview coverage",
+    label: sectionCoverage?.overview?.label ?? "Cobertura do resumo do jogador",
   });
   const historyCoverage = resolveSectionCoverage(sectionCoverage?.history, {
     status: history && history.length > 0 ? "complete" : "unknown",
-    label: "Player history coverage",
+    label: "Cobertura do histórico do jogador",
   });
   const matchesCoverage = resolveSectionCoverage(sectionCoverage?.matches, {
     ...profileQuery.coverage,
-    label: sectionCoverage?.matches?.label ?? "Player matches coverage",
+    label: sectionCoverage?.matches?.label ?? "Cobertura das partidas do jogador",
   });
   const statsCoverage = resolveSectionCoverage(sectionCoverage?.stats, {
     status: stats ? "complete" : "unknown",
-    label: "Player stats coverage",
+    label: "Cobertura das estatísticas do jogador",
   });
   const tabLinks = [
-    { key: "overview" as const, label: "Overview", coverage: overviewCoverage, badge: "Resumo" },
+    { key: "overview" as const, label: "Resumo", coverage: overviewCoverage, badge: "Resumo" },
     {
       key: "history" as const,
-      label: "History",
+      label: "Histórico",
       coverage: historyCoverage,
       badge: `${history?.length ?? 0} contextos`,
     },
     {
       key: "matches" as const,
-      label: "Matches",
+      label: "Partidas",
       coverage: matchesCoverage,
       badge: `${recentMatches?.length ?? 0} jogos`,
     },
     {
       key: "stats" as const,
-      label: "Stats",
+      label: "Estatísticas",
       coverage: statsCoverage,
       badge: `${stats?.trend?.length ?? 0} períodos`,
     },
   ];
+  const activeTabLabel =
+    tabLinks.find((tabLink) => tabLink.key === activeTab)?.label ?? "Resumo";
 
   return (
     <ProfileShell className="space-y-6">
@@ -314,7 +316,7 @@ export function PlayerProfileContent({
                 {player.playerName}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-white/74">
-                Resumo, historico, partidas e tendencia do atleta em uma leitura unica dentro da
+                Resumo, histórico, partidas e tendência do atleta em uma leitura única dentro da
                 temporada selecionada.
               </p>
             </div>
@@ -349,13 +351,13 @@ export function PlayerProfileContent({
         <div className="grid gap-3 md:grid-cols-4">
           <ProfileKpi hint="Na temporada selecionada" invert label="Jogos" value={summary.matchesPlayed ?? "-"} />
           <ProfileKpi
-            hint={`${summary.goals ?? 0} gols · ${summary.assists ?? 0} assist.`}
+            hint={`${summary.goals ?? 0} gols · ${summary.assists ?? 0} assistências`}
             invert
-            label="G+A"
+            label="Gols + assistências"
             value={(summary.goals ?? 0) + (summary.assists ?? 0)}
           />
-          <ProfileKpi hint="Rating consolidado" invert label="Nota" value={summary.rating?.toFixed(2) ?? "-"} />
-          <ProfileKpi hint="Contextos disponiveis" invert label="Historico" value={history?.length ?? 0} />
+          <ProfileKpi hint="Nota consolidada" invert label="Nota" value={summary.rating?.toFixed(2) ?? "-"} />
+          <ProfileKpi hint="Contextos disponíveis" invert label="Histórico" value={history?.length ?? 0} />
         </div>
       </ProfilePanel>
 
@@ -366,8 +368,8 @@ export function PlayerProfileContent({
       ) : null}
 
       <ProfileTabs
-        ariaLabel="Player profile tabs"
-        aside={<ProfileTag>{activeTab}</ProfileTag>}
+        ariaLabel="Abas do perfil do jogador"
+        aside={<ProfileTag>{activeTabLabel}</ProfileTag>}
         items={tabLinks.map((tabLink) => ({
           key: tabLink.key,
           label: tabLink.label,

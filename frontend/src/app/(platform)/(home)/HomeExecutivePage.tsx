@@ -534,10 +534,10 @@ function EditorialCard({ highlight }: { highlight: HomeEditorialHighlight }) {
             />
             <EditorialMetricPill label="gols" value={formatWholeNumber(highlight.metrics.goals)} />
             <EditorialMetricPill
-              label="assist."
+              label="assistências"
               value={formatWholeNumber(highlight.metrics.assists)}
             />
-            <EditorialMetricPill label="rating" value={formatRating(highlight.metrics.rating)} />
+            <EditorialMetricPill label="nota" value={formatRating(highlight.metrics.rating)} />
           </div>
 
           <div className={styles.editorialCta}>
@@ -573,12 +573,12 @@ export function HomeExecutivePage() {
   const secondarySurfaceCards = useMemo(
     () => [
       {
-        shortLabel: "H2H",
-        title: "Head-to-head",
+        shortLabel: "CD",
+        title: "Confronto direto",
         href: buildHeadToHeadPath(sharedFilters),
       },
       {
-        shortLabel: "MKT",
+        shortLabel: "MER",
         title: "Mercado",
         href: buildMarketPath(sharedFilters),
       },
@@ -600,9 +600,9 @@ export function HomeExecutivePage() {
     return (
       <PlatformStateSurface
         description="Estamos montando a visão principal do produto com dados reais do acervo."
-        kicker="Home"
+        kicker="Início"
         loading
-        title="Carregando a nova home"
+        title="Carregando a página inicial"
       />
     );
   }
@@ -612,9 +612,9 @@ export function HomeExecutivePage() {
       <PlatformStateSurface
         actionHref="/competitions"
         actionLabel="Abrir competições"
-        description="Não foi possível carregar a nova home agora. Abra outra área do produto ou tente novamente."
-        kicker="Home"
-        title="Falha ao carregar a home"
+        description="Não foi possível carregar a página inicial agora. Abra outra área do produto ou tente novamente."
+        kicker="Início"
+        title="Falha ao carregar a página inicial"
         tone="critical"
       />
     );
@@ -625,9 +625,9 @@ export function HomeExecutivePage() {
       <PlatformStateSurface
         actionHref="/competitions"
         actionLabel="Abrir competições"
-        description="A home não recebeu dados suficientes para ser montada agora."
-        kicker="Home"
-        title="Home indisponível"
+        description="A página inicial não recebeu dados suficientes para ser montada agora."
+        kicker="Início"
+        title="Página inicial indisponível"
         tone="warning"
       />
     );
@@ -672,7 +672,7 @@ export function HomeExecutivePage() {
           <div className={styles.heroShell}>
             <div className={styles.heroGrid}>
               <div className={styles.heroContent}>
-                <h1 className={styles.heroTitle}>Explore a História do Futebol em Dados</h1>
+                <h1 className={styles.heroTitle}>Explore a história do futebol em dados</h1>
 
                 <div className={styles.heroCtaRow}>
                   <Link className={styles.primaryCta} href="/competitions">
@@ -746,7 +746,7 @@ export function HomeExecutivePage() {
                   label="Times"
                 />
                 <QuickLinkCard
-                  description="Calendário, filtros e aprofundamento direto no match center."
+                  description="Calendário, filtros e aprofundamento direto na central da partida."
                   href={buildMatchesPath(sharedFilters)}
                   icon="matches"
                   label="Partidas"
@@ -764,9 +764,9 @@ export function HomeExecutivePage() {
               actionHref="/competitions"
               actionLabel="Ver tudo"
               countLabel={`${competitionGroups.domestic.length} competições`}
-              description="Cobertura prioritária do acervo com acesso direto à temporada mais recente em cada card."
+              description="Cobertura prioritária do acervo com acesso direto à temporada mais recente em cada item."
               eyebrow="Catálogo"
-              title="Competições Nacionais"
+              title="Competições nacionais"
             />
 
             {competitionGroups.domestic.length > 0 ? (
@@ -781,7 +781,7 @@ export function HomeExecutivePage() {
               </div>
             ) : (
               <EmptyState
-                description="O contrato da home não retornou competições nacionais suficientes agora."
+                description="A página inicial não recebeu competições nacionais suficientes agora."
                 title="Sem competições nacionais"
               />
             )}
@@ -809,7 +809,7 @@ export function HomeExecutivePage() {
               </div>
             ) : (
               <EmptyState
-                description="O contrato da home não retornou competições continentais suficientes agora."
+                description="A página inicial não recebeu competições continentais suficientes agora."
                 title="Sem competições continentais"
               />
             )}
@@ -845,7 +845,7 @@ export function HomeExecutivePage() {
             <div className={styles.editorialHeader}>
               <p className={styles.sectionEyebrow}>Curadoria</p>
               <h2 className="font-[family:var(--font-app-headline)] text-[2.2rem] font-extrabold tracking-[-0.045em] text-[#003526] md:text-[2.7rem]">
-                Curadoria de Temporadas em Destaque
+                Curadoria de temporadas em destaque
               </h2>
               <p className="max-w-2xl text-sm leading-7 text-[#57657a] md:text-base">
                 Narrativas editoriais montadas sobre dados reais hoje disponíveis no acervo.
@@ -860,7 +860,7 @@ export function HomeExecutivePage() {
               </div>
             ) : (
               <EmptyState
-                description="A home não recebeu highlights editoriais suficientes para montar a curadoria."
+                description="A página inicial não recebeu destaques editoriais suficientes para montar a curadoria."
                 title="Curadoria indisponível"
               />
             )}
@@ -894,7 +894,7 @@ export function HomeExecutivePage() {
               Times
             </Link>
             <Link className={styles.footerLink} href={buildHeadToHeadPath(sharedFilters)}>
-              Head-to-head
+              Confronto direto
             </Link>
             <Link className={styles.footerLink} href={buildMarketPath(sharedFilters)}>
               Mercado

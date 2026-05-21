@@ -58,7 +58,7 @@ export function PlayerHistorySection({
         {coverage.status === "partial" ? <PartialDataBanner coverage={coverage} /> : null}
         <EmptyState
           title="Histórico indisponível"
-          description="Nao ha historico suficiente para montar esta visao do jogador agora."
+          description="Não há histórico suficiente para montar esta visão do jogador agora."
         />
       </div>
     );
@@ -72,7 +72,7 @@ export function PlayerHistorySection({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Historico
+              Histórico
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
               Participação por contexto
@@ -136,7 +136,7 @@ export function PlayerHistorySection({
                     <p className="mt-2 text-2xl font-extrabold text-[#111c2d]">{entry.goals ?? "-"}</p>
                   </div>
                   <div className="rounded-[1.15rem] bg-[rgba(240,243,255,0.88)] px-4 py-3">
-                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Assist</p>
+                    <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Assistências</p>
                     <p className="mt-2 text-2xl font-extrabold text-[#111c2d]">{entry.assists ?? "-"}</p>
                   </div>
                   <div className="rounded-[1.15rem] bg-[rgba(240,243,255,0.88)] px-4 py-3">

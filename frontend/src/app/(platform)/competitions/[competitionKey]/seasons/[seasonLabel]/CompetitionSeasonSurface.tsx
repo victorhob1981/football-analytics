@@ -225,13 +225,13 @@ const MATCHES_LIST_ALL_PAGES_SIZE = 100;
 
 function formatKickoff(value: string | null | undefined): string {
   if (!value) {
-    return "Data nao informada";
+    return "Data não informada";
   }
 
   const parsedDate = new Date(value);
 
   if (Number.isNaN(parsedDate.getTime())) {
-    return "Data nao informada";
+    return "Data não informada";
   }
 
   return DATE_TIME_FORMATTER.format(parsedDate);
@@ -823,7 +823,7 @@ function formatTieResolutionLabel(tie: StageTie): string | null {
   }
 
   if (tie.resolutionType === "single_match") {
-    return "Jogo unico";
+    return "Jogo único";
   }
 
   return tie.resolutionType.replace(/_/g, " ");
@@ -956,7 +956,7 @@ function SeasonHeroBlock({
           <div className="flex h-20 w-20 items-center justify-center rounded-[1.3rem] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.12)] p-4 shadow-[0_18px_40px_-28px_rgba(17,28,45,0.75)]">
             {competitionLogoSrc ? (
               <img
-                alt={`Logo da competicao ${context.competitionName}`}
+                alt={`Logo da competição ${context.competitionName}`}
                 className="h-full w-full object-contain"
                 src={competitionLogoSrc}
               />
@@ -1047,7 +1047,7 @@ async function fetchEditionTopScorer(context: CompetitionSeasonContext): Promise
       data: { scorer: null },
       meta: {
         coverage: {
-          label: "Ranking player-goals indisponivel no registry.",
+          label: "Ranking de artilharia indisponível no registro.",
           status: "unknown",
         },
       },
@@ -1226,7 +1226,7 @@ async function fetchEditionRankingLeader(
       data: { leader: null },
       meta: {
         coverage: {
-          label: `Ranking ${rankingId} indisponivel no registry.`,
+          label: `Ranking ${rankingId} indisponível no registro.`,
           status: "unknown",
         },
       },
@@ -1434,19 +1434,19 @@ function resolveHybridStructureHeadline(
   resolution: CompetitionSeasonSurfaceResolution,
 ): string {
   if (resolution.primaryTableStage?.stageFormat === "group_table") {
-    return "Fase de grupos -> mata-mata";
+    return "Fase de grupos → mata-mata";
   }
 
   if (resolution.primaryTableStage?.stageFormat === "league_table") {
-    return "Fase classificatoria -> mata-mata";
+    return "Fase classificatória → mata-mata";
   }
 
-  return "Fase de tabela -> mata-mata";
+  return "Fase de tabela → mata-mata";
 }
 
 function resolveHybridStructureDetail(stage: CompetitionStructureStage | null): string {
   if (!stage || stage.transitions.length === 0) {
-    return "Transicao consolidada para o mata-mata.";
+    return "Transição consolidada para o mata-mata.";
   }
 
   const slotCount = resolveTransitionSlotCount(stage);
@@ -1455,14 +1455,14 @@ function resolveHybridStructureDetail(stage: CompetitionStructureStage | null): 
   );
 
   if (stage.stageFormat === "group_table" && slotCount) {
-    return `${slotCount} avancam por grupo ate ${transitionTarget}`;
+    return `${slotCount} avançam por grupo até ${transitionTarget}`;
   }
 
   if (slotCount) {
-    return `${slotCount} equipes avancam ate ${transitionTarget}`;
+    return `${slotCount} equipes avançam até ${transitionTarget}`;
   }
 
-  return `Transicao consolidada ate ${transitionTarget}`;
+  return `Transição consolidada até ${transitionTarget}`;
 }
 
 function resolveHybridNavigationStructureLabel(
@@ -1542,7 +1542,7 @@ function formatAssistCount(value: number | null | undefined): string {
     return "-";
   }
 
-  return `${formatHistoricalMatchCount(value)} assist.`;
+  return `${formatHistoricalMatchCount(value)} assistências`;
 }
 
 function formatGameCount(value: number | null | undefined): string {
@@ -2283,7 +2283,7 @@ function FinalStandingsPanel({
       ) : null}
 
       {query.isError && rows.length === 0 ? (
-        <ProfileAlert title="Nao foi possivel carregar a classificacao final" tone="critical">
+        <ProfileAlert title="Não foi possível carregar a classificação final" tone="critical">
           Tente novamente em instantes.
         </ProfileAlert>
       ) : null}
@@ -2292,7 +2292,7 @@ function FinalStandingsPanel({
         <PartialDataBanner
           className="rounded-xl border-[#ffdcc3] bg-[#fff3e8] px-4 py-3 text-[#6e3900]"
           coverage={query.coverage}
-          message="Cobertura parcial: a classificacao pode estar incompleta."
+          message="Cobertura parcial: a classificação pode estar incompleta."
         />
       ) : null}
 
@@ -2306,8 +2306,8 @@ function FinalStandingsPanel({
       {!query.isLoading && rows.length === 0 ? (
         <EmptyState
           className="rounded-xl border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-          description="Classificacao indisponivel."
-          title="Sem classificacao"
+          description="Classificação indisponível."
+          title="Sem classificação"
         />
       ) : null}
 
@@ -2335,12 +2335,12 @@ function ClosingMatchesPanel({
       <SeasonSectionHeader
         coverage={matchesQuery.coverage}
         description={description}
-        eyebrow="Partidas concluidas"
+        eyebrow="Partidas concluídas"
         title={title}
       />
 
       {matchesQuery.isError && matches.length === 0 ? (
-        <ProfileAlert title="Nao foi possivel carregar as partidas marcantes" tone="critical">
+        <ProfileAlert title="Não foi possível carregar as partidas marcantes" tone="critical">
           Tente novamente em instantes.
         </ProfileAlert>
       ) : null}
@@ -2383,7 +2383,7 @@ function ClosingMatchesPanel({
                     {resolveMatchDisplayContext(match).summary}
                   </p>
                   <p className="mt-2 font-semibold text-[#111c2d]">
-                    {match.homeTeamName ?? "Mandante"} vs {match.awayTeamName ?? "Visitante"}
+                    {match.homeTeamName ?? "Mandante"} x {match.awayTeamName ?? "Visitante"}
                   </p>
                   <p className="mt-1 text-sm text-[#57657a]">{formatKickoff(match.kickoffAt)}</p>
                 </div>
@@ -2391,7 +2391,7 @@ function ClosingMatchesPanel({
                   <p className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
                     {typeof match.homeScore === "number" && typeof match.awayScore === "number"
                       ? `${match.homeScore} - ${match.awayScore}`
-                      : "VS"}
+                      : "x"}
                   </p>
                   <p className="mt-1 text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">
                     {match.status ?? "Sem status"}
@@ -2438,7 +2438,7 @@ function KnockoutBracketPanel({
     if (stage.isError) {
       return (
         <ProfileAlert title="Falha ao carregar esta fase" tone="warning">
-          Os confrontos desta etapa nao puderam ser carregados agora.
+          Os confrontos desta etapa não puderam ser carregados agora.
         </ProfileAlert>
       );
     }
@@ -2570,8 +2570,8 @@ function KnockoutBracketPanel({
           {localizeSeasonStageName(column.stageState.stage.stageName ?? column.stageState.stage.stageId)}
         </p>
         {column.stageState.isError ? (
-          <ProfileAlert title="Fase indisponivel" tone="warning">
-            Nao foi possivel montar esta coluna.
+          <ProfileAlert title="Fase indisponível" tone="warning">
+            Não foi possível montar esta coluna.
           </ProfileAlert>
         ) : null}
         {column.stageState.isLoading ? (
@@ -2620,7 +2620,7 @@ function KnockoutBracketPanel({
         {snapshotState.primaryStages.length === 0 ? (
           <EmptyState
             className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-            description="Nao ha fases eliminatorias suficientes para montar o chaveamento."
+            description="Não há fases eliminatórias suficientes para montar o chaveamento."
             title="Sem chaveamento"
           />
         ) : (
@@ -2650,16 +2650,16 @@ function KnockoutBracketPanel({
                   {snapshotState.finalStage?.isLoading ? <LoadingSkeleton height={180} /> : null}
 
                   {snapshotState.finalStage?.isError ? (
-                    <ProfileAlert title="Final indisponivel" tone="warning">
-                      Nao foi possivel carregar o confronto decisivo.
+                    <ProfileAlert title="Final indisponível" tone="warning">
+                      Não foi possível carregar o confronto decisivo.
                     </ProfileAlert>
                   ) : null}
 
                   {!snapshotState.finalStage?.isLoading && !snapshotState.finalStage?.isError && (snapshotState.finalStage?.ties.length ?? 0) === 0 ? (
                     <EmptyState
                       className="mt-4 rounded-[1.2rem] border-white/10 bg-white/8 text-white"
-                      description="Sem confronto consolidado para a decisao."
-                      title="Final indisponivel"
+                      description="Sem confronto consolidado para a decisão."
+                      title="Final indisponível"
                     />
                   ) : null}
 
@@ -2751,7 +2751,7 @@ function KnockoutBracketPanel({
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">Fases complementares</p>
               <p className="mt-1 text-sm text-[#57657a]">
-                Etapas preliminares ou de colocacao aparecem fora do bracket principal.
+                Etapas preliminares ou de colocação aparecem fora do chaveamento principal.
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -2797,7 +2797,7 @@ function KnockoutBracketPanel({
       {stages.length === 0 ? (
         <EmptyState
           className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-          description="Nao ha fases eliminatorias suficientes para montar o chaveamento."
+          description="Não há fases eliminatórias suficientes para montar o chaveamento."
           title="Sem chaveamento"
         />
       ) : (
@@ -2864,15 +2864,15 @@ function ChampionPathPanel({
   return (
     <ProfilePanel className="space-y-4" tone="soft">
       <SeasonSectionHeader
-        description="Confrontos do campeao em cada fase eliminatoria."
-        eyebrow="Caminho do campeao"
-        title={championName ? `${championName} ate o titulo` : "Progressao do campeao"}
+        description="Confrontos do campeão em cada fase eliminatória."
+        eyebrow="Caminho do campeão"
+        title={championName ? `${championName} até o título` : "Progressão do campeão"}
       />
 
       {pathRows.length === 0 ? (
         <EmptyState
           className="rounded-[1rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-          description="Caminho do campeao indisponivel."
+          description="Caminho do campeão indisponível."
           title="Sem caminho consolidado"
         />
       ) : (
@@ -2916,8 +2916,8 @@ function GroupPhaseSummaryPanel({
 
   if (!stage) {
     return (
-      <ProfileAlert title="Fase classificatoria indisponivel" tone="warning">
-        A estrutura atual nao identificou uma fase de tabela para esta edição.
+      <ProfileAlert title="Fase classificatória indisponível" tone="warning">
+        A estrutura atual não identificou uma fase de tabela para esta edição.
       </ProfileAlert>
     );
   }
@@ -2926,9 +2926,9 @@ function GroupPhaseSummaryPanel({
     return (
       <FinalStandingsPanel
         context={context}
-        description="A fase classificatoria desta edição foi encerrada e a tabela final segue como referencia central."
+        description="A fase classificatória desta edição foi encerrada e a tabela final segue como referência central."
         query={finalStandingsQuery}
-        title={stage.stageName ?? "Fase classificatoria"}
+        title={stage.stageName ?? "Fase classificatória"}
       />
     );
   }
@@ -2936,8 +2936,8 @@ function GroupPhaseSummaryPanel({
   return (
     <ProfilePanel className="space-y-5">
       <SeasonSectionHeader
-        eyebrow="Fase classificatoria"
-        title={stage.stageName ?? "Fase classificatoria"}
+        eyebrow="Fase classificatória"
+        title={stage.stageName ?? "Fase classificatória"}
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -2950,7 +2950,7 @@ function GroupPhaseSummaryPanel({
             />
 
             {groupQuery.isError ? (
-              <ProfileAlert title="Nao foi possivel carregar este grupo" tone="warning">
+              <ProfileAlert title="Não foi possível carregar este grupo" tone="warning">
                 Tente novamente em instantes.
               </ProfileAlert>
             ) : null}
@@ -2960,8 +2960,8 @@ function GroupPhaseSummaryPanel({
             {!groupQuery.isLoading && !groupQuery.isError && (groupQuery.data?.rows.length ?? 0) === 0 ? (
               <EmptyState
                 className="rounded-[1rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-                description="Ainda nao ha linhas suficientes para este grupo."
-                title="Sem classificacao"
+                description="Ainda não há linhas suficientes para este grupo."
+                title="Sem classificação"
               />
             ) : null}
 
@@ -2970,7 +2970,7 @@ function GroupPhaseSummaryPanel({
                 columns={columns}
                 data={groupQuery.data?.rows ?? []}
                 emptyDescription="Sem linhas para exibir."
-                emptyTitle="Sem classificacao"
+                emptyTitle="Sem classificação"
                 variant="profile"
               />
             ) : null}
@@ -3020,7 +3020,7 @@ function RankingPreviewPanel({
       </div>
 
       {rankingQuery.isError && topRows.length === 0 ? (
-        <ProfileAlert title="Nao foi possivel carregar este ranking" tone="critical">
+        <ProfileAlert title="Não foi possível carregar este ranking" tone="critical">
           Tente novamente em instantes ou siga para outro destaque da edição.
         </ProfileAlert>
       ) : null}
@@ -3044,7 +3044,7 @@ function RankingPreviewPanel({
       {!rankingQuery.isLoading && topRows.length === 0 ? (
         <EmptyState
           className="rounded-[1.2rem] border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.88)]"
-          description="Ainda nao ha linhas suficientes para esta edição."
+          description="Ainda não há linhas suficientes para esta edição."
           title="Sem destaques"
         />
       ) : null}
@@ -3118,7 +3118,7 @@ function EditionHighlightsSection({
     <div className="space-y-5">
       {!playerGoalsDefinition || !teamPossessionDefinition ? (
         <ProfileAlert title="Rankings indisponiveis" tone="critical">
-          Os destaques principais desta edição nao puderam ser carregados agora.
+          Os destaques principais desta edição não puderam ser carregados agora.
         </ProfileAlert>
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
@@ -3138,8 +3138,8 @@ function EditionHighlightsSection({
       {structure ? (
         <SeasonCompetitionAnalyticsSection context={context} structure={structure} />
       ) : (
-        <ProfileAlert title="Estrutura indisponivel para analytics avancados" tone="warning">
-          Sem a estrutura tipada da edição, o produto nao consegue abrir comparativos estruturais desta temporada.
+        <ProfileAlert title="Estrutura indisponível para análises avançadas" tone="warning">
+          Sem a estrutura tipada da edição, o produto não consegue abrir comparativos estruturais desta temporada.
         </ProfileAlert>
       )}
     </div>
@@ -3185,10 +3185,10 @@ function SeasonFactsCard({
       label: "Campeao",
       value: standingsQuery.isLoading
         ? "..."
-        : (champion?.teamName ?? "Nao identificado"),
+        : (champion?.teamName ?? "Não identificado"),
     },
     {
-      label: "Gols na edicao",
+      label: "Gols na edição",
       value: standingsQuery.isLoading ? "..." : formatMetricValue("goals", totalGoals),
     },
     {
@@ -3346,7 +3346,7 @@ function EditionSuperlativesRailCard({ context }: { context: CompetitionSeasonCo
     },
     {
       href: topRatedPlayer ? buildCanonicalPlayerPath(context, topRatedPlayer.entityId) : null,
-      label: "Maior nota media",
+      label: "Maior nota média",
       media: topRatedPlayer ? <PlayerPhoto playerId={topRatedPlayer.entityId} playerName={topRatedPlayer.entityName} size={40} /> : null,
       primary: topRatedPlayer?.entityName ?? (topRatedQuery.isLoading ? "..." : "-"),
       secondary: topRatedPlayer?.teamName ?? null,
@@ -3708,7 +3708,7 @@ function LeagueStructureSection({ context }: { context: CompetitionSeasonContext
     <div className="space-y-5">
       <FinalStandingsPanel
         context={context}
-        description="A classificacao final da edição e a ancora principal da leitura da liga."
+        description="A classificação final da edição é a âncora principal da leitura da liga."
         query={finalStandingsQuery}
         title="Classificacao final"
       />
@@ -3788,7 +3788,7 @@ function CupFactsCard({
       label: "Campeao",
       value: championTieQuery.isLoading
         ? "..."
-        : (championTie?.winnerTeamName ?? "Nao identificado"),
+        : (championTie?.winnerTeamName ?? "Não identificado"),
     },
     {
       label: "Partidas",
@@ -3885,7 +3885,7 @@ function HybridHistoricalHero({
   const championTie = resolveChampionTie(championTieQuery.data?.ties ?? []);
   const championName = championTieQuery.isLoading
     ? "..."
-    : championTie?.winnerTeamName ?? "Campeao nao identificado";
+    : championTie?.winnerTeamName ?? "Campeão não identificado";
   const finalDecisionDate =
     championTie ? formatLongDate(championTie.lastLegAt ?? championTie.firstLegAt) : null;
   const structureHeadline = resolveHybridStructureHeadline(resolution);
@@ -3894,14 +3894,14 @@ function HybridHistoricalHero({
     ? "..."
     : formatHistoricalMatchCount(analyticsQuery.data?.seasonSummary.matchCount);
   const topScorer = topScorerQuery.data?.scorer ?? null;
-  const topScorerName = topScorerQuery.isLoading ? "..." : (topScorer?.entityName ?? "Artilharia indisponivel");
+  const topScorerName = topScorerQuery.isLoading ? "..." : (topScorer?.entityName ?? "Artilharia indisponível");
   const topScorerDetail = topScorer ? (
     <>
       <span className="font-semibold text-[#003526]">{topScorer.goals} gols</span>
       {topScorer.teamName ? ` • ${topScorer.teamName}` : ""}
     </>
   ) : (
-    "Ranking historico do torneio nao consolidado."
+    "Ranking histórico do torneio não consolidado."
   );
   const heroImageSrc = championArtwork?.src ?? null;
   const summaryValue = (
@@ -3971,7 +3971,7 @@ function HybridHistoricalHero({
               />
               <HybridHeroSummaryItem
                 label="Final"
-                value={finalDecisionDate ?? "Data nao informada"}
+                value={finalDecisionDate ?? "Data não informada"}
                 valueClassName="font-[family:var(--font-profile-headline)] text-[1.55rem] font-extrabold leading-[1.02] tracking-[-0.04em] text-[#111c2d]"
               />
               <HybridHeroSummaryItem
@@ -3993,7 +3993,7 @@ function HybridHistoricalHero({
         <div className="relative min-h-[360px] overflow-hidden rounded-[1.6rem] border border-[rgba(8,48,35,0.18)] bg-[#0a3528] shadow-[0_36px_80px_-48px_rgba(0,53,38,0.7)]">
           {heroImageSrc && !isHeroPhotoUnavailable ? (
             <img
-              alt={`Celebracao do campeao da ${context.competitionName}`}
+              alt={`Celebração do campeão da ${context.competitionName}`}
               className="absolute inset-0 h-full w-full object-cover"
               onError={() => setIsHeroPhotoUnavailable(true)}
               src={heroImageSrc}
@@ -4017,7 +4017,7 @@ function HybridHistoricalHero({
                 {championName}
               </p>
               <p className="mt-2 text-sm text-[#d7efe4]">
-                {finalDecisionDate ?? "Data da final nao informada"}
+                {finalDecisionDate ?? "Data da final não informada"}
               </p>
             </div>
           </div>
@@ -4081,8 +4081,8 @@ function HybridTableOverviewPanel({
 
   if (!stage) {
     return (
-      <ProfileAlert title="Fase de tabela indisponivel" tone="warning">
-        A estrutura atual nao identificou uma fase classificatoria para esta edição.
+      <ProfileAlert title="Fase de tabela indisponível" tone="warning">
+        A estrutura atual não identificou uma fase classificatória para esta edição.
       </ProfileAlert>
     );
   }
@@ -4097,7 +4097,7 @@ function HybridTableOverviewPanel({
       return (
         <FinalStandingsPanel
           context={context}
-          description="A classificacao final da fase de grupos segue como referencia principal desta edição encerrada."
+          description="A classificação final da fase de grupos segue como referência principal desta edição encerrada."
           query={finalStandingsQuery}
           title={stage.stageName ?? resolveHybridTableSectionLabel(stage)}
         />
@@ -4119,14 +4119,14 @@ function HybridTableOverviewPanel({
             value={String(stage.groups.length)}
           />
           <HistoricalHeroCard
-            detail={transitionSlots ? "Numero de vagas por grupo para a etapa seguinte." : "Sem regra de progressao consolidada."}
+            detail={transitionSlots ? "Número de vagas por grupo para a etapa seguinte." : "Sem regra de progressão consolidada."}
             label="Corte"
             tone="soft"
             value={transitionSlots ? `${transitionSlots} por grupo` : "-"}
           />
           <HistoricalHeroCard
-            detail={transitionSummary ?? "Sem transicao consolidada para a fase seguinte."}
-            label="Transicao"
+            detail={transitionSummary ?? "Sem transição consolidada para a fase seguinte."}
+            label="Transição"
             tone="soft"
             value={stage.transitions[0]?.toStageName ?? "Mata-mata"}
           />
@@ -4146,8 +4146,8 @@ function HybridTableOverviewPanel({
                 />
 
                 {groupQuery.isError ? (
-                  <ProfileAlert title="Grupo indisponivel" tone="warning">
-                    Nao foi possivel consolidar este grupo agora.
+                  <ProfileAlert title="Grupo indisponível" tone="warning">
+                    Não foi possível consolidar este grupo agora.
                   </ProfileAlert>
                 ) : null}
 
@@ -4156,8 +4156,8 @@ function HybridTableOverviewPanel({
                 {!groupQuery.isLoading && !groupQuery.isError && previewRows.length === 0 ? (
                   <EmptyState
                     className="rounded-[1rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-                    description="Sem classificacao suficiente neste grupo."
-                    title="Sem classificacao"
+                    description="Sem classificação suficiente neste grupo."
+                    title="Sem classificação"
                   />
                 ) : null}
 
@@ -4225,20 +4225,20 @@ function HybridTableOverviewPanel({
   return (
     <ProfilePanel className="space-y-5">
       <SeasonSectionHeader
-        description="Tabela final da fase classificatoria, com foco no corte para o mata-mata."
+        description="Tabela final da fase classificatória, com foco no corte para o mata-mata."
         eyebrow="Fase de tabela"
         title={stage.stageName ?? resolveHybridTableSectionLabel(stage)}
       />
 
       <div className="grid gap-3 md:grid-cols-3">
         <HistoricalHeroCard
-          detail="Equipes classificadas na fase unica."
+          detail="Equipes classificadas na fase única."
           label="Equipes"
           tone="soft"
           value={String(rows.length || stage.expectedTeams || 0)}
         />
         <HistoricalHeroCard
-          detail={transitionSummary ?? "Sem regra de progressao consolidada."}
+          detail={transitionSummary ?? "Sem regra de progressão consolidada."}
           label="Corte"
           tone="soft"
           value={cutoffRow ? `${cutoffRow.position}º ${cutoffRow.teamName}` : "-"}
@@ -4252,8 +4252,8 @@ function HybridTableOverviewPanel({
       </div>
 
       {finalStandingsQuery.isError ? (
-        <ProfileAlert title="Fase classificatoria indisponivel" tone="warning">
-          Nao foi possivel carregar a tabela final desta etapa.
+        <ProfileAlert title="Fase classificatória indisponível" tone="warning">
+          Não foi possível carregar a tabela final desta etapa.
         </ProfileAlert>
       ) : null}
 
@@ -4263,7 +4263,7 @@ function HybridTableOverviewPanel({
         <EmptyState
           className="rounded-[1rem] border-[rgba(191,201,195,0.55)] bg-white/80"
           description="Sem linhas consolidadas para esta fase."
-          title="Sem classificacao"
+          title="Sem classificação"
         />
       ) : null}
 
@@ -4348,7 +4348,7 @@ function HybridFactsCard({
       label: "Campeao",
       value: championTieQuery.isLoading
         ? "..."
-        : (championTie?.winnerTeamName ?? "Nao identificado"),
+        : (championTie?.winnerTeamName ?? "Não identificado"),
     },
     {
       label: "Partidas",
@@ -4394,13 +4394,13 @@ function HybridFactsCard({
         <div className="rounded-[1.1rem] border border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.56)] px-3 py-3">
           <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Estrutura</p>
           <p className="mt-1 text-sm font-semibold text-[#111c2d]">
-            {resolution.editionLabel ?? "Formato hibrido"}
+            {resolution.editionLabel ?? "Formato híbrido"}
           </p>
         </div>
         <div className="rounded-[1.1rem] border border-[rgba(191,201,195,0.55)] bg-[rgba(240,243,255,0.56)] px-3 py-3">
           <p className="text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">Decisao</p>
           <p className="mt-1 text-sm font-semibold text-[#111c2d]">
-            {resolution.finalKnockoutStage?.stageName ?? "Nao identificado"}
+            {resolution.finalKnockoutStage?.stageName ?? "Não identificado"}
           </p>
         </div>
       </div>
@@ -4437,17 +4437,17 @@ function buildSurfaceNavLabels(
 
   if (resolution.type === "hybrid") {
     return {
-      highlights: "Destaques estatisticos",
+      highlights: "Destaques estatísticos",
       matches: "Mata-mata",
-      overview: "Visao geral",
+      overview: "Visão geral",
       structure: resolveHybridNavigationStructureLabel(resolution.primaryTableStage),
     };
   }
 
   return {
-    highlights: "Destaques estatisticos",
+    highlights: "Destaques estatísticos",
     matches: "Confrontos decisivos",
-    overview: "Caminho do titulo",
+    overview: "Caminho do título",
     structure: "Chaveamento",
   };
 }
@@ -4803,7 +4803,7 @@ function HybridSeasonSurface({
     <KnockoutBracketPanel
       context={context}
       resolution={resolution}
-      title="Chaveamento ate a final"
+      title="Chaveamento até a final"
       variant="snapshot"
     />
   );
@@ -4923,9 +4923,9 @@ export function CompetitionSeasonSurface({
         hero={
           <SeasonHeroBlock
             context={context}
-            description="Estrutura da edição indisponivel."
-            eyebrow="Estrutura indisponivel"
-            highlightDescription="Tente recarregar a pagina."
+            description="Estrutura da edição indisponível."
+            eyebrow="Estrutura indisponível"
+            highlightDescription="Tente recarregar a página."
             highlightLabel="Estado"
             highlightValue="Estrutura ausente"
             tags={[context.seasonLabel, "Indisponivel"]}
@@ -4933,8 +4933,8 @@ export function CompetitionSeasonSurface({
           />
         }
         mainCanvas={
-          <ProfileAlert title="Nao foi possivel carregar a estrutura da edição" tone="critical">
-            Sem esse contrato nao e possivel diferenciar com seguranca o desenho de copa ou hibrido.
+          <ProfileAlert title="Não foi possível carregar a estrutura da edição" tone="critical">
+            Sem esse contrato não é possível diferenciar com segurança o desenho de copa ou híbrido.
           </ProfileAlert>
         }
         navItems={[

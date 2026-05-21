@@ -52,11 +52,11 @@ function describeTimeWindow(params: {
   dateRangeEnd: string | null;
 }): string {
   if (typeof params.lastN === "number" && params.lastN > 0) {
-    return `Ultimas ${params.lastN} partidas`;
+    return `Últimas ${params.lastN} partidas`;
   }
 
   if (params.dateRangeStart || params.dateRangeEnd) {
-    return `${params.dateRangeStart ?? "..."} ate ${params.dateRangeEnd ?? "..."}`;
+    return `${params.dateRangeStart ?? "..."} até ${params.dateRangeEnd ?? "..."}`;
   }
 
   if (params.roundId) {
@@ -205,7 +205,7 @@ export function TeamsPageContent() {
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <ProfileKpi hint="Na visao atual" invert label="Times" value={items.length} />
+            <ProfileKpi hint="Na visão atual" invert label="Times" value={items.length} />
             <ProfileKpi hint={describeVenue(venue)} invert label="Mando" value={describeVenue(venue)} />
             <ProfileKpi hint="Janela aplicada" invert label="Janela" value={activeWindowLabel} />
           </div>

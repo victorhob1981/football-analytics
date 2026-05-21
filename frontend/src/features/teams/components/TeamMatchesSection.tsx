@@ -40,7 +40,7 @@ function resolveOpponent(match: TeamMatchListItem, teamId: string) {
 
   return {
     opponentTeamId: null,
-    opponentName: `${match.homeTeamName ?? "Mandante"} vs ${match.awayTeamName ?? "Visitante"}`,
+    opponentName: `${match.homeTeamName ?? "Mandante"} x ${match.awayTeamName ?? "Visitante"}`,
     venue: null,
   };
 }
@@ -158,7 +158,7 @@ export function TeamMatchesSection({
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <ProfileTag>{match.competitionName ?? competitionContext.competitionName}</ProfileTag>
-                    <ProfileTag>{opponent.venue === "home" ? "Casa" : opponent.venue === "away" ? "Fora" : "Mando n/d"}</ProfileTag>
+                    <ProfileTag>{opponent.venue === "home" ? "Casa" : opponent.venue === "away" ? "Fora" : "Mando não definido"}</ProfileTag>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
@@ -177,7 +177,7 @@ export function TeamMatchesSection({
 
                 <div className="flex items-center justify-end">
                   <Link
-                    aria-label={`Abrir match center de ${match.homeTeamName ?? "Mandante"} vs ${match.awayTeamName ?? "Visitante"}`}
+                    aria-label={`Abrir central da partida de ${match.homeTeamName ?? "Mandante"} x ${match.awayTeamName ?? "Visitante"}`}
                     className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
                     href={buildMatchCenterPath(match.matchId, {
                       ...filters,
@@ -186,7 +186,7 @@ export function TeamMatchesSection({
                       roundId: match.roundId ?? filters.roundId,
                     })}
                   >
-                    Abrir
+                    Abrir central da partida
                   </Link>
                 </div>
               </ProfilePanel>

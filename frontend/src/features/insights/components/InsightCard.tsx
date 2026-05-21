@@ -7,9 +7,9 @@ type InsightCardProps = {
 };
 
 const SEVERITY_LABEL: Record<InsightSeverity, string> = {
-  info: "Info",
-  warning: "Warning",
-  critical: "Critical",
+  info: "Informativo",
+  warning: "Atenção",
+  critical: "Crítico",
 };
 
 const SEVERITY_CLASSES: Record<InsightSeverity, string> = {
@@ -40,7 +40,7 @@ export function InsightCard({ insight, className }: InsightCardProps) {
       <p className="text-sm text-slate-800">{insight.explanation}</p>
 
       <div className="text-xs text-slate-600">
-        <strong className="text-slate-700">Periodo:</strong> {insight.reference_period}
+        <strong className="text-slate-700">Período:</strong> {insight.reference_period}
       </div>
 
       {evidences.length > 0 ? (

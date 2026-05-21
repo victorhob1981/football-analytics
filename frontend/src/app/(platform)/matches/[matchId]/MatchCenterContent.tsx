@@ -149,18 +149,18 @@ function resolveSectionDescription(tab: MatchCenterTab): string {
   }
 
   if (tab === "lineups") {
-    return "Escalacoes por time, com titulares, banco, posicao e camisa quando esses dados estiverem disponiveis.";
+    return "Escalações por time, com titulares, banco, posição e camisa quando esses dados estiverem disponíveis.";
   }
 
   if (tab === "team-stats") {
-    return "Comparativo dos dois times com os principais numeros do jogo.";
+    return "Comparativo dos dois times com os principais números do jogo.";
   }
 
   if (tab === "player-stats") {
-    return "Atuacao individual dos jogadores nesta partida.";
+    return "Atuação individual dos jogadores nesta partida.";
   }
 
-  return "Resumo do jogo com os principais lances, personagens e atalhos para aprofundar a analise.";
+  return "Resumo do jogo com os principais lances, personagens e atalhos para aprofundar a análise.";
 }
 
 export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
@@ -186,7 +186,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
             Carregando partida
           </h1>
-          <p className="text-sm text-[#57657a]">Os detalhes do jogo estao sendo preparados.</p>
+          <p className="text-sm text-[#57657a]">Os detalhes do jogo estão sendo preparados.</p>
         </header>
         <LoadingSkeleton height={120} />
         <LoadingSkeleton height={220} />
@@ -204,10 +204,10 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
             Partida
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Partida indisponivel
+            Partida indisponível
           </h1>
         </header>
-        <ProfileAlert title="Nao foi possivel abrir esta partida" tone="critical">
+        <ProfileAlert title="Não foi possível abrir esta partida" tone="critical">
           <p>Tente novamente em instantes ou volte para a lista de partidas.</p>
         </ProfileAlert>
       </ProfileShell>
@@ -222,12 +222,12 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
             Partida
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Partida indisponivel
+            Partida indisponível
           </h1>
         </header>
         <EmptyState
-          description="Nao foi possivel encontrar dados suficientes para esta partida agora."
-          title="Partida indisponivel"
+          description="Não foi possível encontrar dados suficientes para esta partida agora."
+          title="Partida indisponível"
         />
       </ProfileShell>
     );
@@ -267,10 +267,10 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
     ? buildSeasonHubTabPath(competitionContext, "rankings", sharedContextInput)
     : null;
   const sectionStates: MatchCenterSectionCoverage = {
-    timeline: resolveSectionCoverage(sectionCoverage?.timeline, "Timeline"),
-    lineups: resolveSectionCoverage(sectionCoverage?.lineups, "Lineups"),
-    teamStats: resolveSectionCoverage(sectionCoverage?.teamStats, "Team stats"),
-    playerStats: resolveSectionCoverage(sectionCoverage?.playerStats, "Player stats"),
+    timeline: resolveSectionCoverage(sectionCoverage?.timeline, "Linha do tempo"),
+    lineups: resolveSectionCoverage(sectionCoverage?.lineups, "Escalações"),
+    teamStats: resolveSectionCoverage(sectionCoverage?.teamStats, "Estatísticas dos times"),
+    playerStats: resolveSectionCoverage(sectionCoverage?.playerStats, "Estatísticas dos jogadores"),
   };
   const tabLinks = [
     {
@@ -323,7 +323,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
           Partidas
         </Link>
         <span className="text-[#8fa097]">/</span>
-        <span>{match.homeTeamName ?? "Mandante"} vs {match.awayTeamName ?? "Visitante"}</span>
+        <span>{match.homeTeamName ?? "Mandante"} x {match.awayTeamName ?? "Visitante"}</span>
       </div>
 
       <ProfilePanel className="space-y-6" tone="accent">
@@ -341,10 +341,10 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
               ) : null}
             </div>
             <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-              {match.homeTeamName ?? "Mandante"} vs {match.awayTeamName ?? "Visitante"}
+              {match.homeTeamName ?? "Mandante"} x {match.awayTeamName ?? "Visitante"}
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-white/74">
-              Placar, principais lances, escalacoes e numeros do jogo em uma leitura unica.
+              Placar, principais lances, escalações e números do jogo em uma leitura única.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -376,7 +376,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
         <div className="grid gap-3 md:grid-cols-5">
           <ProfileKpi hint={kickoffLabel} invert label="Placar" value={resolveScoreSummary(match.homeScore, match.awayScore)} />
           <ProfileKpi hint={kickoffLabel} invert label="Status" value={match.status?.trim() || "Sem status"} />
-          <ProfileKpi hint={match.venueName?.trim() || "Local indisponivel"} invert label="Local" value={match.venueName?.trim() || "Indisponivel"} />
+          <ProfileKpi hint={match.venueName?.trim() || "Local indisponível"} invert label="Local" value={match.venueName?.trim() || "Indisponível"} />
           <ProfileKpi hint={sectionStates.timeline?.label} invert label="Eventos" value={timelineEvents.length} />
           <ProfileKpi hint={sectionStates.playerStats?.label} invert label="Atletas" value={playerStatsRows.length} />
         </div>
@@ -391,13 +391,13 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
       ) : null}
 
       {matchCenterQuery.isPartial ? (
-        <ProfileAlert title="Algumas areas ainda estao incompletas" tone="warning">
-          <p>Parte do detalhamento da partida ainda nao chegou por completo.</p>
+        <ProfileAlert title="Algumas áreas ainda estão incompletas" tone="warning">
+          <p>Parte do detalhamento da partida ainda não chegou por completo.</p>
         </ProfileAlert>
       ) : null}
 
       <ProfileTabs
-        ariaLabel="Match center tabs"
+        ariaLabel="Abas da central da partida"
         items={tabLinks.map((tabLink) => ({
           key: tabLink.key,
           label: tabLink.label,
@@ -461,7 +461,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                 </ol>
               ) : (
                 <div className="rounded-[1.2rem] bg-[rgba(240,243,255,0.88)] px-4 py-5 text-sm text-[#57657a]">
-                  Nenhum incidente disponivel para esta partida.
+                  Nenhum incidente disponível para esta partida.
                 </div>
               )}
             </ProfilePanel>
@@ -474,14 +474,14 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                   value={resolveScoreSummary(match.homeScore, match.awayScore)}
                 />
                 <ProfileKpi
-                  hint={match.venueName?.trim() || "Local indisponivel"}
+                  hint={match.venueName?.trim() || "Local indisponível"}
                   label="Status"
                   value={match.status?.trim() || "Sem status"}
                 />
-                <ProfileMetricTile label="Jogadores nas escalacoes" value={lineupPlayers.length} />
+                <ProfileMetricTile label="Jogadores nas escalações" value={lineupPlayers.length} />
                 <ProfileMetricTile label="Titulares detectados" value={startersCount || "-"} />
-                <ProfileMetricTile label="Linhas de stats" value={playerStatsRows.length} />
-                <ProfileMetricTile label="Competicao" value={match.competitionName?.trim() || "-"} />
+                <ProfileMetricTile label="Linhas de estatísticas" value={playerStatsRows.length} />
+                <ProfileMetricTile label="Competição" value={match.competitionName?.trim() || "-"} />
               </ProfilePanel>
 
               <ProfilePanel className="space-y-4" tone="accent">
@@ -491,7 +491,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                       Panorama da partida
                     </p>
                     <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-white">
-                      Numeros disponiveis agora
+                      Números disponíveis agora
                     </h2>
                   </div>
                   {matchCenterQuery.isPartial ? (
@@ -509,7 +509,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                   <ProfileKpi
                     hint={sectionStates.lineups?.label}
                     invert
-                    label="Escalacoes"
+                    label="Escalações"
                     value={lineupPlayers.length}
                   />
                   <ProfileKpi
@@ -547,20 +547,20 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                                 player.minutesPlayed ? `${player.minutesPlayed} min` : null,
                               ]
                                 .filter(Boolean)
-                                .join(" · ") || "Sem identificacao complementar"}
+                                .join(" · ") || "Sem identificação complementar"}
                             </p>
                           </div>
                           <div className="flex items-center gap-5 text-sm text-white/85">
                             <span>Nota {player.rating?.toFixed(2) ?? "-"}</span>
                             <span>Gols {player.goals ?? 0}</span>
-                            <span>KP {player.keyPasses ?? 0}</span>
+                            <span>Passes-chave {player.keyPasses ?? 0}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <p className="text-sm leading-6 text-white/75">
-                      Nenhum destaque adicional disponivel com os dados atuais.
+                      Nenhum destaque adicional disponível com os dados atuais.
                     </p>
                   )}
                 </div>
@@ -582,7 +582,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                 <ProfileCoveragePill coverage={sectionStates.timeline!} />
               </div>
               <p className="text-sm leading-6 text-[#57657a]">
-                Lance a lance da partida, em ordem cronologica.
+                Lance a lance da partida, em ordem cronológica.
               </p>
               <Link
                 className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
@@ -596,7 +596,7 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-                    Escalacoes
+                    Escalações
                   </p>
                   <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-xl font-extrabold text-[#111c2d]">
                     Titulares e banco
@@ -605,13 +605,13 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                 <ProfileCoveragePill coverage={sectionStates.lineups!} />
               </div>
               <p className="text-sm leading-6 text-[#57657a]">
-                Escalacoes por time, com titulares e banco quando esses dados estiverem disponiveis.
+                Escalações por time, com titulares e banco quando esses dados estiverem disponíveis.
               </p>
               <Link
                 className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
                 href={buildMatchCenterTabHref(pathname, searchParams, "lineups")}
               >
-                Ver escalacoes
+                Ver escalações
               </Link>
             </ProfilePanel>
 
@@ -645,13 +645,13 @@ export function MatchCenterContent({ matchId }: MatchCenterContentProps) {
                     Jogadores
                   </p>
                   <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-xl font-extrabold text-[#111c2d]">
-                    Atuacao individual
+                    Atuação individual
                   </h2>
                 </div>
                 <ProfileCoveragePill coverage={sectionStates.playerStats!} />
               </div>
               <p className="text-sm leading-6 text-[#57657a]">
-                Nomes, minutos, participacoes e nota dos jogadores no jogo.
+                Nomes, minutos, participações e nota dos jogadores no jogo.
               </p>
               <Link
                 className="inline-flex items-center rounded-full bg-[#003526] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"

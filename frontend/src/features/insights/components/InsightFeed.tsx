@@ -46,9 +46,9 @@ function sortInsightsBySeverity(insights: InsightObject[]): InsightObject[] {
 
 export function InsightFeed({
   insights,
-  title = "Insight Feed",
-  emptyTitle = "Sem insights",
-  emptyDescription = "Nao ha insights para o contexto selecionado.",
+  title = "Leituras",
+  emptyTitle = "Sem leituras",
+  emptyDescription = "Não há leituras para o contexto selecionado.",
   className,
 }: InsightFeedProps) {
   const sortedInsights = useMemo(() => sortInsightsBySeverity(insights), [insights]);

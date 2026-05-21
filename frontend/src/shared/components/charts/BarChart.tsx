@@ -61,7 +61,7 @@ export function BarChart<TData extends Record<string, unknown>>({
   if (data.length === 0) {
     return (
       <section className={classes}>
-        <p className="text-sm text-slate-500">Sem dados para grafico.</p>
+        <p className="text-sm text-slate-500">Sem dados para gráfico.</p>
       </section>
     );
   }

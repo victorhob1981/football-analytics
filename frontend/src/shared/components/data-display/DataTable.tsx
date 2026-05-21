@@ -250,12 +250,12 @@ export function DataTable<TData extends object>({
             onClick={() => table.nextPage()}
             type="button"
           >
-            Proximo
+            Próximo
           </button>
         </div>
 
         <span className={footerTextClasses}>
-          Pagina {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
+          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
         </span>
 
         <label className={`flex items-center gap-2 ${footerTextClasses}`}>

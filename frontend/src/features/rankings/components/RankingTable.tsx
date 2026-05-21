@@ -147,11 +147,11 @@ function resolveRowCaption(row: RankingTableRow, entity: RankingDefinition["enti
 
 function resolveTimeScopeLabel(filters: RankingQueryFilters): string {
   if (typeof filters.lastN === "number" && Number.isFinite(filters.lastN)) {
-    return `Ultimas ${filters.lastN}`;
+    return `Últimas ${filters.lastN}`;
   }
 
   if (filters.dateRangeStart || filters.dateRangeEnd) {
-    return "Janela customizada";
+    return "Janela personalizada";
   }
 
   if (filters.roundId?.trim()) {
@@ -233,10 +233,10 @@ function shouldShowCoverageNotice(coverage: CoverageState): boolean {
 
 function resolveCoverageMessage(coverage: CoverageState): string {
   if (typeof coverage.percentage === "number") {
-    return `Cobertura parcial nesta temporada (${coverage.percentage.toFixed(0)}% coberto). Use o ranking como referencia, nao como leitura exaustiva.`;
+    return `Cobertura parcial nesta temporada (${coverage.percentage.toFixed(0)}% coberto). Use o ranking como referência, não como leitura exaustiva.`;
   }
 
-  return "Cobertura parcial nesta temporada. Use o ranking como referencia, nao como leitura exaustiva.";
+  return "Cobertura parcial nesta temporada. Use o ranking como referência, não como leitura exaustiva.";
 }
 
 export function RankingTable({ rankingDefinition }: RankingTableProps) {
@@ -415,7 +415,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
                 {formatMetricValue(rankingDefinition.metricKey, metricValue)}
               </p>
               <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-                {row.original.rank === 1 ? "Lider" : "Na disputa"}
+                {row.original.rank === 1 ? "Líder" : "Na disputa"}
               </p>
             </div>
           );
@@ -443,8 +443,8 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
             {rankingDefinition.label}
           </h1>
         </header>
-        <ProfileAlert title="Ranking invalido" tone="critical">
-          metricKey &quot;{rankingDefinition.metricKey}&quot; nao encontrado no metrics registry.
+        <ProfileAlert title="Ranking inválido" tone="critical">
+          A métrica configurada para este ranking não foi encontrada.
         </ProfileAlert>
       </ProfileShell>
     );
@@ -566,7 +566,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
               </p>
               {leaderRow ? (
                 <p className="text-sm font-semibold text-white/82">
-                  Lider atual: {leaderRow.entityName ?? leaderRow.entityId}
+                  Líder atual: {leaderRow.entityName ?? leaderRow.entityId}
                 </p>
               ) : null}
             </div>
@@ -586,7 +586,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
               value={formatMetricValue(rankingDefinition.metricKey, leaderValue)}
             />
             <ProfileKpi
-              hint="Sobre o vice-lider"
+              hint="Sobre o vice-líder"
               invert
               label="Vantagem"
               value={resolveGapLabel(leaderValue, runnerUpValue, rankingDefinition.metricKey)}
@@ -594,7 +594,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
             <ProfileKpi
               hint="Filtro local"
               invert
-              label="Amostra minima"
+              label="Amostra mínima"
               value={minSampleValue ?? rankingDefinition.minSample?.min ?? "-"}
             />
           </div>
@@ -734,7 +734,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
           ) : (
             <ProfilePanel className="md:col-span-2 xl:col-span-3">
               <EmptyState
-                description="Nao ha entidades para os filtros globais e locais atuais."
+                description="Não há entidades para os filtros globais e locais atuais."
                 title="Ranking vazio"
               />
             </ProfilePanel>
@@ -748,7 +748,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
                 Leitura do ranking
               </p>
               <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
-                Como esta a disputa
+                Como está a disputa
               </h2>
             </div>
             <ProfileTag>{resolveTimeScopeLabel(rankingQuery.mergedFilters)}</ProfileTag>
@@ -759,11 +759,11 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
           <div className="grid gap-3 sm:grid-cols-2">
             <ProfileMetricTile label="Entidades avaliadas" value={rows.length} />
             <ProfileMetricTile
-              label="Amostra minima"
+              label="Amostra mínima"
               value={minSampleValue ?? rankingDefinition.minSample?.min ?? "-"}
             />
             <ProfileMetricTile
-              label="Lider"
+              label="Líder"
               value={leaderRow ? (leaderRow.entityName ?? leaderRow.entityId) : "-"}
             />
             <ProfileMetricTile
@@ -807,10 +807,10 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
               Ajustes da tabela
             </p>
             <h2 className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
-              Refine o recorte sem sair da pagina
+              Refine o recorte sem sair da página
             </h2>
             <p className="text-sm text-[#57657a]">
-              Use busca, ordenacao e amostra minima para comparar o ranking sem perder a mesma
+              Use busca, ordenação e amostra mínima para comparar o ranking sem perder a mesma
               temporada.
             </p>
           </div>
@@ -872,7 +872,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
           </label>
 
           <label className="flex flex-col gap-2 text-sm text-[#1f2d40]">
-            Amostra minima
+            Amostra mínima
             <div className="flex items-center gap-3 rounded-[1.3rem] border border-[rgba(191,201,195,0.55)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-[#003526]">
                 Min
@@ -912,7 +912,7 @@ export function RankingTable({ rankingDefinition }: RankingTableProps) {
         <DataTable<RankingTableRow>
           columns={columns}
           data={rows}
-          emptyDescription="Nao ha linhas para os filtros atuais."
+          emptyDescription="Não há linhas para os filtros atuais."
           emptyTitle="Ranking vazio"
           enableVirtualization
           initialPageSize={50}
