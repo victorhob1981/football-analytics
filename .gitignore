@@ -134,5 +134,7 @@ frontend/artifacts/runtime-validation/
 .tmp*.log
 *.pid
 
-images/
+/images/
 imagens.py
+
+.vercel

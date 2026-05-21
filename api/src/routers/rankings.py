@@ -291,6 +291,13 @@ def _fetch_player_ranking_rows(
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     offset = (page - 1) * page_size
     order_dir = "asc" if sort_direction == "asc" else "desc"
+    rank_order_sql = f"c.metric_value {order_dir} nulls last"
+    final_order_sql = "r.rank asc, r.player_id asc"
+
+    if value_column == "goals":
+        final_order_sql = (
+            "r.rank asc, r.minutes_played asc nulls last, lower(r.player_name) asc nulls last, r.player_id asc"
+        )
 
     query = f"""
         with scoped as (
@@ -349,14 +356,14 @@ def _fetch_player_ranking_rows(
                 c.matches_played,
                 c.minutes_played,
                 c.metric_value,
-                dense_rank() over (order by c.metric_value {order_dir} nulls last, c.player_id asc) as rank
+                dense_rank() over (order by {rank_order_sql}) as rank
             from constrained c
         )
         select
             r.*,
             count(*) over() as _total_count
         from ranked r
-        order by r.rank asc, r.player_id asc
+        order by {final_order_sql}
         limit %s offset %s;
     """
 

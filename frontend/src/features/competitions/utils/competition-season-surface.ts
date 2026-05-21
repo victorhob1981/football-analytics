@@ -44,6 +44,14 @@ export function normalizeCompetitionSeasonSurfaceSection(
   section: CompetitionSeasonSurfaceSection,
   surfaceType?: CompetitionSeasonSurfaceType | null,
 ): CompetitionSeasonSurfaceSection {
+  if (surfaceType === "cup") {
+    if (section === "rounds") {
+      return "matches";
+    }
+
+    return section;
+  }
+
   if (surfaceType !== "hybrid") {
     return section;
   }

@@ -33,6 +33,121 @@ export function getStageFormatLabel(stageFormat: CompetitionStageFormat): string
   }
 }
 
+function normalizeCompetitionStageIdentityValue(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export function localizeCompetitionStageName(value: string | null | undefined): string {
+  const normalizedValue = normalizeCompetitionStageIdentityValue(value);
+
+  if (!normalizedValue) {
+    return "Fase";
+  }
+
+  if (
+    normalizedValue.includes("round_of_16") ||
+    normalizedValue === "round_16" ||
+    normalizedValue.includes("last_16") ||
+    normalizedValue.includes("8th_final") ||
+    normalizedValue.includes("eighth_final") ||
+    normalizedValue.includes("oitavas")
+  ) {
+    return "Oitavas de final";
+  }
+
+  if (
+    normalizedValue.includes("quarter_final") ||
+    normalizedValue.includes("quarter_finals") ||
+    normalizedValue.includes("round_of_8") ||
+    normalizedValue === "round_8" ||
+    normalizedValue.includes("quartas")
+  ) {
+    return "Quartas de final";
+  }
+
+  if (
+    normalizedValue.includes("semi_final") ||
+    normalizedValue.includes("semi_finals") ||
+    normalizedValue.includes("semifinal")
+  ) {
+    return "Semifinais";
+  }
+
+  if (
+    normalizedValue === "final" ||
+    normalizedValue === "finals" ||
+    (normalizedValue.includes("final") &&
+      !normalizedValue.includes("quarter") &&
+      !normalizedValue.includes("semi") &&
+      !normalizedValue.includes("eighth"))
+  ) {
+    return "Final";
+  }
+
+  if (
+    normalizedValue.includes("group_stage") ||
+    normalizedValue.includes("group_phase") ||
+    normalizedValue.includes("fase_de_grupos")
+  ) {
+    return "Fase de grupos";
+  }
+
+  if (
+    normalizedValue.includes("league_stage") ||
+    normalizedValue.includes("league_phase") ||
+    normalizedValue.includes("fase_de_liga")
+  ) {
+    return "Fase classificatória";
+  }
+
+  if (normalizedValue.includes("knockout") || normalizedValue.includes("mata_mata")) {
+    return "Mata-mata";
+  }
+
+  if (
+    normalizedValue.includes("playoff") ||
+    normalizedValue.includes("playoffs") ||
+    normalizedValue.includes("play_off")
+  ) {
+    return "Repescagem";
+  }
+
+  if (normalizedValue.includes("third") || normalizedValue.includes("terceiro")) {
+    return "Disputa de 3º lugar";
+  }
+
+  if (
+    normalizedValue.includes("1st_round") ||
+    normalizedValue.includes("first_round") ||
+    normalizedValue === "round_1"
+  ) {
+    return "Primeira fase";
+  }
+
+  if (
+    normalizedValue.includes("2nd_round") ||
+    normalizedValue.includes("second_round") ||
+    normalizedValue === "round_2"
+  ) {
+    return "Segunda fase";
+  }
+
+  if (
+    normalizedValue.includes("3rd_round") ||
+    normalizedValue.includes("third_round") ||
+    normalizedValue === "round_3"
+  ) {
+    return "Terceira fase";
+  }
+
+  return value ?? "Fase";
+}
+
 export function describeCompetitionEdition(structure: CompetitionStructureData | null | undefined): string | null {
   if (!structure) {
     return null;

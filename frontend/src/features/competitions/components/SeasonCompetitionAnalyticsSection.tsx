@@ -10,7 +10,11 @@ import { fetchStageTies } from "@/features/competitions/services/competition-hub
 import { competitionStructureQueryKeys } from "@/features/competitions/queryKeys";
 import { useCompetitionAnalytics } from "@/features/competitions/hooks";
 import type { CompetitionStructureData } from "@/features/competitions/types";
-import { getStageFormatLabel, isKnockoutStageFormat } from "@/features/competitions/utils/competition-structure";
+import {
+  getStageFormatLabel,
+  isKnockoutStageFormat,
+  localizeCompetitionStageName,
+} from "@/features/competitions/utils/competition-structure";
 import { PartialDataBanner } from "@/shared/components/coverage/PartialDataBanner";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
@@ -183,7 +187,7 @@ export function SeasonCompetitionAnalyticsSection({
               <ProfilePanel className="space-y-4" key={stage.stageId} tone={stage.isCurrent ? "soft" : "base"}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <ProfileTag>{stage.stageName ?? stage.stageId}</ProfileTag>
+                    <ProfileTag>{localizeCompetitionStageName(stage.stageName ?? stage.stageId)}</ProfileTag>
                     {stage.stageFormat ? <ProfileTag>{getStageFormatLabel(stage.stageFormat)}</ProfileTag> : null}
                     {stage.isCurrent ? <ProfileTag>Atual</ProfileTag> : null}
                   </div>
@@ -337,7 +341,7 @@ export function SeasonCompetitionAnalyticsSection({
               <ProfilePanel className="space-y-4" key={stage.stageId} tone={stage.isCurrent ? "soft" : "base"}>
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <ProfileTag>{stage.stageName ?? stage.stageId}</ProfileTag>
+                    <ProfileTag>{localizeCompetitionStageName(stage.stageName ?? stage.stageId)}</ProfileTag>
                     {stage.stageFormat ? <ProfileTag>{getStageFormatLabel(stage.stageFormat)}</ProfileTag> : null}
                   </div>
                 </div>

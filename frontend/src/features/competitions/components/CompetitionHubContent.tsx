@@ -120,44 +120,6 @@ function formatWholeNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
 }
 
-function compareEditionTopScorers(left: RankingTableRow, right: RankingTableRow): number {
-  const leftGoals =
-    typeof left.metricValue === "number" && Number.isFinite(left.metricValue)
-      ? left.metricValue
-      : Number.NEGATIVE_INFINITY;
-  const rightGoals =
-    typeof right.metricValue === "number" && Number.isFinite(right.metricValue)
-      ? right.metricValue
-      : Number.NEGATIVE_INFINITY;
-
-  if (leftGoals !== rightGoals) {
-    return rightGoals - leftGoals;
-  }
-
-  const leftMinutes =
-    typeof left.minutesPlayed === "number" && Number.isFinite(left.minutesPlayed)
-      ? left.minutesPlayed
-      : Number.POSITIVE_INFINITY;
-  const rightMinutes =
-    typeof right.minutesPlayed === "number" && Number.isFinite(right.minutesPlayed)
-      ? right.minutesPlayed
-      : Number.POSITIVE_INFINITY;
-
-  if (leftMinutes !== rightMinutes) {
-    return leftMinutes - rightMinutes;
-  }
-
-  const leftName = (left.entityName ?? left.entityId ?? "").trim();
-  const rightName = (right.entityName ?? right.entityId ?? "").trim();
-  const nameComparison = leftName.localeCompare(rightName, "pt-BR", { sensitivity: "base" });
-
-  if (nameComparison !== 0) {
-    return nameComparison;
-  }
-
-  return left.entityId.localeCompare(right.entityId, "pt-BR", { sensitivity: "base" });
-}
-
 async function fetchSeasonTopScorer(
   competition: CompetitionDef,
   season: SeasonDef,
@@ -176,32 +138,19 @@ async function fetchSeasonTopScorer(
     };
   }
 
-  let page = 1;
-  let totalPages = 1;
-  let firstResponse: ApiResponse<{ rows: RankingTableRow[] }> | null = null;
-  const rows: RankingTableRow[] = [];
-
-  do {
-    const response = await fetchRanking({
-      rankingDefinition,
-      filters: {
-        competitionId: competition.id,
-        freshnessClass: "season",
-        minSampleValue: 0,
-        page,
-        pageSize: 100,
-        seasonId: season.queryId,
-        sortDirection: "desc",
-      },
-    });
-
-    firstResponse ??= response;
-    rows.push(...(response.data.rows ?? []));
-    totalPages = response.meta?.pagination?.totalPages ?? 1;
-    page += 1;
-  } while (page <= totalPages);
-
-  const scorerRow = [...rows].sort(compareEditionTopScorers)[0] ?? null;
+  const response = await fetchRanking({
+    rankingDefinition,
+    filters: {
+      competitionId: competition.id,
+      freshnessClass: "season",
+      minSampleValue: 0,
+      page: 1,
+      pageSize: 1,
+      seasonId: season.queryId,
+      sortDirection: "desc",
+    },
+  });
+  const scorerRow = response.data.rows?.[0] ?? null;
 
   return {
     data: {
@@ -218,7 +167,7 @@ async function fetchSeasonTopScorer(
           }
         : null,
     },
-    meta: firstResponse?.meta,
+    meta: response.meta,
   };
 }
 
