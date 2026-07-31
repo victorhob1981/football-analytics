@@ -335,7 +335,11 @@ export function PlatformShell({ children }: PlatformShellProps) {
   const isCanonicalSeasonRoute =
     isCanonicalCompetitionSeasonRoute(pathname) || isWorldCupEditionRoute(pathname);
   const surfaceContentWidthClassName = isCanonicalSeasonRoute ? "max-w-[95rem]" : "max-w-7xl";
-  const shouldRenderSurfaceChrome = !isHomeRoute && !isCompetitionsIndexRoute && pathname !== "/analises";
+  const shouldRenderSurfaceChrome =
+    !isHomeRoute &&
+    !isCompetitionsIndexRoute &&
+    pathname !== "/analises" &&
+    pathname !== "/power-bi";
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileSidebarMode, setIsMobileSidebarMode] = useState<boolean | null>(null);
@@ -371,7 +375,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
     { href: "/", icon: "analytics" as const, label: "Início" },
     { href: "/copa-do-mundo", icon: "worldCup" as const, label: "Copa do Mundo" },
     { href: "/competitions", icon: "competition" as const, label: "Competições" },
-    { href: buildRankingsHubPath(sharedFilters), icon: "analytics" as const, label: "Análises" },
+    { href: buildRankingsHubPath(sharedFilters), icon: "analytics" as const, label: "Rankings" },
     { href: buildPlayersPath(sharedFilters), icon: "player" as const, label: "Jogadores" },
     { href: buildTeamsPath(sharedFilters), icon: "team" as const, label: "Times" },
   ] as const;
@@ -379,15 +383,23 @@ export function PlatformShell({ children }: PlatformShellProps) {
   const topNavLinks = [
     { href: "/copa-do-mundo", label: "Copa do Mundo" },
     { href: "/competitions", label: "Competições" },
-    { href: buildRankingsHubPath(sharedFilters), label: "Análises" },
+    { href: buildRankingsHubPath(sharedFilters), label: "Rankings" },
+    { href: "/power-bi", label: "Power BI" },
   ] as const;
   const mobileNavLinks = [
     { href: "/", icon: "analytics" as const, label: "Início" },
     { href: "/copa-do-mundo", icon: "worldCup" as const, label: "Copa" },
     { href: "/competitions", icon: "competition" as const, label: "Competições" },
-    { href: buildRankingsHubPath(sharedFilters), icon: "analytics" as const, label: "Análises" },
+    { href: buildRankingsHubPath(sharedFilters), icon: "analytics" as const, label: "Rankings" },
+    { href: "/power-bi", icon: "analytics" as const, label: "Power BI" },
   ] as const;
   const secondaryPublicLinks = [
+    {
+      href: "/power-bi",
+      icon: "analytics" as const,
+      label: "Power BI",
+      summary: "Relatório interativo competitivo",
+    },
     {
       href: buildHeadToHeadPath(sharedFilters),
       icon: "match" as const,
@@ -683,7 +695,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
             prefetch={false}
           >
             <ShellIcon icon="analytics" />
-            <span>Análises</span>
+            <span>Rankings</span>
           </Link>
         </div>
       </aside>

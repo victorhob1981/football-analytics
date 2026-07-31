@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
-
-import { buildAnalysesPath } from "@/shared/utils/context-routing";
+import { WorldCupRankingsContent } from "@/features/world-cup/components/WorldCupRankingsContent";
 
 export default function WorldCupRankingsPage() {
-  redirect(buildAnalysesPath({ competitionKey: "fifa_world_cup_mens" }));
+  return <WorldCupRankingsContent />;
 }

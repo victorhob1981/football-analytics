@@ -7,5 +7,5 @@ type LegacyAnalyticsPageProps = {
 };
 
 export default async function AnalyticsPage({ searchParams }: LegacyAnalyticsPageProps) {
-  redirect(`/analises${buildPassthroughSearchParamsQueryString(await searchParams)}`);
+  redirect(`/power-bi${buildPassthroughSearchParamsQueryString(await searchParams)}`);
 }
