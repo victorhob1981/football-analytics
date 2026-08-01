@@ -136,6 +136,18 @@ def _normalize_team_name(value: str | None) -> str:
     return "".join(character for character in normalized if not unicodedata.combining(character)).strip().casefold()
 
 
+def _team_names_match(seed_name: str | None, team_name: str | None) -> bool:
+    seed = _normalize_team_name(seed_name)
+    team = _normalize_team_name(team_name)
+    if not seed or not team:
+        return False
+    if seed == team:
+        return True
+
+    shorter, longer = sorted((seed, team), key=len)
+    return len(shorter) >= 5 and longer.endswith(f" {shorter}")
+
+
 def _load_team_honors(team_id: int | None, team_name: str | None) -> dict[str, Any] | None:
     if (team_id is None and not team_name) or not _TEAM_HONORS_PATH.exists():
         return None
@@ -153,11 +165,10 @@ def _load_team_honors(team_id: int | None, team_name: str | None) -> dict[str, A
         rows = [row for row in champion_rows if row.get("team_id") == canonical_team_id]
 
     if not rows and team_name:
-        normalized_team_name = _normalize_team_name(team_name)
         rows = [
             row
             for row in champion_rows
-            if _normalize_team_name(row.get("team_name")) == normalized_team_name
+            if _team_names_match(row.get("team_name"), team_name)
         ]
 
     if not rows:
