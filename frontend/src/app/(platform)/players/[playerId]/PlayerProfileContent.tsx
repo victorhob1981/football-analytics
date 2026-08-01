@@ -320,9 +320,9 @@ export function PlayerProfileContent({
   });
   const tabs = [
     { key: "overview" as const, label: "Visão geral", badge: "Recorte" },
-    { key: "history" as const, label: "Histórico", badge: `${history?.length ?? 0}` },
-    { key: "matches" as const, label: "Partidas", badge: `${recentMatches?.length ?? 0}` },
-    { key: "stats" as const, label: "Estatísticas", badge: stats ? "Detalhes" : "—" },
+    { key: "history" as const, label: "Histórico", badge: history ? `${history.length}` : "Abrir" },
+    { key: "matches" as const, label: "Partidas", badge: recentMatches ? `${recentMatches.length}` : "Abrir" },
+    { key: "stats" as const, label: "Estatísticas", badge: stats ? "Detalhes" : "Abrir" },
   ];
 
   function toggleComparison() {
