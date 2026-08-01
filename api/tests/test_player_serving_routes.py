@@ -110,6 +110,63 @@ class PlayerServingRoutesTests(unittest.TestCase):
         self.assertIn("mart.player_serving_summary", query)
         self.assertNotIn("mart.player_match_summary pms", query)
 
+    @patch("api.src.routers.players.db_client.fetch_all")
+    def test_players_default_exposes_archive_scope_and_documentation_fields(self, fetch_all_mock) -> None:
+        fetch_all_mock.return_value = [
+            {
+                "player_id": 10,
+                "player_name": "Jogador A",
+                "team_id": 100,
+                "team_name": "Clube A",
+                "position_name": "Forward",
+                "nationality": "BR",
+                "team_count": 2,
+                "competition_count": 3,
+                "season_count": 4,
+                "career_start_at": "2019-01-01",
+                "career_end_at": "2024-12-01",
+                "recent_teams": [],
+                "matches_played": 12,
+                "minutes_played": 900,
+                "goals": 8,
+                "assists": 3,
+                "shots_total": 24,
+                "yellow_cards": 1,
+                "red_cards": 0,
+                "rating": 7.5,
+                "_total_count": 1,
+            }
+        ]
+
+        response = self.client.get("/api/v1/players?pageSize=20")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["data"]["scope"]["kind"], "archive")
+        self.assertFalse(payload["data"]["scope"]["isExhaustive"])
+        item = payload["data"]["items"][0]
+        self.assertEqual(item["competitionCount"], 3)
+        self.assertEqual(item["seasonCount"], 4)
+        self.assertEqual(item["careerStartAt"], "2019-01-01")
+        self.assertEqual(item["careerEndAt"], "2024-12-01")
+        query = fetch_all_mock.call_args.args[0].lower()
+        self.assertIn("season_count", query)
+        self.assertIn("competition_count", query)
+
+    @patch("api.src.routers.players.db_client.fetch_all")
+    def test_players_filtered_relevance_uses_documentation_signals(self, fetch_all_mock) -> None:
+        fetch_all_mock.return_value = []
+
+        response = self.client.get(
+            "/api/v1/players?competitionId=71&seasonId=23628&sortBy=relevance&pageSize=20"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        query = fetch_all_mock.call_args.args[0].lower()
+        self.assertIn("season_count", query)
+        self.assertIn("competition_count", query)
+        self.assertIn("matches_played", query)
+
     @patch("api.src.routers.rankings._player_ranking_coverage")
     @patch("api.src.routers.rankings._resolve_ranking_context_scope")
     @patch("api.src.routers.rankings.db_client.fetch_all")

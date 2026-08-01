@@ -66,7 +66,18 @@ class HomeRouteTests(unittest.TestCase):
         query = db_client.fetch_one.call_args.args[0]
         self.assertIn("mart.dim_player", query)
         self.assertNotIn("raw.fixtures", query)
-        self.assertEqual(result, {"competitions": 0, "seasons": 0, "matches": 0, "players": 3})
+        self.assertEqual(result, {"competitions": 0, "seasons": 0, "matches": 0, "players": 3, "clubs": 0})
+
+    def test_archive_summary_counts_only_classified_clubs(self) -> None:
+        with patch("api.src.routers.home.db_client") as db_client:
+            db_client.fetch_one.return_value = {"players": 3, "clubs": 1773}
+
+            result = _fetch_archive_summary()
+
+        self.assertEqual(result["clubs"], 1773)
+        query = db_client.fetch_one.call_args.args[0].lower()
+        self.assertIn("team_type", query)
+        self.assertIn("club", query)
 
     def test_competitions_read_from_serving_summary(self) -> None:
         serving_row = {
