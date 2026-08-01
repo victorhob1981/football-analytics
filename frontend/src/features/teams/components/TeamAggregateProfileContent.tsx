@@ -17,9 +17,10 @@ import { getCompetitionById } from "@/config/competitions.registry";
 import { getSeasonById, getSeasonByQueryId } from "@/config/seasons.registry";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 import {
-  buildCanonicalTeamPath,
+  buildCanonicalClubPath,
+  buildClubResolverPath,
+  buildClubsPath,
   buildRankingsHubPath,
-  buildTeamsPath,
 } from "@/shared/utils/context-routing";
 
 type TeamAggregateProfileContentProps = {
@@ -282,14 +283,14 @@ export function TeamAggregateProfileContent({
     aggregateTeam.matchesPlayed && aggregateTeam.matchesPlayed > 0
       ? (aggregateTeam.points ?? 0) / aggregateTeam.matchesPlayed
       : null;
-  const defaultContextHref = defaultContext ? buildCanonicalTeamPath(defaultContext, teamId) : null;
+  const defaultContextHref = defaultContext ? buildCanonicalClubPath(defaultContext, teamId) : null;
   const contextCards = availableContexts.slice(0, 8);
 
   return (
     <ProfileShell className="space-y-6">
       <div className="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-        <Link className="transition-colors hover:text-[#00513b]" href={buildTeamsPath(sharedFilters)}>
-          Times
+        <Link className="transition-colors hover:text-[#00513b]" href={buildClubsPath(sharedFilters)}>
+          Clubes
         </Link>
         <span className="text-[#8fa097]">/</span>
         <span>{aggregateTeam.teamName}</span>
@@ -310,6 +311,7 @@ export function TeamAggregateProfileContent({
                 category="clubs"
                 className="h-16 w-16 shrink-0 border border-white/18 bg-white/12 sm:h-24 sm:w-24"
                 fallback={getTeamMonogram(aggregateTeam.teamName)}
+                href={buildClubResolverPath(aggregateTeam.teamId, sharedFilters)}
                 imageClassName="p-3"
                 tone="contrast"
               />
@@ -330,7 +332,7 @@ export function TeamAggregateProfileContent({
               <AggregateHeroKpi
                 label="Posição"
                 value={aggregateTeam.position ? `${aggregateTeam.position}º` : "-"}
-                hint={aggregateTeam.totalTeams ? `entre ${formatInteger(aggregateTeam.totalTeams)} times` : "ranking do recorte"}
+                hint={aggregateTeam.totalTeams ? `entre ${formatInteger(aggregateTeam.totalTeams)} clubes` : "ranking do recorte"}
                 icon="shield"
               />
               <AggregateHeroKpi
@@ -363,8 +365,8 @@ export function TeamAggregateProfileContent({
               <Link className="button-pill button-pill-soft" href={buildRankingsHubPath(sharedFilters)}>
                 Rankings do recorte
               </Link>
-              <Link className="button-pill button-pill-soft" href={buildTeamsPath(sharedFilters)}>
-                Ver times no recorte
+              <Link className="button-pill button-pill-soft" href={buildClubsPath(sharedFilters)}>
+                Ver clubes no recorte
               </Link>
             </div>
 
@@ -398,7 +400,7 @@ export function TeamAggregateProfileContent({
             {contextCards.map((context) => (
               <Link
                 className="group rounded-[1.25rem] border border-[rgba(216,227,251,0.78)] bg-white/78 p-4 transition hover:border-[#8bd6b6] hover:bg-white"
-                href={buildCanonicalTeamPath(context, teamId)}
+                href={buildCanonicalClubPath(context, teamId)}
                 key={`${context.competitionId}-${context.seasonId}`}
               >
                 <p className="text-[0.64rem] font-bold uppercase tracking-[0.18em] text-[#69778d]">
