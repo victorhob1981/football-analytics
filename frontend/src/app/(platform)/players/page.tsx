@@ -49,6 +49,55 @@ const SORT_OPTIONS: Array<{ label: string; value: PlayersSortBy }> = [
   { label: "Nota", value: "rating" },
 ];
 
+const POSITION_LABELS: Record<string, string> = {
+  attacker: "Atacante",
+  attackingmidfield: "Meia atacante",
+  attackingmidfielder: "Meia atacante",
+  cam: "Meia atacante",
+  cb: "Zagueiro",
+  centerback: "Zagueiro",
+  centerforward: "Centroavante",
+  centreback: "Zagueiro",
+  centreforward: "Centroavante",
+  cf: "Centroavante",
+  cm: "Meia central",
+  cdm: "Volante",
+  defender: "Defensor",
+  defensivemidfield: "Volante",
+  defensivemidfielder: "Volante",
+  dm: "Volante",
+  forward: "Atacante",
+  fullback: "Lateral",
+  gk: "Goleiro",
+  goalkeeper: "Goleiro",
+  keeper: "Goleiro",
+  lb: "Lateral esquerdo",
+  leftback: "Lateral esquerdo",
+  leftmidfield: "Meia esquerda",
+  leftmidfielder: "Meia esquerda",
+  leftwing: "Ponta esquerda",
+  leftwingback: "Ala esquerdo",
+  leftwinger: "Ponta esquerda",
+  lm: "Meia esquerda",
+  lw: "Ponta esquerda",
+  midfielder: "Meia",
+  ram: "Meia direita",
+  rb: "Lateral direito",
+  rightback: "Lateral direito",
+  rightmidfield: "Meia direita",
+  rightmidfielder: "Meia direita",
+  rightwing: "Ponta direita",
+  rightwingback: "Ala direito",
+  rightwinger: "Ponta direita",
+  rm: "Meia direita",
+  rw: "Ponta direita",
+  secondstriker: "Segundo atacante",
+  st: "Centroavante",
+  striker: "Centroavante",
+  wingback: "Ala",
+  winger: "Ponta",
+};
+
 function formatInteger(value: number | null | undefined): string {
   return typeof value === "number" && !Number.isNaN(value) ? INTEGER_FORMATTER.format(value) : "—";
 }
@@ -87,21 +136,18 @@ function getInitials(name: string): string {
 }
 
 function formatPosition(position: string | null | undefined): string {
-  const normalized = position?.trim().toLowerCase();
-
-  if (!normalized) {
+  if (!position) {
     return "Posição não informada";
   }
 
-  const labels: Record<string, string> = {
-    attacker: "Atacante",
-    defender: "Defensor",
-    forward: "Atacante",
-    goalkeeper: "Goleiro",
-    midfielder: "Meio-campista",
-  };
+  const normalized = position.trim();
+  const key = normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z]/g, "")
+    .toLowerCase();
 
-  return labels[normalized] ?? position!.trim();
+  return POSITION_LABELS[key] ?? normalized;
 }
 
 function formatYearSpan(start: string | null | undefined, end: string | null | undefined): string {
@@ -377,9 +423,14 @@ export default function PlayersPage() {
             <p className="font-[family:var(--font-profile-headline)] text-5xl font-extrabold tracking-[-0.055em] sm:text-6xl">
               {formatInteger(archivePlayerCount)}
             </p>
-            <p className="mt-2 text-sm font-semibold text-white/86">jogadores no acervo publicado</p>
+            <p className="mt-2 text-sm font-semibold text-white/86">
+              identidades de jogadores no acervo bruto publicado
+            </p>
             <p className="mt-2 text-sm/6 text-white/56">
-              {formatInteger(totalCount)} {totalCount === 1 ? "carreira encontrada" : "carreiras encontradas"} neste recorte. O acervo não representa toda a história do futebol.
+              {isFiltered
+                ? `${formatInteger(totalCount)} ${totalCount === 1 ? "carreira documentada atende" : "carreiras documentadas atendem"} aos filtros atuais.`
+                : `${formatInteger(totalCount)} ${totalCount === 1 ? "carreira documentada disponível" : "carreiras documentadas disponíveis"} para explorar.`}{" "}
+              São camadas de cobertura diferentes; nenhuma representa toda a história do futebol.
             </p>
 
             <label className="mt-7 block" htmlFor="player-search">

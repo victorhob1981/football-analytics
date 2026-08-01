@@ -40,10 +40,10 @@ const SEARCH_GROUP_LABELS: Record<SearchGroup["type"], string> = {
   competition: "Competições",
   match: "Partidas",
   player: "Jogadores",
-  team: "Times",
+  team: "Clubes e seleções",
 };
 
-const SEARCH_GROUP_TAGS = ["Competições", "Partidas", "Times", "Jogadores"] as const;
+const SEARCH_GROUP_TAGS = ["Competições", "Partidas", "Clubes", "Jogadores"] as const;
 
 type SearchDisplayContext =
   | (CompetitionSeasonContext & CompetitionSeasonContextInput)
@@ -409,7 +409,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
               onChange={(event) => {
                 setQuery(event.target.value);
               }}
-              placeholder="Buscar competições, partidas, times ou jogadores"
+              placeholder="Buscar competições, partidas, clubes ou jogadores"
               ref={inputRef}
               value={query}
             />
@@ -423,7 +423,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
             </button>
           </div>
           <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[#57657a]">
-            Encontre competições, partidas, times e jogadores nas telas disponíveis agora.
+            Encontre competições, partidas, clubes, seleções e jogadores nas telas disponíveis agora.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {SEARCH_GROUP_TAGS.map((tag) => (

@@ -53,10 +53,15 @@ const TEAM_TYPE_LABELS: Record<CareerTeamType, string> = {
 };
 
 const POSITION_LABELS: Record<string, string> = {
+  attacker: "Atacante",
+  cb: "Zagueiro",
   goalkeeper: "Goleiro",
+  gk: "Goleiro",
   defender: "Defensor",
   midfielder: "Meio-campista",
   forward: "Atacante",
+  st: "Centroavante",
+  striker: "Centroavante",
   "center forward": "Centroavante",
   "right winger": "Ponta direita",
   "left winger": "Ponta esquerda",
@@ -150,15 +155,25 @@ function CareerTeamCard({
   return (
     <article className="flex min-h-full flex-col rounded-[1.35rem] border border-[rgba(191,201,195,0.48)] bg-white/74 p-4 shadow-[0_18px_42px_-38px_rgba(17,28,45,0.36)]">
       <div className="flex items-start gap-3">
-        <ProfileMedia
-          alt={item.teamName}
-          assetId={item.teamId}
-          category="clubs"
-          className="h-12 w-12 shrink-0 border border-[rgba(191,201,195,0.42)] bg-[#f4f7f2]"
-          fallback={getMonogram(item.teamName)}
-          href={href}
-          imageClassName="p-2"
-        />
+        {item.teamType === "club" ? (
+          <ProfileMedia
+            alt={item.teamName}
+            assetId={item.teamId}
+            category="clubs"
+            className="h-12 w-12 shrink-0 border border-[rgba(191,201,195,0.42)] bg-[#f4f7f2]"
+            fallback={getMonogram(item.teamName)}
+            href={href}
+            imageClassName="p-2"
+          />
+        ) : (
+          <Link
+            aria-label={`Abrir ${item.teamName}`}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.2rem] border border-[rgba(191,201,195,0.42)] bg-[#f4f7f2] px-2 text-center font-[family:var(--font-app-headline)] text-xs font-extrabold uppercase tracking-[0.12em] text-[#003526] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b7f5f]"
+            href={href}
+          >
+            {getMonogram(item.teamName)}
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-[0.64rem] font-bold uppercase tracking-[0.17em] text-[#69778d]">
             {TEAM_TYPE_LABELS[item.teamType]}
