@@ -14,6 +14,8 @@ const legacyAnalyticsRoute = read("src/app/(platform)/analytics/page.tsx");
 
 test("ranking routes remain direct pages with their historical surfaces", () => {
   assert.match(rankingsHub, /listRankingsByEntity/);
+  assert.doesNotMatch(rankingsHub, /fetchRanking/);
+  assert.doesNotMatch(rankingsHub, /Times|jogadores e times/);
   assert.doesNotMatch(rankingsHub, /redirect/);
   assert.match(rankingDetail, /getRankingDefinition/);
   assert.match(rankingDetail, /RankingTable/);
