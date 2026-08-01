@@ -44,7 +44,11 @@ export async function fetchTeamsList(
 ): Promise<ApiResponse<TeamsListData>> {
   return apiRequest<ApiResponse<TeamsListData>>(TEAMS_ENDPOINTS.list, {
     method: "GET",
-    params: toQueryParams(filters),
+    params: toQueryParams({
+      ...filters,
+      sortBy: filters.sortBy ?? "relevance",
+      sortDirection: filters.sortDirection ?? "desc",
+    }),
     signal,
   });
 }

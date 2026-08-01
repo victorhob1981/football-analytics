@@ -3,13 +3,16 @@ import path from "node:path";
 
 import type { TeamHonorsPreview } from "@/features/teams/types";
 
-const PREVIEW_SLUG_BY_TEAM_ID: Record<string, string> = {
-  "1024": "flamengo",
-  flamengo: "flamengo",
-};
+const PREVIEW_TEAM_ID = "1024";
+const PREVIEW_SLUG_BY_TEAM_NAME: Record<string, string> = { flamengo: "flamengo" };
 
 function getPreviewSlug(teamId: string): string | null {
-  return PREVIEW_SLUG_BY_TEAM_ID[teamId.trim().toLowerCase()] ?? null;
+  const normalizedTeamId = teamId.trim().toLowerCase();
+  if (normalizedTeamId === PREVIEW_TEAM_ID) {
+    return "flamengo";
+  }
+
+  return PREVIEW_SLUG_BY_TEAM_NAME[normalizedTeamId] ?? null;
 }
 
 function getPreviewPathCandidates(previewSlug: string): string[] {

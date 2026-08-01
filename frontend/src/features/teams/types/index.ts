@@ -1,4 +1,8 @@
 export type {
+  ClubHonor,
+  ClubHonorScope,
+  ClubHonors,
+  TeamArchiveSummary,
   TeamFormResult,
   TeamHonorItem,
   TeamHonorScope,
@@ -32,4 +36,8 @@ export type {
   TeamsGlobalFilters,
   TeamStatsSummary,
   TeamStatsTrendPoint,
+  TeamIdentity,
+  TeamType,
 } from "@/features/teams/types/teams.types";
+
+export type { CatalogScope } from "@/shared/types/catalog.types";

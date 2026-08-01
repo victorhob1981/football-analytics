@@ -1,5 +1,8 @@
 export type {
+  CareerTeamType,
   Player,
+  PlayerCareerSummary,
+  PlayerCareerTeam,
   PlayerHistoryEntry,
   PlayerListItem,
   PlayerMatchStatsPoint,
@@ -21,3 +24,5 @@ export type {
   PlayersListLocalFilters,
   PlayerStatsSummary,
 } from "@/features/players/types/players.types";
+
+export type { CatalogScope } from "@/shared/types/catalog.types";
