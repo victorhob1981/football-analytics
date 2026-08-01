@@ -35,5 +35,11 @@ test("team profile aliases guard identity before rendering or redirecting", () =
   assert.match(teamResolver, /teamType === "national_team"/);
   assert.match(teamResolver, /fifa_world_cup_mens/);
   assert.match(teamResolver, /buildWorldCupTeamPath/);
-  assert.match(teamResolver, /Perfil de clube indisponível/);
+  assert.match(
+    teamResolver,
+    /isClubSurface \? "Perfil de clube indisponível" : "Equipe indisponível"/,
+  );
+  assert.match(teamResolver, /isClubSurface \? "\/clubs" : "\/competitions"/);
+  assert.match(teamResolver, /isClubSurface \? "Voltar para clubes" : "Abrir competições"/);
+  assert.match(teamResolver, /identidade de equipe confirmada/);
 });
