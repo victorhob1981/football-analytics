@@ -317,10 +317,12 @@ class PlayerServingRoutesTests(unittest.TestCase):
 
     @patch("api.src.routers.players._profile_coverage")
     @patch("api.src.routers.players._fetch_player_profile_meta")
+    @patch("api.src.routers.players._fetch_player_career", return_value={"teams": []})
     @patch("api.src.routers.players.db_client.fetch_one")
     def test_player_profile_serializes_count_fields_as_int(
         self,
         fetch_one_mock,
+        _career_mock,
         fetch_profile_meta_mock,
         profile_coverage_mock,
     ) -> None:
