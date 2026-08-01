@@ -8,6 +8,7 @@ from fastapi import APIRouter, Query, Request
 from ..core.context_registry import build_canonical_context, select_default_context
 from ..core.contracts import (
     build_api_response,
+    build_catalog_scope,
     build_coverage_from_counts,
     build_pagination,
 )
@@ -22,7 +23,8 @@ from ..db.client import db_client
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams"])
 
-TeamsSortBy = Literal["teamName", "points", "goalDiff", "wins", "position"]
+TeamsSortBy = Literal["relevance", "teamName", "points", "goalDiff", "wins", "position"]
+TeamType = Literal["club", "national_team", "representative", "other", "unknown"]
 SortDirection = Literal["asc", "desc"]
 
 
@@ -181,9 +183,10 @@ def get_teams(
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
     search: str | None = None,
+    entityType: TeamType | None = None,
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=24, ge=1, le=100),
-    sortBy: TeamsSortBy = "points",
+    sortBy: TeamsSortBy = "relevance",
     sortDirection: SortDirection = "desc",
 ) -> dict[str, Any]:
     global_filters = validate_and_build_global_filters(
@@ -203,6 +206,13 @@ def get_teams(
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     offset = (page - 1) * pageSize
     sort_column = {
+        "relevance": (
+            "r.season_count desc nulls last, "
+            "r.competition_count desc nulls last, "
+            "r.matches_played desc nulls last, "
+            "r.first_match_at asc nulls last, "
+            "r.last_match_at desc nulls last"
+        ),
         "teamName": "r.team_name",
         "points": "r.points",
         "goalDiff": "r.goal_diff",
@@ -210,6 +220,7 @@ def get_teams(
         "position": "r.position",
     }[sortBy]
     sort_dir = "asc" if sortDirection == "asc" else "desc"
+    order_by = sort_column if sortBy == "relevance" else f"{sort_column} {sort_dir}"
 
     use_serving_summary = (
         global_filters.competition_id is None
@@ -227,21 +238,29 @@ def get_teams(
     if use_serving_summary:
         rows = db_client.fetch_all(
             f"""
-            with ranked as (
+            with classified as (
                 select
                     tss.*,
+                    coalesce(tss.team_type, 'unknown') as resolved_team_type
+                from mart.team_serving_summary tss
+                where (%s::text is null or tss.team_type = %s)
+            ),
+            ranked as (
+                select
+                    classified.*,
                     row_number() over (
-                        order by tss.points desc, tss.goal_diff desc, tss.goals_for desc, tss.team_name asc
+                        order by classified.points desc, classified.goal_diff desc,
+                                 classified.goals_for desc, classified.team_name asc
                     )::int as position,
                     count(*) over()::int as total_teams
-                from mart.team_serving_summary tss
+                from classified
             )
             select r.*, count(*) over()::int as _total_count
             from ranked r
-            order by {sort_column} {sort_dir}, r.team_id asc
+            order by {order_by}, r.team_id asc
             limit %s offset %s;
             """,
-            [pageSize, offset],
+            [entityType, entityType, pageSize, offset],
         )
     else:
         rows = None
@@ -250,6 +269,8 @@ def get_teams(
         select
             fm.home_team_id as team_id,
             coalesce(home_team.team_name, fm.home_team_id::text) as team_name,
+            fm.competition_key,
+            fm.season_label,
             coalesce(fm.home_goals, 0) as goals_for,
             coalesce(fm.away_goals, 0) as goals_against,
             fm.match_id,
@@ -264,6 +285,8 @@ def get_teams(
         select
             fm.away_team_id as team_id,
             coalesce(away_team.team_name, fm.away_team_id::text) as team_name,
+            fm.competition_key,
+            fm.season_label,
             coalesce(fm.away_goals, 0) as goals_for,
             coalesce(fm.home_goals, 0) as goals_against,
             fm.match_id,
@@ -313,7 +336,11 @@ def get_teams(
             select
                 ftr.team_id,
                 max(ftr.team_name) as team_name,
+                count(distinct ftr.competition_key)::int as competition_count,
+                count(distinct ftr.season_label)::int as season_count,
                 count(*)::int as matches_played,
+                min(ftr.date_day) as first_match_at,
+                max(ftr.date_day) as last_match_at,
                 sum(case when ftr.goals_for > ftr.goals_against then 1 else 0 end)::int as wins,
                 sum(case when ftr.goals_for = ftr.goals_against then 1 else 0 end)::int as draws,
                 sum(case when ftr.goals_for < ftr.goals_against then 1 else 0 end)::int as losses,
@@ -330,20 +357,31 @@ def get_teams(
             from filtered_team_rows ftr
             group by ftr.team_id
         ),
-        ranked as (
+        documented as (
             select
                 a.*,
+                coalesce(tss.team_type, 'unknown') as team_type,
+                tss.country_or_territory,
+                tss.stadium_name
+            from aggregated a
+            left join mart.team_serving_summary tss
+              on tss.team_id = a.team_id
+        ),
+        ranked as (
+            select
+                d.*,
                 row_number() over (
-                    order by a.points desc, a.goal_diff desc, a.goals_for desc, a.team_name asc
+                    order by d.points desc, d.goal_diff desc, d.goals_for desc, d.team_name asc
                 )::int as position,
                 count(*) over()::int as total_teams
-            from aggregated a
+            from documented d
+            where (%s::text is null or d.team_type = %s)
         )
         select
             r.*,
             count(*) over()::int as _total_count
         from ranked r
-        order by {sort_column} {sort_dir}, r.team_id asc
+        order by {order_by}, r.team_id asc
         limit %s offset %s;
     """
     if rows is None:
@@ -353,6 +391,8 @@ def get_teams(
                 *team_rows_params,
                 global_filters.last_n,
                 global_filters.last_n,
+                entityType,
+                entityType,
                 pageSize,
                 offset,
             ],
@@ -365,14 +405,31 @@ def get_teams(
         else {"status": "empty", "percentage": 0, "label": "Teams list coverage"}
     )
 
+    show_sporting_position = (
+        sortBy != "relevance"
+        or global_filters.competition_id is not None
+        or global_filters.season_id is not None
+        or global_filters.round_id is not None
+        or global_filters.stage_id is not None
+        or global_filters.stage_format is not None
+    )
     items = [
         {
             "teamId": str(row["team_id"]),
             "teamName": row["team_name"],
             "competitionId": str(global_filters.competition_id) if global_filters.competition_id is not None else None,
             "seasonId": str(global_filters.season_id) if global_filters.season_id is not None else None,
-            "position": int(row["position"]) if row.get("position") is not None else None,
-            "totalTeams": int(row["total_teams"]) if row.get("total_teams") is not None else None,
+            "teamType": row.get("resolved_team_type") or row.get("team_type") or "unknown",
+            "countryOrTerritory": row.get("country_or_territory"),
+            "competitionCount": int(row.get("competition_count") or 0),
+            "seasonCount": int(row.get("season_count") or 0),
+            "firstMatchAt": row.get("first_match_at"),
+            "lastMatchAt": row.get("last_match_at"),
+            "stadiumName": row.get("stadium_name"),
+            "position": int(row["position"]) if show_sporting_position and row.get("position") is not None else None,
+            "totalTeams": int(row["total_teams"])
+            if show_sporting_position and row.get("total_teams") is not None
+            else None,
             "matchesPlayed": int(row.get("matches_played") or 0),
             "wins": int(row.get("wins") or 0),
             "draws": int(row.get("draws") or 0),
@@ -385,8 +442,23 @@ def get_teams(
         for row in rows
     ]
 
+    is_filtered = any(
+        (
+            global_filters.competition_id is not None,
+            global_filters.season_id is not None,
+            global_filters.round_id is not None,
+            global_filters.stage_id is not None,
+            global_filters.stage_format is not None,
+            global_filters.venue != VenueFilter.all,
+            global_filters.last_n is not None,
+            global_filters.date_start is not None,
+            global_filters.date_end is not None,
+            search_pattern is not None,
+        )
+    )
+
     return build_api_response(
-        {"items": items},
+        {"items": items, "scope": build_catalog_scope(is_filtered=is_filtered)},
         request_id=_request_id(request),
         pagination=pagination,
         coverage=coverage,
