@@ -284,8 +284,8 @@ function SidebarArchiveSummary({ onNavigate }: { onNavigate: () => void }) {
   const archiveSummary = homeQuery.data?.archiveSummary;
 
   return (
-    <div className="border-t border-white/10 bg-white/3 px-6 py-8">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="border-t border-white/10 bg-white/3 px-6 py-8 lg:px-4 lg:py-4">
+      <div className="grid grid-cols-2 gap-4 lg:gap-2">
         <div className="text-center">
           <p className="text-[0.62rem] font-bold uppercase tracking-[0.2em] text-slate-500">
             Competições
@@ -321,7 +321,7 @@ function SidebarArchiveSummary({ onNavigate }: { onNavigate: () => void }) {
       </div>
 
       <Link
-        className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,#003526_0%,#004e39_100%)] px-4 py-3 text-[0.78rem] font-bold uppercase tracking-[0.16em] text-white transition-transform hover:-translate-y-0.5"
+        className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,#003526_0%,#004e39_100%)] px-4 py-3 text-[0.78rem] font-bold uppercase tracking-[0.16em] text-white transition-transform hover:-translate-y-0.5 lg:mt-4"
         href="/competitions"
         onClick={onNavigate}
         prefetch={false}
@@ -597,7 +597,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
         aria-label={shouldTreatSidebarAsDialog ? "Navegação principal" : undefined}
         aria-modal={shouldTreatSidebarAsDialog ? true : undefined}
         className={joinClasses(
-          "fixed inset-y-0 left-0 z-50 w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/8 bg-[#081612] text-white transition-transform duration-300 lg:flex lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/8 bg-[#081612] text-white transition-transform duration-300 lg:h-dvh lg:overflow-hidden lg:flex lg:translate-x-0",
           isSidebarOpen ? "flex translate-x-0" : "hidden -translate-x-full",
         )}
         id={SIDEBAR_PANEL_ID}
@@ -606,7 +606,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
         role={shouldTreatSidebarAsDialog ? "dialog" : undefined}
         tabIndex={shouldTreatSidebarAsDialog ? -1 : undefined}
       >
-        <div className="flex items-start justify-between px-6 pb-6 pt-5 lg:min-h-32 lg:items-end lg:px-8 lg:pb-5 lg:pt-7">
+        <div className="flex items-start justify-between px-6 pb-6 pt-5 lg:min-h-0 lg:items-start lg:px-6 lg:pb-4 lg:pt-5">
           <Link
             className="min-w-0"
             href="/"
@@ -636,15 +636,15 @@ export function PlatformShell({ children }: PlatformShellProps) {
           </button>
         </div>
 
-        <nav aria-label="Navegação principal" className="flex-1 px-3">
-          <div className="space-y-1.5">
+        <nav aria-label="Navegação principal" className="flex min-h-0 flex-1 px-3">
+          <div className="space-y-1.5 lg:space-y-0.5">
             {sidebarNavLinks.map((item) => {
               const isActive = isActiveNavLink(pathname, item.href);
 
               return (
                 <Link
                   className={joinClasses(
-                    "flex items-center gap-3 px-4 py-3.5 text-[0.8rem] font-semibold uppercase tracking-[0.16em] transition-colors",
+                    "flex items-center gap-3 px-4 py-3.5 text-[0.8rem] font-semibold uppercase tracking-[0.16em] transition-colors lg:py-2.5",
                     isActive
                       ? item.href === "/copa-do-mundo"
                         ? "border-r-4 border-[var(--wc-accent)] bg-[rgba(138,109,24,0.18)] text-[var(--wc-accent-soft)]"
@@ -682,7 +682,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
           />
         ) : null}
 
-        <div className="border-t border-white/10 p-3">
+        <div className="border-t border-white/10 p-3 lg:hidden">
           <button
             className="flex min-h-11 w-full items-center gap-3 px-4 py-2 text-[0.82rem] text-slate-400 transition-colors hover:text-emerald-100"
             onClick={() => {
