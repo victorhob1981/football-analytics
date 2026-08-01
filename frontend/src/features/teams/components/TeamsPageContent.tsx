@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useTeamsList } from "@/features/teams/hooks/useTeamsList";
 import type {
   TeamListItem,
+  TeamType,
   TeamsListSortBy,
   TeamsListSortDirection,
 } from "@/features/teams/types";
@@ -267,7 +268,7 @@ const TEAM_SORT_OPTIONS: Array<{ label: string; value: TeamsListSortBy }> = [
   { label: "Nome", value: "teamName" },
 ];
 
-export function TeamsPageContent() {
+export function TeamsPageContent({ entityType }: { entityType?: TeamType | null } = {}) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
   const [page, setPage] = useState(1);
@@ -287,6 +288,7 @@ export function TeamsPageContent() {
       page,
       pageSize,
       search: debouncedSearch,
+      entityType,
       sortBy,
       sortDirection,
     },
