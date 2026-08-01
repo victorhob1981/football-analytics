@@ -11,11 +11,11 @@ import { PLATFORM_SEARCH_OPEN_EVENT } from "@/shared/components/navigation/platf
 import { useHomePage } from "@/features/home/hooks/useHomePage";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 import {
+  buildClubsPath,
   buildHeadToHeadPath,
   buildMarketPath,
   buildPlayersPath,
   buildRankingsHubPath,
-  buildTeamsPath,
 } from "@/shared/utils/context-routing";
 
 const PlayerComparisonPanel = dynamic(
@@ -84,8 +84,15 @@ function isActiveNavLink(pathname: string, href: string): boolean {
     return pathname.startsWith("/rankings");
   }
 
-  if (hrefPathname === "/teams") {
-    return pathname === "/teams" || pathname.startsWith("/teams/") || pathname.includes("/teams/");
+  if (hrefPathname === "/clubs") {
+    return (
+      pathname === "/clubs" ||
+      pathname.startsWith("/clubs/") ||
+      pathname.includes("/clubs/") ||
+      pathname === "/teams" ||
+      pathname.startsWith("/teams/") ||
+      pathname.includes("/teams/")
+    );
   }
 
   if (hrefPathname === "/players") {
@@ -328,6 +335,7 @@ function SidebarArchiveSummary({ onNavigate }: { onNavigate: () => void }) {
 export function PlatformShell({ children }: PlatformShellProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const { competitionId, seasonId, roundId, venue, lastN, dateRangeStart, dateRangeEnd } =
     useGlobalFiltersState();
   const isHomeRoute = pathname === "/";
@@ -377,7 +385,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
     { href: "/competitions", icon: "competition" as const, label: "Competições" },
     { href: buildRankingsHubPath(sharedFilters), icon: "analytics" as const, label: "Rankings" },
     { href: buildPlayersPath(sharedFilters), icon: "player" as const, label: "Jogadores" },
-    { href: buildTeamsPath(sharedFilters), icon: "team" as const, label: "Times" },
+    { href: buildClubsPath(sharedFilters), icon: "team" as const, label: "Clubes" },
   ] as const;
 
   const topNavLinks = [
@@ -425,7 +433,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
     shouldRestoreSidebarFocusRef.current = false;
     setIsSearchOpen(false);
     setIsSidebarOpen(false);
-  }, [pathname, searchParams]);
+  }, [pathname, searchParamsKey]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 1023px)");
@@ -589,8 +597,8 @@ export function PlatformShell({ children }: PlatformShellProps) {
         aria-label={shouldTreatSidebarAsDialog ? "Navegação principal" : undefined}
         aria-modal={shouldTreatSidebarAsDialog ? true : undefined}
         className={joinClasses(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/8 bg-[#081612] text-white transition-transform duration-300 lg:translate-x-0 lg:overflow-visible",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          "fixed inset-y-0 left-0 z-50 w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/8 bg-[#081612] text-white transition-transform duration-300 lg:flex lg:translate-x-0",
+          isSidebarOpen ? "flex translate-x-0" : "hidden -translate-x-full",
         )}
         id={SIDEBAR_PANEL_ID}
         inert={shouldHideMobileSidebar ? true : undefined}
@@ -598,7 +606,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
         role={shouldTreatSidebarAsDialog ? "dialog" : undefined}
         tabIndex={shouldTreatSidebarAsDialog ? -1 : undefined}
       >
-        <div className="flex items-start justify-between px-6 pb-6 pt-5 lg:min-h-24 lg:items-end lg:px-8 lg:pb-5 lg:pt-7">
+        <div className="flex items-start justify-between px-6 pb-6 pt-5 lg:min-h-32 lg:items-end lg:px-8 lg:pb-5 lg:pt-7">
           <Link
             className="min-w-0"
             href="/"
@@ -704,7 +712,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
         <header className="fixed left-0 right-0 top-0 z-30 h-16 border-b border-[rgba(225,230,240,0.92)] bg-white/95 shadow-[0_16px_36px_-32px_rgba(15,23,42,0.45)] backdrop-blur-xl lg:left-64 lg:h-24">
           <div className="flex h-full items-center gap-4 px-4 md:px-8 lg:gap-8 lg:px-10 xl:gap-12 xl:px-12">
             <button
-              aria-label="Busca global: buscar competições, partidas, times ou jogadores"
+              aria-label="Busca global: buscar competições, partidas, clubes ou jogadores"
               aria-controls="global-search-dialog"
               aria-expanded={isSearchOpen}
               aria-haspopup="dialog"
@@ -717,7 +725,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
               <span className="flex min-w-0 items-center gap-3.5">
                 <ShellIcon className="h-5 w-5 shrink-0 text-[#57657a]" icon="search" />
                 <span className="block truncate text-sm font-medium text-[#344256] lg:text-[1.02rem]">
-                  Buscar competições, times, partidas ou jogadores...
+                  Buscar competições, clubes, partidas ou jogadores...
                 </span>
               </span>
             </button>
@@ -813,7 +821,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
 
       <nav
         aria-label="Navegação móvel"
-        className="platform-mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[rgba(191,201,195,0.42)] bg-white/96 shadow-[0_-18px_44px_-34px_rgba(17,28,45,0.5)] backdrop-blur-xl lg:hidden"
+        className="platform-mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-[rgba(191,201,195,0.42)] bg-white/96 shadow-[0_-18px_44px_-34px_rgba(17,28,45,0.5)] backdrop-blur-xl lg:hidden"
       >
         {mobileNavLinks.map((item) => {
           const isActive = isActiveNavLink(pathname, item.href);

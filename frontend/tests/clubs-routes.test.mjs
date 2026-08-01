@@ -21,9 +21,12 @@ const contextualResolver = read("src/features/teams/components/ContextualTeamRou
 const aggregateProfile = read("src/features/teams/components/TeamAggregateProfileContent.tsx");
 const contextualProfile = read("src/features/teams/components/TeamProfileContent.tsx");
 const shellState = read("src/shared/components/navigation/usePlatformShellState.ts");
+const platformShell = read("src/app/(platform)/PlatformShell.tsx");
 const profileMedia = read("src/shared/components/profile/ProfileMedia.tsx");
 const searchTypes = read("src/features/search/types/search.types.ts");
 const searchOverlay = read("src/features/search/components/GlobalSearchOverlay.tsx");
+const playersPage = read("src/app/(platform)/players/page.tsx");
+const playerProfile = read("src/app/(platform)/players/[playerId]/PlayerProfileContent.tsx");
 
 test("clubs renders the existing catalog filtered to clubs", () => {
   assert.match(clubsRoute, /<TeamsPageContent entityType="club" \/>/);
@@ -111,4 +114,34 @@ test("typed team search uses entity routes and labels", () => {
   assert.match(searchOverlay, /"Clube"/);
   assert.match(searchOverlay, /"Seleção"/);
   assert.match(searchOverlay, /"Equipe"/);
+});
+
+test("public shell keeps the mobile drawer closed and names the club surface canonically", () => {
+  assert.match(platformShell, /buildClubsPath/);
+  assert.doesNotMatch(platformShell, /buildTeamsPath/);
+  assert.match(platformShell, /label: "Clubes"/);
+  assert.match(platformShell, /isSidebarOpen \? "flex translate-x-0" : "hidden -translate-x-full"/);
+  assert.match(platformShell, /lg:flex lg:translate-x-0/);
+  assert.doesNotMatch(platformShell, /lg:overflow-visible/);
+  assert.match(platformShell, /platform-mobile-bottom-nav[^\n]+grid-cols-6/);
+  assert.match(platformShell, /const searchParamsKey = searchParams\.toString\(\)/);
+  assert.match(platformShell, /\[pathname, searchParamsKey\]/);
+  assert.match(platformShell, /buscar competições, partidas, clubes ou jogadores/);
+  assert.doesNotMatch(platformShell, /\bTimes\b|\btimes\b/);
+  assert.match(searchOverlay, /team: "Clubes e seleções"/);
+  assert.match(searchOverlay, /"Clubes"/);
+  assert.doesNotMatch(searchOverlay, /\bTimes\b|\btimes\b/);
+});
+
+test("player surfaces preserve unknown team resolution and known club semantics", () => {
+  assert.match(playersPage, /buildTeamResolverPath\(teamId, sharedFilters\)/);
+  assert.match(playersPage, /cb: "Zagueiro"/);
+  assert.match(playersPage, /gk: "Goleiro"/);
+  assert.match(playersPage, /st: "Centroavante"/);
+  assert.match(playersPage, /identidades de jogadores no acervo bruto publicado/);
+  assert.match(playersPage, /carreiras documentadas disponíveis/);
+  assert.match(playerProfile, /item\.teamType === "club"/);
+  assert.match(playerProfile, /attacker: "Atacante"/);
+  assert.match(playerProfile, /category="clubs"/);
+  assert.match(playerProfile, /aria-label={`Abrir \$\{item\.teamName\}`}/);
 });
