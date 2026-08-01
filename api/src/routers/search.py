@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api/v1/search", tags=["search"])
 SearchType = Literal["competition", "team", "player", "match"]
 
 SEARCH_TYPES: tuple[SearchType, ...] = ("competition", "team", "player", "match")
+TEAM_TYPES = {"club", "national_team", "representative", "other", "unknown"}
 SUPPORTED_COMPETITION_SOURCE_IDS = list_supported_competition_source_ids()
 WORLD_CUP_COMPETITION_KEY = "fifa_world_cup_mens"
 WORLD_CUP_COMPETITION_ID = 0
@@ -42,6 +43,10 @@ def _normalize_search_query(value: str) -> str:
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _normalize_team_type(value: Any) -> str:
+    return value if value in TEAM_TYPES else "unknown"
 
 
 def _normalized_sql(column_sql: str) -> str:
@@ -248,6 +253,7 @@ def _search_teams(
             select
                 dt.team_id,
                 dt.team_name,
+                coalesce(tss.team_type, 'unknown') as team_type,
                 case
                     when {normalized_name} = %s then 0
                     when {normalized_name} like %s escape '\\'
@@ -258,12 +264,15 @@ def _search_teams(
                     else 4
                 end as search_rank
             from mart.dim_team dt
+            left join mart.team_serving_summary tss
+              on tss.team_id = dt.team_id
             where {normalized_name} like %s escape '\\'
         ),
         aggregated_contexts as (
             select
                 mt.team_id,
                 mt.team_name,
+                mt.team_type,
                 mt.search_rank,
                 case
                     when fm.competition_key = %s then %s
@@ -287,6 +296,7 @@ def _search_teams(
             group by
                 mt.team_id,
                 mt.team_name,
+                mt.team_type,
                 mt.search_rank,
                 competition_id,
                 competition_name,
@@ -330,6 +340,7 @@ def _search_teams(
         select
             team_id,
             team_name,
+            team_type,
             competition_id,
             competition_name,
             season,
@@ -398,6 +409,7 @@ def _search_teams(
             {
                 "teamId": str(row["team_id"]),
                 "teamName": row["team_name"],
+                "teamType": _normalize_team_type(row.get("team_type")),
                 "defaultContext": default_context,
             }
         )
