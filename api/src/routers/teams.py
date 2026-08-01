@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import csv
+import unicodedata
 from datetime import date
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request
@@ -22,6 +25,10 @@ from ..core.filters import (
 from ..db.client import db_client
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams"])
+
+_TEAM_HONORS_PATH = Path(__file__).resolve().parents[3] / "data" / "team_honors_seed.csv"
+_TEAM_HONORS_CRITERION = "Títulos oficiais selecionados para o acervo histórico."
+_TEAM_TYPES = {"club", "national_team", "representative", "other", "unknown"}
 
 TeamsSortBy = Literal["relevance", "teamName", "points", "goalDiff", "wins", "position"]
 TeamType = Literal["club", "national_team", "representative", "other", "unknown"]
@@ -122,6 +129,113 @@ def _merge_coverages(label: str, coverages: list[dict[str, Any]]) -> dict[str, A
     if scores:
         payload["percentage"] = round(sum(scores) / len(scores), 2)
     return payload
+
+
+def _normalize_team_name(value: str | None) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    return "".join(character for character in normalized if not unicodedata.combining(character)).strip().casefold()
+
+
+def _load_team_honors(team_name: str | None) -> dict[str, Any] | None:
+    if not team_name or not _TEAM_HONORS_PATH.exists():
+        return None
+
+    normalized_team_name = _normalize_team_name(team_name)
+    with _TEAM_HONORS_PATH.open("r", encoding="utf-8", newline="") as handle:
+        rows = [
+            row
+            for row in csv.DictReader(handle)
+            if row.get("title_type") == "champion"
+            and _normalize_team_name(row.get("team_name")) == normalized_team_name
+        ]
+
+    if not rows:
+        return None
+
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        scope = row.get("scope")
+        if scope not in {"mundial", "continental", "nacional", "estadual"}:
+            scope = "other"
+        confidence = row.get("confidence")
+        if confidence not in {"high", "medium", "low"}:
+            confidence = "low"
+        year_value = row.get("year")
+        year = int(year_value) if year_value and year_value.isdigit() else None
+        items.append(
+            {
+                "competitionName": row.get("competition_name") or "Conquista documentada",
+                "competitionKey": row.get("competition_family") or None,
+                "scope": scope,
+                "seasonLabel": row.get("season_label") or None,
+                "year": year,
+                "sourceName": row.get("source_name") or "unknown",
+                "sourceUrl": row.get("source_url") or None,
+                "confidence": confidence,
+            }
+        )
+
+    return {
+        "criterionLabel": _TEAM_HONORS_CRITERION,
+        "total": len(items),
+        "items": items,
+        "coverage": {"status": "complete", "percentage": 100, "label": "Honors coverage"},
+    }
+
+
+def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dict[str, Any]:
+    row = db_client.fetch_one(
+        """
+        select
+            team_id,
+            team_name,
+            team_type,
+            country_or_territory,
+            stadium_name,
+            competition_count,
+            season_count,
+            matches_played,
+            first_match_at,
+            last_match_at
+        from mart.team_serving_summary
+        where team_id = %s;
+        """,
+        [team_id],
+    ) or {}
+    team_type = row.get("team_type") if row.get("team_type") in _TEAM_TYPES else "unknown"
+    official_name = row.get("team_name") or fallback_team_name
+    identity_complete = bool(row) and team_type != "unknown" and bool(official_name)
+    matches_played = _to_int(row.get("matches_played"))
+    archive_complete = bool(row) and matches_played > 0
+
+    return {
+        "identity": {
+            "teamType": team_type,
+            "officialName": official_name,
+            "countryOrTerritory": row.get("country_or_territory"),
+            "city": None,
+            "foundedYear": None,
+            "stadiumName": row.get("stadium_name"),
+            "stadiumCapacity": None,
+        },
+        "archive": {
+            "competitionCount": _to_int(row.get("competition_count")),
+            "seasonCount": _to_int(row.get("season_count")),
+            "matchesPlayed": matches_played,
+            "firstMatchAt": row.get("first_match_at"),
+            "lastMatchAt": row.get("last_match_at"),
+        },
+        "identityCoverage": {
+            "status": "complete" if identity_complete else "partial",
+            "percentage": 100 if identity_complete else 50,
+            "label": "Team identity coverage",
+        },
+        "archiveCoverage": {
+            "status": "complete" if archive_complete else "empty",
+            "percentage": 100 if archive_complete else 0,
+            "label": "Team archive coverage",
+        },
+    }
 
 
 def _resolve_result(goals_for: int, goals_against: int) -> str:
@@ -610,6 +724,9 @@ def get_team_profile(
             details={"teamId": teamId},
         )
 
+    foundation = _fetch_team_profile_foundation(team_id, str(team_ref["team_name"]))
+    honors = _load_team_honors(foundation["identity"]["officialName"])
+
     competition_ref = db_client.fetch_one(
         "select league_id, league_name from mart.dim_competition where league_id = %s;",
         [global_filters.competition_id],
@@ -948,6 +1065,9 @@ def get_team_profile(
 
     overview_coverage = _section_coverage_from_match_count(matches_played, "Team overview coverage")
     data: dict[str, Any] = {
+        "identity": foundation["identity"],
+        "archive": foundation["archive"],
+        "honors": honors,
         "team": {
             "teamId": str(team_ref["team_id"]),
             "teamName": team_ref["team_name"],
@@ -981,6 +1101,11 @@ def get_team_profile(
         ],
         "sectionCoverage": {
             "overview": overview_coverage,
+            "identity": foundation["identityCoverage"],
+            "archive": foundation["archiveCoverage"],
+            "honors": honors["coverage"]
+            if honors
+            else {"status": "empty", "percentage": 0, "label": "Honors coverage"},
         },
     }
 

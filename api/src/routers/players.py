@@ -203,6 +203,108 @@ def _normalize_text_list(value: Any) -> list[str]:
     return items
 
 
+def _fetch_player_career(player_id: int) -> dict[str, Any]:
+    rows = db_client.fetch_all(
+        """
+        with career_rows as (
+            select
+                pms.team_id,
+                coalesce(max(pms.team_name), max(dt.team_name), pms.team_id::text) as team_name,
+                coalesce(max(tss.team_type), 'unknown') as team_type,
+                pms.competition_sk,
+                pms.season,
+                pms.match_id,
+                pms.match_date,
+                sum(coalesce(pms.minutes_played, 0))::int as minutes_played,
+                sum(coalesce(pms.goals, 0))::int as goals,
+                sum(coalesce(pms.assists, 0))::int as assists
+            from mart.player_match_summary pms
+            left join mart.dim_team dt
+              on dt.team_id = pms.team_id
+            left join mart.team_serving_summary tss
+              on tss.team_id = pms.team_id
+            where pms.player_id = %s
+              and pms.team_id is not null
+            group by
+                pms.team_id,
+                pms.competition_sk,
+                pms.season,
+                pms.match_id,
+                pms.match_date
+        ),
+        team_passages as (
+            select
+                pms.team_id,
+                max(pms.team_name) as team_name,
+                max(pms.team_type) as team_type,
+                count(distinct pms.competition_sk)::int as competition_count,
+                count(distinct pms.season)::int as season_count,
+                count(distinct pms.match_id)::int as matches_played,
+                sum(pms.minutes_played)::int as minutes_played,
+                sum(pms.goals)::int as goals,
+                sum(pms.assists)::int as assists,
+                min(pms.match_date) as first_match_at,
+                max(pms.match_date) as last_match_at
+            from career_rows pms
+            group by pms.team_id
+        ),
+        career_totals as (
+            select
+                count(distinct competition_sk)::int as career_competition_count,
+                count(distinct season)::int as career_season_count,
+                min(match_date) as career_first_match_at,
+                max(match_date) as career_last_match_at
+            from career_rows
+        )
+        select
+            tp.*,
+            ct.career_competition_count,
+            ct.career_season_count,
+            ct.career_first_match_at,
+            ct.career_last_match_at
+        from team_passages tp
+        cross join career_totals ct
+        order by tp.last_match_at desc nulls last, tp.team_id asc;
+        """,
+        [player_id],
+    )
+
+    teams: list[dict[str, Any]] = []
+    for row in rows:
+        team_type = row.get("team_type")
+        if team_type not in {"club", "national_team", "representative", "other", "unknown"}:
+            team_type = "unknown"
+        teams.append(
+            {
+                "teamId": str(row["team_id"]),
+                "teamName": row.get("team_name") or f"Unknown team #{row['team_id']}",
+                "teamType": team_type,
+                "competitionCount": _to_int_count(row.get("competition_count")),
+                "seasonCount": _to_int_count(row.get("season_count")),
+                "matchesPlayed": _to_int_count(row.get("matches_played")),
+                "minutesPlayed": _to_int_count(row.get("minutes_played")),
+                "goals": _to_int_count(row.get("goals")),
+                "assists": _to_int_count(row.get("assists")),
+                "firstMatchAt": row.get("first_match_at"),
+                "lastMatchAt": row.get("last_match_at"),
+            }
+        )
+
+    first_row = rows[0] if rows else {}
+    club_count = sum(1 for team in teams if team["teamType"] == "club")
+    national_team_count = sum(1 for team in teams if team["teamType"] == "national_team")
+    return {
+        "teamCount": len(teams),
+        "clubCount": club_count,
+        "nationalTeamCount": national_team_count,
+        "competitionCount": _to_int_count(first_row.get("career_competition_count")),
+        "seasonCount": _to_int_count(first_row.get("career_season_count")),
+        "firstMatchAt": first_row.get("career_first_match_at"),
+        "lastMatchAt": first_row.get("career_last_match_at"),
+        "teams": teams,
+    }
+
+
 def _fetch_player_profile_meta(player_id: int) -> dict[str, Any]:
     # Perfis de jogador seguem válidos mesmo quando o histórico estatístico não existe.
     # O frontend consome esse bloco para distinguir perfil SportMonks com histórico,
@@ -922,6 +1024,7 @@ def get_player_profile(
         )
 
     profile_meta = _fetch_player_profile_meta(player_id)
+    career = _fetch_player_career(player_id)
     world_cup_summary = profile_meta.get("worldCup") if isinstance(profile_meta.get("worldCup"), dict) else None
     world_cup_team_names = world_cup_summary.get("teamNames") if isinstance(world_cup_summary, dict) else []
     fallback_team_name = (
@@ -1357,6 +1460,7 @@ def get_player_profile(
     data: dict[str, Any] = {
         "player": player_payload,
         "summary": summary_payload,
+        "career": career,
         "profileMeta": profile_meta,
         "sectionCoverage": {
             "overview": overview_coverage,
