@@ -185,9 +185,9 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
   const tabs = [
     { key: "overview" as const, label: "Visão geral", badge: "Recorte" },
     { key: "journey" as const, label: "Jornada", badge: "História" },
-    { key: "squad" as const, label: "Elenco", badge: `${squad?.length ?? 0}` },
-    { key: "matches" as const, label: "Partidas", badge: `${matchesQuery.data?.items.length ?? 0}` },
-    { key: "stats" as const, label: "Estatísticas", badge: stats ? "Detalhes" : "—" },
+    { key: "squad" as const, label: "Elenco", badge: squad ? `${squad.length}` : "Abrir" },
+    { key: "matches" as const, label: "Partidas", badge: matchesQuery.data ? `${matchesQuery.data.items.length}` : "Abrir" },
+    { key: "stats" as const, label: "Estatísticas", badge: stats ? "Detalhes" : "Abrir" },
   ];
   const isPartial =
     profileQuery.isPartial ||
