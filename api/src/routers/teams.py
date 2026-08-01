@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import csv
+import unicodedata
 from datetime import date
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request
@@ -8,6 +11,7 @@ from fastapi import APIRouter, Query, Request
 from ..core.context_registry import build_canonical_context, select_default_context
 from ..core.contracts import (
     build_api_response,
+    build_catalog_scope,
     build_coverage_from_counts,
     build_pagination,
 )
@@ -22,7 +26,12 @@ from ..db.client import db_client
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams"])
 
-TeamsSortBy = Literal["teamName", "points", "goalDiff", "wins", "position"]
+_TEAM_HONORS_PATH = Path(__file__).resolve().parents[2] / "data" / "team_honors_seed.csv"
+_TEAM_HONORS_CRITERION = "Títulos oficiais selecionados para o acervo histórico."
+_TEAM_TYPES = {"club", "national_team", "representative", "other", "unknown"}
+
+TeamsSortBy = Literal["relevance", "teamName", "points", "goalDiff", "wins", "position"]
+TeamType = Literal["club", "national_team", "representative", "other", "unknown"]
 SortDirection = Literal["asc", "desc"]
 
 
@@ -122,6 +131,124 @@ def _merge_coverages(label: str, coverages: list[dict[str, Any]]) -> dict[str, A
     return payload
 
 
+def _normalize_team_name(value: str | None) -> str:
+    normalized = unicodedata.normalize("NFKD", value or "")
+    return "".join(character for character in normalized if not unicodedata.combining(character)).strip().casefold()
+
+
+def _load_team_honors(team_id: int | None, team_name: str | None) -> dict[str, Any] | None:
+    if (team_id is None and not team_name) or not _TEAM_HONORS_PATH.exists():
+        return None
+
+    with _TEAM_HONORS_PATH.open("r", encoding="utf-8", newline="") as handle:
+        champion_rows = [
+            row
+            for row in csv.DictReader(handle)
+            if row.get("title_type") == "champion"
+        ]
+
+    rows = []
+    if team_id is not None:
+        canonical_team_id = str(team_id)
+        rows = [row for row in champion_rows if row.get("team_id") == canonical_team_id]
+
+    if not rows and team_name:
+        normalized_team_name = _normalize_team_name(team_name)
+        rows = [
+            row
+            for row in champion_rows
+            if _normalize_team_name(row.get("team_name")) == normalized_team_name
+        ]
+
+    if not rows:
+        return None
+
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        scope = row.get("scope")
+        if scope not in {"mundial", "continental", "nacional", "estadual"}:
+            scope = "other"
+        confidence = row.get("confidence")
+        if confidence not in {"high", "medium", "low"}:
+            confidence = "low"
+        year_value = row.get("year")
+        year = int(year_value) if year_value and year_value.isdigit() else None
+        items.append(
+            {
+                "competitionName": row.get("competition_name") or "Conquista documentada",
+                "competitionKey": row.get("competition_family") or None,
+                "scope": scope,
+                "seasonLabel": row.get("season_label") or None,
+                "year": year,
+                "sourceName": row.get("source_name") or "unknown",
+                "sourceUrl": row.get("source_url") or None,
+                "confidence": confidence,
+            }
+        )
+
+    return {
+        "criterionLabel": _TEAM_HONORS_CRITERION,
+        "total": len(items),
+        "items": items,
+        "coverage": {"status": "complete", "percentage": 100, "label": "Honors coverage"},
+    }
+
+
+def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dict[str, Any]:
+    row = db_client.fetch_one(
+        """
+        select
+            team_id,
+            team_name,
+            team_type,
+            country_or_territory,
+            stadium_name,
+            competition_count,
+            season_count,
+            matches_played,
+            first_match_at,
+            last_match_at
+        from mart.team_serving_summary
+        where team_id = %s;
+        """,
+        [team_id],
+    ) or {}
+    team_type = row.get("team_type") if row.get("team_type") in _TEAM_TYPES else "unknown"
+    official_name = row.get("team_name") or fallback_team_name
+    identity_complete = bool(row) and team_type != "unknown" and bool(official_name)
+    matches_played = int(row.get("matches_played") or 0)
+    archive_complete = bool(row) and matches_played > 0
+
+    return {
+        "identity": {
+            "teamType": team_type,
+            "officialName": official_name,
+            "countryOrTerritory": row.get("country_or_territory"),
+            "city": None,
+            "foundedYear": None,
+            "stadiumName": row.get("stadium_name"),
+            "stadiumCapacity": None,
+        },
+        "archive": {
+            "competitionCount": int(row.get("competition_count") or 0),
+            "seasonCount": int(row.get("season_count") or 0),
+            "matchesPlayed": matches_played,
+            "firstMatchAt": row.get("first_match_at"),
+            "lastMatchAt": row.get("last_match_at"),
+        },
+        "identityCoverage": {
+            "status": "complete" if identity_complete else "partial",
+            "percentage": 100 if identity_complete else 50,
+            "label": "Team identity coverage",
+        },
+        "archiveCoverage": {
+            "status": "complete" if archive_complete else "empty",
+            "percentage": 100 if archive_complete else 0,
+            "label": "Team archive coverage",
+        },
+    }
+
+
 def _resolve_result(goals_for: int, goals_against: int) -> str:
     if goals_for > goals_against:
         return "win"
@@ -181,9 +308,10 @@ def get_teams(
     dateRangeStart: date | None = None,
     dateRangeEnd: date | None = None,
     search: str | None = None,
+    entityType: TeamType | None = None,
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=24, ge=1, le=100),
-    sortBy: TeamsSortBy = "points",
+    sortBy: TeamsSortBy = "relevance",
     sortDirection: SortDirection = "desc",
 ) -> dict[str, Any]:
     global_filters = validate_and_build_global_filters(
@@ -203,6 +331,13 @@ def get_teams(
     search_pattern = f"%{search.strip()}%" if search and search.strip() else None
     offset = (page - 1) * pageSize
     sort_column = {
+        "relevance": (
+            "r.season_count desc nulls last, "
+            "r.competition_count desc nulls last, "
+            "r.matches_played desc nulls last, "
+            "r.first_match_at asc nulls last, "
+            "r.last_match_at desc nulls last"
+        ),
         "teamName": "r.team_name",
         "points": "r.points",
         "goalDiff": "r.goal_diff",
@@ -210,6 +345,7 @@ def get_teams(
         "position": "r.position",
     }[sortBy]
     sort_dir = "asc" if sortDirection == "asc" else "desc"
+    order_by = sort_column if sortBy == "relevance" else f"{sort_column} {sort_dir}"
 
     use_serving_summary = (
         global_filters.competition_id is None
@@ -227,21 +363,29 @@ def get_teams(
     if use_serving_summary:
         rows = db_client.fetch_all(
             f"""
-            with ranked as (
+            with classified as (
                 select
                     tss.*,
+                    coalesce(tss.team_type, 'unknown') as resolved_team_type
+                from mart.team_serving_summary tss
+                where (%s::text is null or tss.team_type = %s)
+            ),
+            ranked as (
+                select
+                    classified.*,
                     row_number() over (
-                        order by tss.points desc, tss.goal_diff desc, tss.goals_for desc, tss.team_name asc
+                        order by classified.points desc, classified.goal_diff desc,
+                                 classified.goals_for desc, classified.team_name asc
                     )::int as position,
                     count(*) over()::int as total_teams
-                from mart.team_serving_summary tss
+                from classified
             )
             select r.*, count(*) over()::int as _total_count
             from ranked r
-            order by {sort_column} {sort_dir}, r.team_id asc
+            order by {order_by}, r.team_id asc
             limit %s offset %s;
             """,
-            [pageSize, offset],
+            [entityType, entityType, pageSize, offset],
         )
     else:
         rows = None
@@ -250,6 +394,8 @@ def get_teams(
         select
             fm.home_team_id as team_id,
             coalesce(home_team.team_name, fm.home_team_id::text) as team_name,
+            fm.competition_key,
+            fm.season_label,
             coalesce(fm.home_goals, 0) as goals_for,
             coalesce(fm.away_goals, 0) as goals_against,
             fm.match_id,
@@ -264,6 +410,8 @@ def get_teams(
         select
             fm.away_team_id as team_id,
             coalesce(away_team.team_name, fm.away_team_id::text) as team_name,
+            fm.competition_key,
+            fm.season_label,
             coalesce(fm.away_goals, 0) as goals_for,
             coalesce(fm.home_goals, 0) as goals_against,
             fm.match_id,
@@ -313,7 +461,11 @@ def get_teams(
             select
                 ftr.team_id,
                 max(ftr.team_name) as team_name,
+                count(distinct ftr.competition_key)::int as competition_count,
+                count(distinct ftr.season_label)::int as season_count,
                 count(*)::int as matches_played,
+                min(ftr.date_day) as first_match_at,
+                max(ftr.date_day) as last_match_at,
                 sum(case when ftr.goals_for > ftr.goals_against then 1 else 0 end)::int as wins,
                 sum(case when ftr.goals_for = ftr.goals_against then 1 else 0 end)::int as draws,
                 sum(case when ftr.goals_for < ftr.goals_against then 1 else 0 end)::int as losses,
@@ -330,20 +482,31 @@ def get_teams(
             from filtered_team_rows ftr
             group by ftr.team_id
         ),
-        ranked as (
+        documented as (
             select
                 a.*,
+                coalesce(tss.team_type, 'unknown') as team_type,
+                tss.country_or_territory,
+                tss.stadium_name
+            from aggregated a
+            left join mart.team_serving_summary tss
+              on tss.team_id = a.team_id
+        ),
+        ranked as (
+            select
+                d.*,
                 row_number() over (
-                    order by a.points desc, a.goal_diff desc, a.goals_for desc, a.team_name asc
+                    order by d.points desc, d.goal_diff desc, d.goals_for desc, d.team_name asc
                 )::int as position,
                 count(*) over()::int as total_teams
-            from aggregated a
+            from documented d
+            where (%s::text is null or d.team_type = %s)
         )
         select
             r.*,
             count(*) over()::int as _total_count
         from ranked r
-        order by {sort_column} {sort_dir}, r.team_id asc
+        order by {order_by}, r.team_id asc
         limit %s offset %s;
     """
     if rows is None:
@@ -353,6 +516,8 @@ def get_teams(
                 *team_rows_params,
                 global_filters.last_n,
                 global_filters.last_n,
+                entityType,
+                entityType,
                 pageSize,
                 offset,
             ],
@@ -365,14 +530,31 @@ def get_teams(
         else {"status": "empty", "percentage": 0, "label": "Teams list coverage"}
     )
 
+    show_sporting_position = (
+        sortBy != "relevance"
+        or global_filters.competition_id is not None
+        or global_filters.season_id is not None
+        or global_filters.round_id is not None
+        or global_filters.stage_id is not None
+        or global_filters.stage_format is not None
+    )
     items = [
         {
             "teamId": str(row["team_id"]),
             "teamName": row["team_name"],
             "competitionId": str(global_filters.competition_id) if global_filters.competition_id is not None else None,
             "seasonId": str(global_filters.season_id) if global_filters.season_id is not None else None,
-            "position": int(row["position"]) if row.get("position") is not None else None,
-            "totalTeams": int(row["total_teams"]) if row.get("total_teams") is not None else None,
+            "teamType": row.get("resolved_team_type") or row.get("team_type") or "unknown",
+            "countryOrTerritory": row.get("country_or_territory"),
+            "competitionCount": int(row.get("competition_count") or 0),
+            "seasonCount": int(row.get("season_count") or 0),
+            "firstMatchAt": row.get("first_match_at"),
+            "lastMatchAt": row.get("last_match_at"),
+            "stadiumName": row.get("stadium_name"),
+            "position": int(row["position"]) if show_sporting_position and row.get("position") is not None else None,
+            "totalTeams": int(row["total_teams"])
+            if show_sporting_position and row.get("total_teams") is not None
+            else None,
             "matchesPlayed": int(row.get("matches_played") or 0),
             "wins": int(row.get("wins") or 0),
             "draws": int(row.get("draws") or 0),
@@ -385,8 +567,23 @@ def get_teams(
         for row in rows
     ]
 
+    is_filtered = any(
+        (
+            global_filters.competition_id is not None,
+            global_filters.season_id is not None,
+            global_filters.round_id is not None,
+            global_filters.stage_id is not None,
+            global_filters.stage_format is not None,
+            global_filters.venue != VenueFilter.all,
+            global_filters.last_n is not None,
+            global_filters.date_start is not None,
+            global_filters.date_end is not None,
+            search_pattern is not None,
+        )
+    )
+
     return build_api_response(
-        {"items": items},
+        {"items": items, "scope": build_catalog_scope(is_filtered=is_filtered)},
         request_id=_request_id(request),
         pagination=pagination,
         coverage=coverage,
@@ -537,6 +734,9 @@ def get_team_profile(
             status=404,
             details={"teamId": teamId},
         )
+
+    foundation = _fetch_team_profile_foundation(team_id, str(team_ref["team_name"]))
+    honors = _load_team_honors(team_id, foundation["identity"]["officialName"])
 
     competition_ref = db_client.fetch_one(
         "select league_id, league_name from mart.dim_competition where league_id = %s;",
@@ -876,6 +1076,9 @@ def get_team_profile(
 
     overview_coverage = _section_coverage_from_match_count(matches_played, "Team overview coverage")
     data: dict[str, Any] = {
+        "identity": foundation["identity"],
+        "archive": foundation["archive"],
+        "honors": honors,
         "team": {
             "teamId": str(team_ref["team_id"]),
             "teamName": team_ref["team_name"],
@@ -909,6 +1112,11 @@ def get_team_profile(
         ],
         "sectionCoverage": {
             "overview": overview_coverage,
+            "identity": foundation["identityCoverage"],
+            "archive": foundation["archiveCoverage"],
+            "honors": honors["coverage"]
+            if honors
+            else {"status": "empty", "percentage": 0, "label": "Honors coverage"},
         },
     }
 

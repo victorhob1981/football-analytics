@@ -1,3 +1,5 @@
+import type { TeamType } from "@/features/teams/types";
+
 export type SearchGroupType = "competition" | "team" | "player" | "match";
 
 export interface SearchDefaultContext {
@@ -17,6 +19,7 @@ export interface CompetitionSearchResult {
 export interface TeamSearchResult {
   teamId: string;
   teamName: string;
+  teamType: TeamType;
   defaultContext: SearchDefaultContext;
 }
 

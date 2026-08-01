@@ -1,263 +1,99 @@
 "use client";
 
-import type { ReactNode } from "react";
-
 import Link from "next/link";
 
 import { TeamHonorsSection } from "@/features/teams/components/TeamHonorsSection";
 import { useTeamContexts } from "@/features/teams/hooks/useTeamContexts";
 import { useTeamProfile } from "@/features/teams/hooks/useTeamProfile";
-import { useTeamsList } from "@/features/teams/hooks/useTeamsList";
 import type { TeamHonorsPreview } from "@/features/teams/types";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
-import { ProfilePanel, ProfileShell, ProfileTag } from "@/shared/components/profile/ProfilePrimitives";
 import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
-import { getCompetitionById } from "@/config/competitions.registry";
-import { getSeasonById, getSeasonByQueryId } from "@/config/seasons.registry";
-import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 import {
-  buildCanonicalTeamPath,
-  buildRankingsHubPath,
-  buildTeamsPath,
+  ProfileAlert,
+  ProfileCoveragePill,
+  ProfilePanel,
+  ProfileShell,
+} from "@/shared/components/profile/ProfilePrimitives";
+import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
+import type { CompetitionSeasonContext } from "@/shared/types/context.types";
+import {
+  buildCanonicalClubPath,
+  buildClubResolverPath,
+  buildClubsPath,
+  buildHeadToHeadPath,
 } from "@/shared/utils/context-routing";
+import { formatDate } from "@/shared/utils/formatters";
 
 type TeamAggregateProfileContentProps = {
   teamId: string;
   honorsPreview?: TeamHonorsPreview | null;
 };
 
-type AggregateMetricIconName = "calendar" | "chart" | "form" | "goal" | "grid" | "shield" | "trend";
-
-type AggregateHeroKpiProps = {
-  compactValue?: boolean;
-  hint?: ReactNode;
-  icon: AggregateMetricIconName;
-  label: string;
-  value: ReactNode;
-};
-
-type AggregateMetricTileProps = {
-  icon: AggregateMetricIconName;
-  label: string;
-  value: string | number;
-};
+const INTEGER_FORMATTER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 function formatInteger(value: number | null | undefined): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
+  return typeof value === "number" && !Number.isNaN(value) ? INTEGER_FORMATTER.format(value) : "—";
 }
 
-function formatDecimal(value: number | null | undefined): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat("pt-BR", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  }).format(value);
-}
-
-function formatPercentage(value: number | null | undefined): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return `${Math.round(value)}%`;
-}
-
-function formatGoalDiff(value: number | null | undefined): string {
-  if (typeof value !== "number") {
-    return "-";
-  }
-
-  return value > 0 ? `+${value}` : String(value);
-}
-
-function AggregateMetricIcon({
-  className,
-  name,
-}: {
-  className?: string;
-  name: AggregateMetricIconName;
-}) {
-  const path =
-    name === "calendar"
-      ? "M7 3v3M17 3v3M4.5 9h15M6 5h12a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 18 19H6a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 6 5Z"
-      : name === "chart"
-        ? "M6 19v-7M12 19V5M18 19v-9"
-      : name === "form"
-        ? "M5 7h14M5 12h14M5 17h8"
-      : name === "goal"
-        ? "M4.5 7.5h15v9h-15v-9ZM8 7.5v9M16 7.5v9M4.5 12h15"
-      : name === "grid"
-        ? "M5 5h5v5H5V5Zm9 0h5v5h-5V5ZM5 14h5v5H5v-5Zm9 0h5v5h-5v-5Z"
-      : name === "trend"
-        ? "M4 16.5 9 11l4 4 7-8M15 7h5v5"
-      : "M12 3.5 18.5 6v5.2c0 3.9-2.5 7.2-6.5 9.3-4-2.1-6.5-5.4-6.5-9.3V6L12 3.5Z";
-
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.8"
-      viewBox="0 0 24 24"
-    >
-      <path d={path} />
-    </svg>
-  );
-}
-
-function AggregateHeroKpi({
-  compactValue = false,
-  hint,
-  icon,
-  label,
-  value,
-}: AggregateHeroKpiProps) {
-  return (
-    <article className="rounded-[1.35rem] border border-white/72 bg-white/72 px-4 py-4 text-[#111c2d] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[0.72rem] uppercase tracking-[0.16em] text-[#57657a]">
-          {label}
-        </p>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e4f6ee] text-[#00513b]">
-          <AggregateMetricIcon className="h-4 w-4" name={icon} />
-        </span>
-      </div>
-      <p
-        className={
-          compactValue
-            ? "mt-2 whitespace-nowrap font-[family:var(--font-profile-headline)] text-[1.55rem] font-extrabold leading-none tracking-[-0.055em]"
-            : "mt-2 break-words font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-none tracking-[-0.04em]"
-        }
-      >
-        {value}
-      </p>
-      {hint ? <p className="mt-3 text-sm text-[#515f74]">{hint}</p> : null}
-    </article>
-  );
-}
-
-function AggregateMetricTile({ icon, label, value }: AggregateMetricTileProps) {
-  return (
-    <article className="group flex min-h-[8.9rem] flex-col justify-between rounded-[1.1rem] border border-[rgba(216,227,251,0.78)] bg-[rgba(240,243,255,0.72)] p-4 text-[#111c2d] shadow-[inset_0_1px_0_rgba(255,255,255,0.68)]">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-[0.15em] text-[#57657a]">
-          {label}
-        </p>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/78 text-[#00513b] shadow-[0_12px_28px_-24px_rgba(0,53,38,0.55)]">
-          <AggregateMetricIcon className="h-4 w-4" name={icon} />
-        </span>
-      </div>
-      <p className="w-full text-center font-[family:var(--font-profile-headline)] text-[2rem] font-extrabold leading-none tracking-[-0.04em]">
-        {value}
-      </p>
-    </article>
-  );
-}
-
-function getTeamMonogram(teamName: string): string {
-  const initials = teamName
+function getMonogram(name: string): string {
+  const initials = name
     .split(/\s+/)
-    .map((chunk) => chunk.trim())
     .filter(Boolean)
-    .map((chunk) => chunk[0]?.toUpperCase() ?? "")
+    .map((part) => part[0]?.toUpperCase() ?? "")
     .join("")
     .slice(0, 3);
-
-  return initials.length > 0 ? initials : "CLB";
+  return initials || "CLB";
 }
 
-function resolveSeasonLabel(competitionId: string | null, seasonId: string | null): string | null {
-  if (!seasonId) {
-    return null;
+function getArchiveSpan(firstMatchAt?: string | null, lastMatchAt?: string | null): string {
+  if (firstMatchAt && lastMatchAt) {
+    return `${formatDate(firstMatchAt)} — ${formatDate(lastMatchAt)}`;
   }
 
-  const competition = getCompetitionById(competitionId);
-  const season = competition
-    ? getSeasonByQueryId(seasonId, competition.seasonCalendar)
-    : getSeasonById(seasonId);
-
-  return season?.label ?? seasonId;
+  return firstMatchAt
+    ? `Desde ${formatDate(firstMatchAt)}`
+    : lastMatchAt
+      ? `Até ${formatDate(lastMatchAt)}`
+      : "Período ainda não informado";
 }
 
-function resolveScopeLabel(competitionId: string | null, seasonId: string | null): string {
-  const competition = getCompetitionById(competitionId);
-  const seasonLabel = resolveSeasonLabel(competitionId, seasonId);
-
-  if (competition && seasonLabel) {
-    return `${competition.name} · ${seasonLabel}`;
-  }
-
-  if (competition) {
-    return `${competition.name} · todas as temporadas`;
-  }
-
-  if (seasonLabel) {
-    return `Todas as competições · ${seasonLabel}`;
-  }
-
-  return "Todas as competições · todas as temporadas";
+function groupContexts(contexts: CompetitionSeasonContext[]) {
+  return Array.from(
+    contexts.reduce((groups, context) => {
+      const key = `${context.competitionId}-${context.competitionKey}`;
+      const current = groups.get(key) ?? {
+        competitionId: context.competitionId,
+        competitionKey: context.competitionKey,
+        competitionName: context.competitionName,
+        contexts: [] as CompetitionSeasonContext[],
+      };
+      current.contexts.push(context);
+      groups.set(key, current);
+      return groups;
+    }, new Map<string, { competitionId: string; competitionKey: string; competitionName: string; contexts: CompetitionSeasonContext[] }>()),
+  ).map(([, group]) => group);
 }
 
-export function TeamAggregateProfileContent({
-  teamId,
-  honorsPreview,
-}: TeamAggregateProfileContentProps) {
+function ArchiveMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <p className="text-[0.64rem] font-bold uppercase tracking-[0.16em] text-white/54">{label}</p>
+      <p className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.04em] text-white sm:text-3xl">{value}</p>
+    </div>
+  );
+}
+
+export function TeamAggregateProfileContent({ teamId }: TeamAggregateProfileContentProps) {
   const { competitionId, seasonId, roundId, venue, lastN, dateRangeStart, dateRangeEnd } =
     useGlobalFiltersState();
-  const contextsQuery = useTeamContexts(teamId, { competitionId, seasonId });
+  const contextsQuery = useTeamContexts(teamId);
   const defaultContext = contextsQuery.data?.defaultContext ?? null;
-  const defaultProfileQuery = useTeamProfile(
+  const profileQuery = useTeamProfile(
     teamId,
     { includeRecentMatches: false, includeSquad: false, includeStats: false },
     defaultContext,
   );
-  const resolvedTeamName = defaultProfileQuery.data?.team.teamName ?? null;
-  const teamsQuery = useTeamsList({
-    pageSize: 100,
-    search: resolvedTeamName ?? undefined,
-    sortBy: "points",
-    sortDirection: "desc",
-  });
-  const aggregateTeam =
-    teamsQuery.data?.items.find((item) => item.teamId === teamId) ??
-    teamsQuery.data?.items.find((item) => item.teamName === resolvedTeamName) ??
-    null;
-  const isLoading =
-    contextsQuery.isLoading ||
-    defaultProfileQuery.isLoading ||
-    (resolvedTeamName !== null && teamsQuery.isLoading);
-
-  if (isLoading && !aggregateTeam) {
-    return (
-      <ProfileShell className="space-y-6">
-        <LoadingSkeleton height={160} />
-        <LoadingSkeleton height={260} />
-      </ProfileShell>
-    );
-  }
-
-  if (!aggregateTeam) {
-    return (
-      <ProfileShell className="space-y-6">
-        <EmptyState
-          title="Recorte do clube indisponível"
-          description="Não encontramos métricas agregadas para este clube nos filtros atuais."
-        />
-      </ProfileShell>
-    );
-  }
-
   const sharedFilters = {
     competitionId,
     seasonId,
@@ -267,157 +103,208 @@ export function TeamAggregateProfileContent({
     dateRangeStart,
     dateRangeEnd,
   };
+  const clubsHref = buildClubsPath(sharedFilters);
+  const headToHeadHref = buildHeadToHeadPath({ ...sharedFilters, teamA: teamId });
+
+  if (contextsQuery.isLoading || (defaultContext && profileQuery.isLoading)) {
+    return (
+      <ProfileShell className="space-y-6" aria-busy="true">
+        <span className="sr-only" role="status">Carregando perfil do clube</span>
+        <LoadingSkeleton height={240} />
+        <LoadingSkeleton height={300} />
+        <LoadingSkeleton height={220} />
+      </ProfileShell>
+    );
+  }
+
+  if ((contextsQuery.isError && !contextsQuery.data) || (profileQuery.isError && !profileQuery.data)) {
+    const error = profileQuery.error ?? contextsQuery.error;
+    const isNotFound = error?.status === 404;
+    return (
+      <ProfileShell className="space-y-6">
+        <ProfileAlert title={isNotFound ? "Clube não encontrado" : "Não foi possível carregar o clube"} tone="critical">
+          <p>{isNotFound ? "Este clube não está disponível no acervo publicado." : error?.message}</p>
+          {!isNotFound ? (
+            <button
+              className="button-pill button-pill-secondary mt-3"
+              onClick={() => {
+                void contextsQuery.refetch();
+                void profileQuery.refetch();
+              }}
+              type="button"
+            >
+              Tentar novamente
+            </button>
+          ) : null}
+        </ProfileAlert>
+        <Link className="button-pill button-pill-primary w-fit" href={clubsHref}>Voltar para clubes</Link>
+      </ProfileShell>
+    );
+  }
+
+  if (!defaultContext || contextsQuery.isEmpty || !profileQuery.data) {
+    return (
+      <ProfileShell className="space-y-6">
+        <EmptyState
+          title="Perfil de clube indisponível"
+          description="O clube foi identificado, mas ainda não possui uma participação publicada que permita montar o perfil."
+        />
+        <Link className="button-pill button-pill-primary w-fit" href={clubsHref}>Voltar para clubes</Link>
+      </ProfileShell>
+    );
+  }
+
+  const { archive, honors, identity, team } = profileQuery.data;
   const availableContexts = contextsQuery.data?.availableContexts ?? [];
-  const competitionCount = new Set(
-    availableContexts.map((context) => context.competitionId).filter(Boolean),
-  ).size;
-  const seasonCount = new Set(
-    availableContexts.map((context) => context.seasonId).filter(Boolean),
-  ).size;
-  const winRate =
-    aggregateTeam.matchesPlayed && aggregateTeam.matchesPlayed > 0
-      ? ((aggregateTeam.wins ?? 0) / aggregateTeam.matchesPlayed) * 100
-      : null;
-  const pointsPerMatch =
-    aggregateTeam.matchesPlayed && aggregateTeam.matchesPlayed > 0
-      ? (aggregateTeam.points ?? 0) / aggregateTeam.matchesPlayed
-      : null;
-  const defaultContextHref = defaultContext ? buildCanonicalTeamPath(defaultContext, teamId) : null;
-  const contextCards = availableContexts.slice(0, 8);
+  const contextGroups = groupContexts(availableContexts);
+  const identityFacts = [
+    identity.city && identity.countryOrTerritory
+      ? `${identity.city}, ${identity.countryOrTerritory}`
+      : identity.city ?? identity.countryOrTerritory,
+    identity.foundedYear ? `Fundado em ${identity.foundedYear}` : null,
+    identity.stadiumName ? `Estádio: ${identity.stadiumName}` : null,
+  ].filter((value): value is string => Boolean(value));
+  const profileIsPartial =
+    profileQuery.isPartial ||
+    contextsQuery.isPartial ||
+    profileQuery.data.sectionCoverage?.archive?.status === "partial" ||
+    profileQuery.data.sectionCoverage?.identity?.status === "partial";
 
   return (
     <ProfileShell className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-        <Link className="transition-colors hover:text-[#00513b]" href={buildTeamsPath(sharedFilters)}>
-          Times
-        </Link>
-        <span className="text-[#8fa097]">/</span>
-        <span>{aggregateTeam.teamName}</span>
-      </div>
+      <nav aria-label="Navegação estrutural" className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#57657a]">
+        <Link className="hover:text-[#00513b]" href={clubsHref}>Clubes</Link>
+        <span aria-hidden="true" className="text-[#9aa6a0]">/</span>
+        <span aria-current="page">{identity.officialName || team.teamName}</span>
+      </nav>
 
-      <ProfilePanel className="profile-hero-clean overflow-hidden p-0" tone="accent">
-        <div className="grid gap-5 p-4 sm:p-5 md:gap-6 md:p-6 xl:grid-cols-[minmax(0,1fr)_11.5rem] xl:items-stretch">
-          <div className="flex min-h-full flex-col gap-5 xl:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <ProfileTag>{resolveScopeLabel(competitionId, seasonId)}</ProfileTag>
-              <ProfileTag>Arquivo histórico</ProfileTag>
-            </div>
-
-            <div className="flex items-start gap-3 sm:items-center sm:gap-5">
+      <ProfilePanel className="overflow-hidden bg-[#06271d] p-0" tone="accent">
+        <div className="grid gap-8 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,0.42fr)] lg:p-9">
+          <div className="flex min-w-0 flex-col justify-between gap-8">
+            <div className="flex min-w-0 items-start gap-4 sm:items-center sm:gap-6">
               <ProfileMedia
-                alt={`Escudo de ${aggregateTeam.teamName}`}
-                assetId={aggregateTeam.teamId}
+                alt={`Escudo de ${team.teamName}`}
+                assetId={team.teamId}
                 category="clubs"
-                className="h-16 w-16 shrink-0 border border-white/18 bg-white/12 sm:h-24 sm:w-24"
-                fallback={getTeamMonogram(aggregateTeam.teamName)}
+                className="h-20 w-20 shrink-0 border border-white/18 bg-white/10 sm:h-28 sm:w-28"
+                fallback={getMonogram(team.teamName)}
+                href={buildClubResolverPath(team.teamId, sharedFilters)}
                 imageClassName="p-3"
                 tone="contrast"
               />
               <div className="min-w-0">
-                <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-white/58">
-                  Perfil agregado do clube
-                </p>
-                <h1 className="mt-2 max-w-2xl break-words font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-[0.96] tracking-[-0.045em] text-white sm:text-4xl sm:leading-[0.92] sm:tracking-[-0.055em] md:text-5xl">
-                  {aggregateTeam.teamName}
+                <p className="text-[0.68rem] font-bold uppercase tracking-[0.22em] text-white/56">Identidade do clube</p>
+                <h1 className="mt-2 break-words font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-[0.94] tracking-[-0.055em] text-white sm:text-6xl">
+                  {identity.officialName || team.teamName}
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/62">
-                  Resumo consolidado a partir das competições e temporadas disponíveis.
+                <p className="mt-4 max-w-3xl text-sm leading-6 text-white/68">
+                  {identityFacts.length > 0 ? identityFacts.join(" · ") : "Dados de origem ainda não documentados no acervo."}
                 </p>
               </div>
             </div>
 
-            <div className="grid auto-rows-fr grid-cols-2 gap-3 xl:grid-cols-4">
-              <AggregateHeroKpi
-                label="Posição"
-                value={aggregateTeam.position ? `${aggregateTeam.position}º` : "-"}
-                hint={aggregateTeam.totalTeams ? `entre ${formatInteger(aggregateTeam.totalTeams)} times` : "ranking do recorte"}
-                icon="shield"
-              />
-              <AggregateHeroKpi
-                label="Pontos"
-                value={formatInteger(aggregateTeam.points)}
-                hint={`${formatDecimal(pointsPerMatch)} por jogo`}
-                icon="chart"
-              />
-              <AggregateHeroKpi
-                compactValue
-                label="Campanha"
-                value={`${formatInteger(aggregateTeam.wins)}-${formatInteger(aggregateTeam.draws)}-${formatInteger(aggregateTeam.losses)}`}
-                hint={`${formatInteger(aggregateTeam.matchesPlayed)} jogos`}
-                icon="form"
-              />
-              <AggregateHeroKpi
-                label="Saldo"
-                value={formatGoalDiff(aggregateTeam.goalDiff)}
-                hint={`Aproveitamento ${formatPercentage(winRate)}`}
-                icon="trend"
-              />
-            </div>
-
-            <div className="grid gap-2 sm:flex sm:flex-wrap">
-              {defaultContextHref ? (
-                <Link className="button-pill button-pill-primary" href={defaultContextHref}>
-                  Abrir temporada principal
+            <div className="flex flex-wrap gap-2">
+              {defaultContext ? (
+                <Link className="button-pill button-pill-on-dark" href={buildCanonicalClubPath(defaultContext, teamId)}>
+                  Abrir temporada mais recente
                 </Link>
               ) : null}
-              <Link className="button-pill button-pill-soft" href={buildRankingsHubPath(sharedFilters)}>
-                Rankings do recorte
-              </Link>
-              <Link className="button-pill button-pill-soft" href={buildTeamsPath(sharedFilters)}>
-                Ver times no recorte
-              </Link>
+              <Link className="button-pill button-pill-on-dark" href={headToHeadHref}>Comparar clube</Link>
+              <Link className="button-pill button-pill-on-dark" href={clubsHref}>Ver clubes no recorte</Link>
             </div>
-
-            {honorsPreview ? <TeamHonorsSection honors={honorsPreview} /> : null}
           </div>
 
-          <aside className="grid auto-rows-fr grid-cols-2 content-start gap-3 xl:grid-cols-1 xl:pt-14">
-            <AggregateMetricTile icon="grid" label="Competições" value={competitionCount || "-"} />
-            <AggregateMetricTile icon="calendar" label="Temporadas" value={seasonCount || "-"} />
-            <AggregateMetricTile icon="goal" label="Gols pró" value={formatInteger(aggregateTeam.goalsFor)} />
-            <AggregateMetricTile icon="shield" label="Gols contra" value={formatInteger(aggregateTeam.goalsAgainst)} />
+          <aside className="border-t border-white/14 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+            <p className="text-[0.66rem] font-bold uppercase tracking-[0.2em] text-white/55">Arquivo publicado</p>
+            <div className="mt-5 divide-y divide-white/14">
+              <ArchiveMetric label="Partidas" value={formatInteger(archive.matchesPlayed)} />
+              <ArchiveMetric label="Temporadas" value={formatInteger(archive.seasonCount)} />
+              <ArchiveMetric label="Competições" value={formatInteger(archive.competitionCount)} />
+            </div>
+            <p className="mt-6 text-sm leading-6 text-white/62">{getArchiveSpan(archive.firstMatchAt, archive.lastMatchAt)}</p>
+            <p className="mt-2 text-xs leading-5 text-white/52">O arquivo descreve apenas o material publicado pela plataforma; não é um histórico totalizante do clube.</p>
           </aside>
         </div>
       </ProfilePanel>
 
-      <ProfilePanel className="space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Participações disponíveis
-            </p>
-            <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
-              Competições e temporadas disponíveis
-            </h2>
-          </div>
-          <ProfileTag>{formatInteger(availableContexts.length)} recortes</ProfileTag>
-        </div>
+      {contextsQuery.isFetching || profileQuery.isFetching ? (
+        <p aria-live="polite" className="text-xs font-semibold text-[#57657a]">Atualizando arquivo do clube…</p>
+      ) : null}
 
-        {contextCards.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {contextCards.map((context) => (
-              <Link
-                className="group rounded-[1.25rem] border border-[rgba(216,227,251,0.78)] bg-white/78 p-4 transition hover:border-[#8bd6b6] hover:bg-white"
-                href={buildCanonicalTeamPath(context, teamId)}
-                key={`${context.competitionId}-${context.seasonId}`}
-              >
-                <p className="text-[0.64rem] font-bold uppercase tracking-[0.18em] text-[#69778d]">
-                  {context.seasonLabel}
-                </p>
-                <p className="mt-2 text-sm font-bold text-[#111c2d]">
-                  {context.competitionName}
-                </p>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#00513b]">
-                  Abrir perfil completo
-                </p>
-              </Link>
+      {contextsQuery.isError || profileQuery.isError ? (
+        <ProfileAlert title="Perfil carregado com ressalvas" tone="warning">
+          <p>{profileQuery.error?.message ?? contextsQuery.error?.message}</p>
+          <button
+            className="button-pill button-pill-secondary mt-3"
+            onClick={() => {
+              void contextsQuery.refetch();
+              void profileQuery.refetch();
+            }}
+            type="button"
+          >
+            Tentar novamente
+          </button>
+        </ProfileAlert>
+      ) : null}
+
+      {profileIsPartial ? (
+        <ProfileAlert title="Arquivo parcial" tone="warning">
+          <p>Algumas temporadas, dados de identidade ou seções do clube ainda não estão cobertos pela publicação atual.</p>
+        </ProfileAlert>
+      ) : null}
+
+      {honors ? (
+        <TeamHonorsSection honors={honors} />
+      ) : (
+        <ProfilePanel className="space-y-3">
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#57657a]">Conquistas documentadas</p>
+          <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold tracking-[-0.045em] text-[#111c2d]">Ainda sem registros publicados</h2>
+          <p className="max-w-3xl text-sm leading-6 text-[#57657a]">Isso indica ausência de documentação nesta API, não ausência de conquistas na história do clube.</p>
+        </ProfilePanel>
+      )}
+
+      <ProfilePanel className="space-y-6">
+        <header className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div>
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#57657a]">Participações no acervo</p>
+            <h2 className="mt-2 max-w-3xl font-[family:var(--font-profile-headline)] text-3xl font-extrabold tracking-[-0.045em] text-[#111c2d] md:text-4xl">Competições e temporadas disponíveis</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-[#57657a]">Escolha um recorte para abrir jornada, elenco, partidas e estatísticas com contexto explícito.</p>
+          </div>
+          <ProfileCoveragePill
+            coverage={{ ...contextsQuery.coverage, label: "Cobertura dos recortes" }}
+          />
+        </header>
+
+        {contextGroups.length > 0 ? (
+          <div className="divide-y divide-[rgba(191,201,195,0.42)] border-y border-[rgba(191,201,195,0.42)]">
+            {contextGroups.map((group, index) => (
+              <details className="group py-4" key={`${group.competitionId}-${group.competitionKey}`} open={index === 0}>
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00513b] [&::-webkit-details-marker]:hidden">
+                  <span>
+                    <span className="block font-bold text-[#111c2d]">{group.competitionName}</span>
+                    <span className="mt-1 block text-sm text-[#69778d]">{formatInteger(group.contexts.length)} temporadas publicadas</span>
+                  </span>
+                  <svg aria-hidden="true" className="h-5 w-5 shrink-0 text-[#57657a] transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" fill="none" viewBox="0 0 20 20">
+                    <path d="m6 8 4 4 4-4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+                  </svg>
+                </summary>
+                <div className="grid gap-2 pb-1 pt-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.contexts.map((context) => (
+                    <Link
+                      className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[rgba(191,201,195,0.48)] bg-white/74 px-4 py-3 text-sm font-semibold text-[#111c2d] hover:border-[#8bd6b6] hover:text-[#00513b]"
+                      href={buildCanonicalClubPath(context, teamId)}
+                      key={`${context.competitionId}-${context.seasonId}`}
+                    >
+                      {context.seasonLabel}
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  ))}
+                </div>
+              </details>
             ))}
           </div>
         ) : (
-          <EmptyState
-            title="Sem contextos detalhados"
-            description="O resumo existe, mas os detalhes por competição e temporada ainda não estão disponíveis."
-          />
+          <EmptyState title="Sem temporadas detalhadas" description="O clube está identificado, mas os recortes de competição ainda não foram publicados." />
         )}
       </ProfilePanel>
     </ProfileShell>

@@ -9,5 +9,5 @@ export default async function ClubDetailsPage({ params }: ClubDetailsPageProps) 
   const { clubId } = await params;
   const honorsPreview = await loadTeamHonorsPreview(clubId);
 
-  return <TeamRouteResolver honorsPreview={honorsPreview} teamId={clubId} />;
+  return <TeamRouteResolver honorsPreview={honorsPreview} surface="clubs" teamId={clubId} />;
 }

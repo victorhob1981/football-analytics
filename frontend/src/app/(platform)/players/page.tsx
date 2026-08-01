@@ -5,9 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { getCompetitionById } from "@/config/competitions.registry";
-import { formatMetricValue } from "@/config/metrics.registry";
-import { getSeasonById } from "@/config/seasons.registry";
+import { useHomePage } from "@/features/home/hooks/useHomePage";
 import { usePlayersList } from "@/features/players/hooks";
 import type {
   PlayerListItem,
@@ -16,12 +14,7 @@ import type {
 } from "@/features/players/types";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
-import {
-  ProfileAlert,
-  ProfilePanel,
-  ProfileShell,
-  ProfileTag,
-} from "@/shared/components/profile/ProfilePrimitives";
+import { ProfileAlert, ProfilePanel, ProfileShell } from "@/shared/components/profile/ProfilePrimitives";
 import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
@@ -31,77 +24,30 @@ import { useComparisonStore } from "@/shared/stores/comparison.store";
 import {
   appendFilterQueryString,
   buildCanonicalPlayerPath,
-  buildCanonicalTeamPath,
+  buildClubsPath,
   buildPlayerResolverPath,
   buildRankingPath,
-  buildSeasonHubTabPath,
-  buildTeamsPath,
   buildTeamResolverPath,
 } from "@/shared/utils/context-routing";
 
-const INTEGER_FORMATTER = new Intl.NumberFormat("pt-BR", {
-  maximumFractionDigits: 0,
-});
-
+const INTEGER_FORMATTER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const DECIMAL_FORMATTER = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+});
+const COMPACT_FORMATTER = new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 1,
+  notation: "compact",
 });
 
-function parseMinMinutes(value: string): number | null {
-  const normalizedValue = value.trim();
-
-  if (normalizedValue.length === 0) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(normalizedValue, 10);
-
-  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
-    return null;
-  }
-
-  return parsedValue;
-}
-
-function parseNullableQueryValue(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-
-  const normalizedValue = value.trim();
-  return normalizedValue.length > 0 ? normalizedValue : null;
-}
-
-function formatInteger(value: number | null | undefined): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return INTEGER_FORMATTER.format(value);
-}
-
-function formatDecimal(value: number | null | undefined): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return DECIMAL_FORMATTER.format(value);
-}
-
-function getInitials(name: string): string {
-  const tokens = name
-    .trim()
-    .split(/\s+/)
-    .filter((token) => token.length > 0)
-    .slice(0, 2);
-
-  if (tokens.length === 0) {
-    return "PL";
-  }
-
-  return tokens.map((token) => token[0]?.toUpperCase() ?? "").join("");
-}
+const SORT_OPTIONS: Array<{ label: string; value: PlayersSortBy }> = [
+  { label: "Relevância", value: "relevance" },
+  { label: "Nome", value: "playerName" },
+  { label: "Minutos", value: "minutesPlayed" },
+  { label: "Gols", value: "goals" },
+  { label: "Assistências", value: "assists" },
+  { label: "Nota", value: "rating" },
+];
 
 const POSITION_LABELS: Record<string, string> = {
   attacker: "Atacante",
@@ -152,43 +98,67 @@ const POSITION_LABELS: Record<string, string> = {
   winger: "Ponta",
 };
 
-function normalizePositionKey(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z]/g, "")
-    .toLowerCase();
+function formatInteger(value: number | null | undefined): string {
+  return typeof value === "number" && !Number.isNaN(value) ? INTEGER_FORMATTER.format(value) : "—";
+}
+
+function formatCompact(value: number | null | undefined): string {
+  return typeof value === "number" && !Number.isNaN(value) ? COMPACT_FORMATTER.format(value) : "—";
+}
+
+function formatDecimal(value: number | null | undefined): string {
+  return typeof value === "number" && !Number.isNaN(value) ? DECIMAL_FORMATTER.format(value) : "—";
+}
+
+function parseMinMinutes(value: string): number | null {
+  if (value.trim().length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseQueryValue(value: string | null): string | null {
+  const normalized = value?.trim() ?? "";
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getInitials(name: string): string {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((token) => token[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return initials || "JG";
 }
 
 function formatPosition(position: string | null | undefined): string {
   if (!position) {
-    return "Sem posição";
+    return "Posição não informada";
   }
 
-  const normalizedPosition = position.trim();
-  const mappedPosition = POSITION_LABELS[normalizePositionKey(normalizedPosition)];
+  const normalized = position.trim();
+  const key = normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z]/g, "")
+    .toLowerCase();
 
-  if (mappedPosition) {
-    return mappedPosition;
-  }
-
-  if (normalizedPosition.length <= 3) {
-    return normalizedPosition.toUpperCase();
-  }
-
-  return normalizedPosition;
+  return POSITION_LABELS[key] ?? normalized;
 }
 
-function describeVenue(venue: string): string {
-  if (venue === "home") {
-    return "Casa";
+function formatYearSpan(start: string | null | undefined, end: string | null | undefined): string {
+  const startYear = start?.slice(0, 4);
+  const endYear = end?.slice(0, 4);
+
+  if (startYear && endYear) {
+    return startYear === endYear ? startYear : `${startYear}–${endYear}`;
   }
 
-  if (venue === "away") {
-    return "Fora";
-  }
-
-  return "Todos os mandos";
+  return startYear ?? endYear ?? "Período não informado";
 }
 
 function describeTimeWindow(params: {
@@ -198,206 +168,27 @@ function describeTimeWindow(params: {
   dateRangeEnd: string | null;
 }): string {
   if (params.lastN !== null) {
-    return `Últimas ${params.lastN} partidas`;
+    return `últimas ${params.lastN} partidas`;
   }
 
-  if (params.dateRangeStart !== null || params.dateRangeEnd !== null) {
-    const startLabel = params.dateRangeStart ?? "...";
-    const endLabel = params.dateRangeEnd ?? "...";
-
-    return `${startLabel} até ${endLabel}`;
+  if (params.dateRangeStart || params.dateRangeEnd) {
+    return `${params.dateRangeStart ?? "início"} a ${params.dateRangeEnd ?? "hoje"}`;
   }
 
-  if (params.roundId !== null) {
-    return `Rodada ${params.roundId}`;
+  if (params.roundId) {
+    return `rodada ${params.roundId}`;
   }
 
-  return "Temporada inteira";
+  return "todo o período publicado";
 }
 
-function resolveSortByLabel(sortBy: PlayersSortBy): string {
-  if (sortBy === "playerName") {
-    return "Nome";
-  }
-
-  if (sortBy === "minutesPlayed") {
-    return "Minutos";
+function activeMetric(player: PlayerListItem, sortBy: PlayersSortBy) {
+  if (sortBy === "goals") {
+    return { label: "Gols", value: formatInteger(player.goals) };
   }
 
   if (sortBy === "assists") {
-    return "Assists";
-  }
-
-  if (sortBy === "rating") {
-    return "Nota";
-  }
-
-  return "Gols";
-}
-
-function resolveSortDirectionLabel(sortDirection: PlayersSortDirection): string {
-  return sortDirection === "asc" ? "Menor para maior" : "Maior para menor";
-}
-
-function formatMinutesCell(value: number | null | undefined): string {
-  return formatInteger(value);
-}
-
-type PlayersPageIconName =
-  | "assist"
-  | "compare"
-  | "players"
-  | "ranking"
-  | "search"
-  | "shield"
-  | "star";
-
-function PlayersPageIcon({
-  className,
-  icon,
-}: {
-  className?: string;
-  icon: PlayersPageIconName;
-}) {
-  const sharedClassName = className ?? "h-4 w-4";
-
-  if (icon === "players") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path
-          d="M8.5 11.2a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2ZM15.5 11.2a3.1 3.1 0 1 0 0-6.2"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M3.8 19c.6-3.1 2.3-4.8 4.7-4.8s4.1 1.7 4.7 4.8M12.7 16c.8-1.2 1.9-1.8 3.2-1.8 2.2 0 3.7 1.6 4.3 4.5"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.8"
-        />
-      </svg>
-    );
-  }
-
-  if (icon === "ranking") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path d="M5 18V10h4v8M10 18V5h4v13M15 18v-6h4v6" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M4 18.5h16" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (icon === "shield") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path
-          d="M12 4.5 18 7v5.4c0 3.3-2 5.8-6 7.1-4-1.3-6-3.8-6-7.1V7l6-2.5Z"
-          stroke="currentColor"
-          strokeLinejoin="round"
-          strokeWidth="1.8"
-        />
-      </svg>
-    );
-  }
-
-  if (icon === "assist") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path d="M5 12h9" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-        <path
-          d="m11 8 4 4-4 4M18.5 6.5v11"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.8"
-        />
-      </svg>
-    );
-  }
-
-  if (icon === "compare") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path d="M8 7 4 11l4 4M16 7l4 4-4 4M20 11H4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (icon === "search") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <circle cx="10.8" cy="10.8" r="5.8" stroke="currentColor" strokeWidth="1.8" />
-        <path d="m15.4 15.4 4.1 4.1" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-      <path
-        d="m12 4.6 1.9 4 4.4.6-3.2 3.1.8 4.4-3.9-2.1-3.9 2.1.8-4.4-3.2-3.1 4.4-.6 1.9-4Z"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function PlayersLinkButton({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: PlayersPageIconName;
-  label: string;
-}) {
-  return (
-    <Link
-      className="group inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-white/14 bg-white/10 px-4 py-2 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-white/86 transition-colors hover:border-white/28 hover:bg-white/18 sm:w-auto"
-      href={href}
-    >
-      <PlayersPageIcon className="h-4 w-4 transition-transform group-hover:scale-110" icon={icon} />
-      {label}
-    </Link>
-  );
-}
-
-function PlayersHeroMetric({
-  hint,
-  icon,
-  label,
-  value,
-}: {
-  hint: string;
-  icon: PlayersPageIconName;
-  label: string;
-  value: string;
-}) {
-  return (
-    <article className="group flex min-h-[9.2rem] flex-col justify-between rounded-[1.35rem] border border-white/12 bg-white/10 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-white/14">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white">
-          <PlayersPageIcon className="h-5 w-5" icon={icon} />
-        </span>
-        <p className="text-right text-[0.62rem] font-bold uppercase tracking-[0.18em] text-white/58">
-          {label}
-        </p>
-      </div>
-      <p className="mt-4 font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-none tracking-[-0.03em]">
-        {value}
-      </p>
-      <p className="mt-2 text-sm text-white/62">{hint}</p>
-    </article>
-  );
-}
-
-function resolveFeaturedPlayerMetric(player: PlayerListItem, sortBy: PlayersSortBy) {
-  if (sortBy === "assists") {
-    return { label: "Assists", value: formatInteger(player.assists) };
+    return { label: "Assistências", value: formatInteger(player.assists) };
   }
 
   if (sortBy === "minutesPlayed") {
@@ -408,47 +199,69 @@ function resolveFeaturedPlayerMetric(player: PlayerListItem, sortBy: PlayersSort
     return { label: "Nota", value: formatDecimal(player.rating) };
   }
 
-  const goalInvolvements = (player.goals ?? 0) + (player.assists ?? 0);
+  return null;
+}
 
-  if (sortBy === "playerName") {
-    return { label: "G+A", value: formatInteger(goalInvolvements) };
-  }
+function SearchIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <circle cx="10.8" cy="10.8" r="5.8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m15.4 15.4 4.1 4.1" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
 
-  return { label: "Gols", value: formatInteger(player.goals) };
+function ArrowIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
 }
 
 export default function PlayersPage() {
   const searchParams = useSearchParams();
-  const selectedStageId = parseNullableQueryValue(searchParams.get("stageId"));
-  const selectedStageFormat = parseNullableQueryValue(searchParams.get("stageFormat"));
-
+  const selectedStageId = parseQueryValue(searchParams.get("stageId"));
+  const selectedStageFormat = parseQueryValue(searchParams.get("stageFormat"));
   const [search, setSearch] = useState("");
   const [minMinutesInput, setMinMinutesInput] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [sortBy, setSortBy] = useState<PlayersSortBy>("goals");
+  const [sortBy, setSortBy] = useState<PlayersSortBy>("relevance");
   const [sortDirection, setSortDirection] = useState<PlayersSortDirection>("desc");
-
   const debouncedSearch = useDebouncedValue(search);
-  const normalizedMinMinutes = useMemo(() => parseMinMinutes(minMinutesInput), [minMinutesInput]);
-
+  const minMinutes = useMemo(() => parseMinMinutes(minMinutesInput), [minMinutesInput]);
+  const archiveQuery = useHomePage();
   const { competitionId, seasonId, venue } = useGlobalFiltersState();
   const resolvedContext = useResolvedCompetitionContext();
   const { params: timeRangeParams } = useTimeRange();
   const comparisonEntityType = useComparisonStore((state) => state.entityType);
-  const selectedIds = useComparisonStore((state) => state.selectedIds);
+  const comparisonIds = useComparisonStore((state) => state.selectedIds);
   const addToComparison = useComparisonStore((state) => state.add);
   const removeFromComparison = useComparisonStore((state) => state.remove);
   const setComparisonEntityType = useComparisonStore((state) => state.setEntityType);
+  const selectedIds = comparisonEntityType === "player" ? comparisonIds : [];
+  const selectedIdsSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const playersQuery = usePlayersList({
+    search: debouncedSearch,
+    minMinutes,
+    stageId: selectedStageId,
+    stageFormat: selectedStageFormat,
+    page,
+    pageSize,
+    sortBy,
+    sortDirection,
+  });
 
   useEffect(() => {
     setPage(1);
   }, [
     competitionId,
-    seasonId,
     debouncedSearch,
-    normalizedMinMinutes,
+    minMinutes,
     pageSize,
+    seasonId,
     selectedStageFormat,
     selectedStageId,
     sortBy,
@@ -460,166 +273,49 @@ export default function PlayersPage() {
     venue,
   ]);
 
-  const competitionName = getCompetitionById(competitionId)?.name ?? null;
-  const seasonLabel = getSeasonById(seasonId)?.label ?? null;
-  const activeWindowLabel = useMemo(() => describeTimeWindow(timeRangeParams), [timeRangeParams]);
-  const selectedIdsSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-
-  const playersQuery = usePlayersList({
-    search: debouncedSearch,
-    minMinutes: normalizedMinMinutes,
-    stageId: selectedStageId,
-    stageFormat: selectedStageFormat,
-    page,
-    pageSize,
-    sortBy,
-    sortDirection,
-  });
-
-  const rows = playersQuery.data?.items ?? [];
-  const pagination = playersQuery.meta?.pagination;
-  const totalCount = pagination?.totalCount ?? rows.length;
-  const totalPages = Math.max(pagination?.totalPages ?? 1, 1);
-  const currentPage = pagination?.page ?? page;
-  const resolvedPageSize = pagination?.pageSize ?? pageSize;
-  const currentRangeStart = totalCount === 0 ? 0 : (currentPage - 1) * resolvedPageSize + 1;
-  const currentRangeEnd = totalCount === 0 ? 0 : currentRangeStart + rows.length - 1;
+  const sharedFilters = useMemo(
+    () => ({
+      competitionId,
+      seasonId,
+      roundId: timeRangeParams.roundId,
+      stageId: selectedStageId,
+      stageFormat: selectedStageFormat,
+      venue,
+      lastN: timeRangeParams.lastN,
+      dateRangeStart: timeRangeParams.dateRangeStart,
+      dateRangeEnd: timeRangeParams.dateRangeEnd,
+    }),
+    [
+      competitionId,
+      seasonId,
+      selectedStageFormat,
+      selectedStageId,
+      timeRangeParams.dateRangeEnd,
+      timeRangeParams.dateRangeStart,
+      timeRangeParams.lastN,
+      timeRangeParams.roundId,
+      venue,
+    ],
+  );
 
   const getPlayerHref = useCallback(
     (playerId: string) =>
       resolvedContext
         ? appendFilterQueryString(
             buildCanonicalPlayerPath(resolvedContext, playerId),
-            {
-              competitionId,
-              seasonId,
-              roundId: timeRangeParams.roundId,
-              stageId: selectedStageId,
-              stageFormat: selectedStageFormat,
-              venue,
-              lastN: timeRangeParams.lastN,
-              dateRangeStart: timeRangeParams.dateRangeStart,
-              dateRangeEnd: timeRangeParams.dateRangeEnd,
-            },
+            sharedFilters,
             ["competitionId", "seasonId"],
           )
-        : buildPlayerResolverPath(playerId, {
-            competitionId,
-            seasonId,
-            roundId: timeRangeParams.roundId,
-            stageId: selectedStageId,
-            stageFormat: selectedStageFormat,
-            venue,
-            lastN: timeRangeParams.lastN,
-            dateRangeStart: timeRangeParams.dateRangeStart,
-            dateRangeEnd: timeRangeParams.dateRangeEnd,
-          }),
-    [
-      competitionId,
-      resolvedContext,
-      seasonId,
-      selectedStageFormat,
-      selectedStageId,
-      timeRangeParams.dateRangeEnd,
-      timeRangeParams.dateRangeStart,
-      timeRangeParams.lastN,
-      timeRangeParams.roundId,
-      venue,
-    ],
+        : buildPlayerResolverPath(playerId, sharedFilters),
+    [resolvedContext, sharedFilters],
   );
 
   const getTeamHref = useCallback(
-    (player: PlayerListItem) => {
-      if (!player.teamId || !player.teamName || (player.teamCount ?? 0) > 1) {
-        return null;
-      }
-
-      return resolvedContext
-        ? appendFilterQueryString(
-            buildCanonicalTeamPath(resolvedContext, player.teamId),
-            {
-              competitionId,
-              seasonId,
-              roundId: timeRangeParams.roundId,
-              stageId: selectedStageId,
-              stageFormat: selectedStageFormat,
-              venue,
-              lastN: timeRangeParams.lastN,
-              dateRangeStart: timeRangeParams.dateRangeStart,
-              dateRangeEnd: timeRangeParams.dateRangeEnd,
-            },
-            ["competitionId", "seasonId"],
-          )
-        : buildTeamResolverPath(player.teamId, {
-            competitionId,
-            seasonId,
-            roundId: timeRangeParams.roundId,
-            stageId: selectedStageId,
-            stageFormat: selectedStageFormat,
-            venue,
-            lastN: timeRangeParams.lastN,
-            dateRangeStart: timeRangeParams.dateRangeStart,
-            dateRangeEnd: timeRangeParams.dateRangeEnd,
-          });
-    },
-    [
-      competitionId,
-      resolvedContext,
-      seasonId,
-      selectedStageFormat,
-      selectedStageId,
-      timeRangeParams.dateRangeEnd,
-      timeRangeParams.dateRangeStart,
-      timeRangeParams.lastN,
-      timeRangeParams.roundId,
-      venue,
-    ],
+    (teamId: string) => buildTeamResolverPath(teamId, sharedFilters),
+    [sharedFilters],
   );
 
-  const getTeamAssetHref = useCallback(
-    (teamId: string) =>
-      resolvedContext
-        ? appendFilterQueryString(
-            buildCanonicalTeamPath(resolvedContext, teamId),
-            {
-              competitionId,
-              seasonId,
-              roundId: timeRangeParams.roundId,
-              stageId: selectedStageId,
-              stageFormat: selectedStageFormat,
-              venue,
-              lastN: timeRangeParams.lastN,
-              dateRangeStart: timeRangeParams.dateRangeStart,
-              dateRangeEnd: timeRangeParams.dateRangeEnd,
-            },
-            ["competitionId", "seasonId"],
-          )
-        : buildTeamResolverPath(teamId, {
-            competitionId,
-            seasonId,
-            roundId: timeRangeParams.roundId,
-            stageId: selectedStageId,
-            stageFormat: selectedStageFormat,
-            venue,
-            lastN: timeRangeParams.lastN,
-            dateRangeStart: timeRangeParams.dateRangeStart,
-            dateRangeEnd: timeRangeParams.dateRangeEnd,
-          }),
-    [
-      competitionId,
-      resolvedContext,
-      seasonId,
-      selectedStageFormat,
-      selectedStageId,
-      timeRangeParams.dateRangeEnd,
-      timeRangeParams.dateRangeStart,
-      timeRangeParams.lastN,
-      timeRangeParams.roundId,
-      venue,
-    ],
-  );
-
-  const handleCompareAction = useCallback(
+  const handleCompare = useCallback(
     (playerId: string) => {
       if (comparisonEntityType !== "player") {
         setComparisonEntityType("player");
@@ -627,10 +323,9 @@ export default function PlayersPage() {
 
       if (selectedIdsSet.has(playerId)) {
         removeFromComparison(playerId);
-        return;
+      } else {
+        addToComparison(playerId);
       }
-
-      addToComparison(playerId);
     },
     [
       addToComparison,
@@ -641,741 +336,348 @@ export default function PlayersPage() {
     ],
   );
 
-  const pageSummary = useMemo(() => {
-    const totalGoals = rows.reduce((sum, item) => sum + (item.goals ?? 0), 0);
-    const totalAssists = rows.reduce((sum, item) => sum + (item.assists ?? 0), 0);
-    const totalMinutes = rows.reduce((sum, item) => sum + (item.minutesPlayed ?? 0), 0);
-    const ratingValues = rows
-      .map((item) => item.rating)
-      .filter((rating): rating is number => typeof rating === "number");
-
-    return {
-      totalGoals,
-      totalAssists,
-      totalMinutes,
-      goalInvolvements: totalGoals + totalAssists,
-      averageRating:
-        ratingValues.length > 0
-          ? ratingValues.reduce((sum, rating) => sum + rating, 0) / ratingValues.length
-          : null,
-    };
-  }, [rows]);
-
-  const localMinMinutesLabel =
-    normalizedMinMinutes === null
-      ? "Sem piso de minutos"
-      : `Mínimo de ${formatInteger(normalizedMinMinutes)} minutos`;
-  const sortLabel = `${resolveSortByLabel(sortBy)} · ${resolveSortDirectionLabel(sortDirection)}`;
-  const seasonHubHref = resolvedContext
-    ? buildSeasonHubTabPath(resolvedContext, "rankings", {
-        competitionId,
-        seasonId,
-        roundId: timeRangeParams.roundId,
-        stageId: selectedStageId,
-        stageFormat: selectedStageFormat,
-        venue,
-        lastN: timeRangeParams.lastN,
-        dateRangeStart: timeRangeParams.dateRangeStart,
-        dateRangeEnd: timeRangeParams.dateRangeEnd,
-      })
-    : "/competitions";
-  const seasonLinkLabel = resolvedContext ? "Temporada" : "Temporadas";
-  const rankingsHref = buildRankingPath("player-goals", {
-    competitionId,
-    seasonId,
-    roundId: timeRangeParams.roundId,
-    stageId: selectedStageId,
-    stageFormat: selectedStageFormat,
-    venue,
-    lastN: timeRangeParams.lastN,
-    dateRangeStart: timeRangeParams.dateRangeStart,
-    dateRangeEnd: timeRangeParams.dateRangeEnd,
-  });
-  const teamsHref = buildTeamsPath({
-    competitionId,
-    seasonId,
-    roundId: timeRangeParams.roundId,
-    stageId: selectedStageId,
-    stageFormat: selectedStageFormat,
-    venue,
-    lastN: timeRangeParams.lastN,
-    dateRangeStart: timeRangeParams.dateRangeStart,
-    dateRangeEnd: timeRangeParams.dateRangeEnd,
-  });
-  const featuredPlayers = rows.slice(0, 3);
-  const featuredPlayer = featuredPlayers[0] ?? null;
-  const featuredPlayerMetric = featuredPlayer
-    ? resolveFeaturedPlayerMetric(featuredPlayer, sortBy)
-    : null;
-  const comparisonHint =
-    selectedIds.length === 0
-      ? "marque na tabela"
-      : selectedIds.length === 1
-        ? "falta 1 jogador"
-        : "pronta";
+  const rows = playersQuery.data?.items ?? [];
+  const pagination = playersQuery.meta?.pagination;
+  const totalCount = pagination?.totalCount ?? rows.length;
+  const currentPage = pagination?.page ?? page;
+  const resolvedPageSize = pagination?.pageSize ?? pageSize;
+  const totalPages = Math.max(pagination?.totalPages ?? Math.ceil(totalCount / resolvedPageSize), 1);
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * resolvedPageSize + 1;
+  const rangeEnd = totalCount === 0 ? 0 : rangeStart + rows.length - 1;
+  const archiveSummary = archiveQuery.data?.archiveSummary;
+  const archivePlayerCount = archiveSummary?.players ?? totalCount;
+  const scopeLabel = playersQuery.data?.scope.label ?? "Acervo publicado";
+  const contextLabel = resolvedContext
+    ? `${resolvedContext.competitionName} · ${resolvedContext.seasonLabel}`
+    : "Todas as competições e temporadas";
+  const windowLabel = describeTimeWindow(timeRangeParams);
+  const isFiltered = playersQuery.data?.scope.kind === "filtered";
+  const rankingsHref = buildRankingPath("player-goals", sharedFilters);
+  const clubsHref = buildClubsPath(sharedFilters);
 
   if (playersQuery.isLoading && !playersQuery.data) {
     return (
-      <ProfileShell className="space-y-5">
-        <LoadingSkeleton height={240} />
-        <LoadingSkeleton height={150} />
-        <LoadingSkeleton height={480} />
+      <ProfileShell className="space-y-5" variant="plain">
+        <LoadingSkeleton className="motion-reduce:animate-none" height={330} rounded="md" />
+        <LoadingSkeleton className="motion-reduce:animate-none" height={118} rounded="md" />
+        <div className="grid gap-4 md:grid-cols-2">
+          {[0, 1, 2, 3].map((item) => (
+            <LoadingSkeleton className="motion-reduce:animate-none" height={210} key={item} rounded="md" />
+          ))}
+        </div>
       </ProfileShell>
     );
   }
 
   if (playersQuery.isError && rows.length === 0) {
     return (
-      <ProfileShell className="space-y-5">
-        <ProfileAlert title="Falha ao carregar jogadores" tone="critical">
-          <p>{playersQuery.error?.message}</p>
-        </ProfileAlert>
+      <ProfileShell className="space-y-5" variant="plain">
+        <EmptyState
+          actionLabel="Tentar novamente"
+          description={playersQuery.error?.message ?? "Não foi possível consultar o acervo agora."}
+          onAction={() => void playersQuery.refetch()}
+          title="Falha ao carregar jogadores"
+        />
       </ProfileShell>
     );
   }
 
   return (
-    <ProfileShell className="space-y-5">
-      {playersQuery.isFetching && playersQuery.data ? (
-        <p className="text-sm font-semibold text-[#57657a]" role="status">
-          Atualizando jogadores…
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-        <Link className="transition-colors hover:text-[#003526]" href="/competitions">
-          Competições
-        </Link>
-        <span className="text-[#8fa097]">/</span>
-        <span>Jogadores</span>
-      </div>
+    <ProfileShell className="space-y-6" variant="plain">
+      <nav aria-label="Caminho da página" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#66756e]">
+        <Link className="hover:text-[#00513b]" href="/competitions">Competições</Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Jogadores</span>
+      </nav>
 
-      <ProfilePanel className="profile-hero-clean relative overflow-hidden p-0" tone="accent">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(166,242,209,0.24),transparent_30%),radial-gradient(circle_at_88%_0%,rgba(216,227,251,0.2),transparent_34%)]" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full border border-white/10" />
-        <div className="pointer-events-none absolute -bottom-24 left-10 h-52 w-52 rounded-full bg-white/5 blur-3xl" />
+      <section className="overflow-hidden rounded-[1.75rem] border border-[#1c4136] bg-[#08231a] text-white shadow-[0_30px_70px_-50px_rgba(0,31,22,0.72)]">
+        <div className="grid lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
+          <div className="p-5 sm:p-7 lg:p-9">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.24em] text-[#9ddfc2]">
+              Acervo de jogadores
+            </p>
+            <h1 className="mt-4 max-w-3xl font-[family:var(--font-profile-headline)] text-4xl font-extrabold leading-[0.98] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+              Carreiras para explorar, nomes para descobrir.
+            </h1>
+            <p className="mt-5 max-w-2xl text-sm/6 text-white/72 sm:text-base/7">
+              Navegue pelas trajetórias registradas na plataforma, encontre um jogador e siga por clubes, temporadas e partidas.
+            </p>
 
-        <div className="relative grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)] xl:items-stretch">
-          <div className="flex min-h-full min-w-0 flex-col gap-5 xl:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <ProfileTag className="bg-white/10 text-white/82">
-                {competitionName ?? "Todas as competições"}
-              </ProfileTag>
-              <ProfileTag className="bg-white/10 text-white/82">
-                {seasonLabel ?? "Todas as temporadas"}
-              </ProfileTag>
-              <ProfileTag className="bg-white/10 text-white/82">{activeWindowLabel}</ProfileTag>
-            </div>
-
-            <div className="max-w-3xl">
-              <p className="flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-white/58">
-                <PlayersPageIcon className="h-4 w-4" icon="players" />
-                Jogadores
-              </p>
-              <h1 className="mt-3 font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-tight tracking-[-0.04em] text-white sm:text-4xl">
-                Jogadores
-              </h1>
-            </div>
-
-            <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <PlayersHeroMetric
-                hint={`página ${formatInteger(currentPage)} de ${formatInteger(totalPages)}`}
-                icon="players"
-                label="Mostrando"
-                value={`${formatInteger(currentRangeStart)}-${formatInteger(currentRangeEnd)}`}
-              />
-              <PlayersHeroMetric
-                hint="nesta página"
-                icon="assist"
-                label="G+A"
-                value={formatInteger(pageSummary.goalInvolvements)}
-              />
-              <PlayersHeroMetric
-                hint="média da página"
-                icon="star"
-                label="Nota"
-                value={formatDecimal(pageSummary.averageRating)}
-              />
-              <PlayersHeroMetric
-                hint={comparisonHint}
-                icon="compare"
-                label="Comparar"
-                value={`${selectedIds.length}/2`}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <PlayersLinkButton href={rankingsHref} icon="ranking" label="Ranking de gols" />
-              <PlayersLinkButton href={teamsHref} icon="shield" label="Times" />
-              <PlayersLinkButton href={seasonHubHref} icon="star" label={seasonLinkLabel} />
-            </div>
+            <dl className="mt-8 grid grid-cols-3 gap-4 border-t border-white/12 pt-5">
+              <div>
+                <dt className="text-[0.62rem] uppercase tracking-[0.15em] text-white/48">Competições</dt>
+                <dd className="mt-1 text-xl font-bold">{formatInteger(archiveSummary?.competitions)}</dd>
+              </div>
+              <div>
+                <dt className="text-[0.62rem] uppercase tracking-[0.15em] text-white/48">Temporadas</dt>
+                <dd className="mt-1 text-xl font-bold">{formatInteger(archiveSummary?.seasons)}</dd>
+              </div>
+              <div>
+                <dt className="text-[0.62rem] uppercase tracking-[0.15em] text-white/48">Partidas</dt>
+                <dd className="mt-1 text-xl font-bold">{formatCompact(archiveSummary?.matches)}</dd>
+              </div>
+            </dl>
           </div>
 
-          <aside className="grid min-w-0 content-start gap-3 xl:pt-14">
-            {featuredPlayer && featuredPlayerMetric ? (
-              <Link
-                className="group flex min-h-[9rem] flex-col justify-between rounded-[1.55rem] border border-white/12 bg-white/12 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-white/16"
-                href={getPlayerHref(featuredPlayer.playerId)}
+          <div className="border-t border-white/12 bg-white/[0.055] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-9">
+            <p className="font-[family:var(--font-profile-headline)] text-5xl font-extrabold tracking-[-0.055em] sm:text-6xl">
+              {formatInteger(archivePlayerCount)}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white/86">
+              identidades de jogadores no acervo bruto publicado
+            </p>
+            <p className="mt-2 text-sm/6 text-white/56">
+              {isFiltered
+                ? `${formatInteger(totalCount)} ${totalCount === 1 ? "carreira documentada atende" : "carreiras documentadas atendem"} aos filtros atuais.`
+                : `${formatInteger(totalCount)} ${totalCount === 1 ? "carreira documentada disponível" : "carreiras documentadas disponíveis"} para explorar.`}{" "}
+              São camadas de cobertura diferentes; nenhuma representa toda a história do futebol.
+            </p>
+
+            <label className="mt-7 block" htmlFor="player-search">
+              <span className="text-[0.68rem] font-bold uppercase tracking-[0.17em] text-white/62">
+                Buscar por nome
+              </span>
+              <span className="mt-2 flex min-h-14 items-center gap-3 rounded-[1rem] bg-white px-4 text-[#111c2d] shadow-[0_14px_35px_-24px_rgba(0,0,0,0.55)]">
+                <SearchIcon className="h-5 w-5 shrink-0 text-[#35624f]" />
+                <input
+                  className="min-w-0 flex-1 border-0 bg-transparent py-3 text-base font-medium outline-none placeholder:text-[#7c8882]"
+                  id="player-search"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Digite um jogador"
+                  type="search"
+                  value={search}
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <ProfilePanel className="border-[#dfe7e2] bg-white/90 p-4 md:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[0.66rem] font-bold uppercase tracking-[0.18em] text-[#65736d]">{scopeLabel}</p>
+            <h2 className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.035em] text-[#111c2d]">
+              Explorar o catálogo
+            </h2>
+            <p className="mt-1 text-sm text-[#66756e]">{contextLabel} · {windowLabel}</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs font-semibold text-[#586861]">
+              Ordem
+              <select
+                className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                onChange={(event) => {
+                  const nextSort = event.target.value as PlayersSortBy;
+                  setSortBy(nextSort);
+                  if (nextSort === "relevance") setSortDirection("desc");
+                }}
+                value={sortBy}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <ProfileMedia
-                      alt={featuredPlayer.playerName}
-                      assetId={featuredPlayer.playerId}
-                      category="players"
-                      className="h-16 w-16 border border-white/18 bg-white/12"
-                      fallback={getInitials(featuredPlayer.playerName)}
-                      imageClassName="p-1"
-                      shape="circle"
-                      linkBehavior="none"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-[0.64rem] font-bold uppercase tracking-[0.18em] text-white/52">
-                        Destaque da lista
-                      </p>
-                      <h2 className="mt-1 truncate font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.035em] text-white">
-                        {featuredPlayer.playerName}
-                      </h2>
-                    </div>
-                  </div>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white transition-transform group-hover:scale-105">
-                    <PlayersPageIcon className="h-4 w-4" icon="star" />
-                  </span>
-                </div>
+                {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
 
-                <div className="mt-5 grid grid-cols-3 gap-2">
-                  <div className="rounded-[1rem] bg-white/10 px-3 py-3">
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/52">
-                      {featuredPlayerMetric.label}
-                    </p>
-                    <p className="mt-1 text-2xl font-extrabold">{featuredPlayerMetric.value}</p>
-                  </div>
-                  <div className="rounded-[1rem] bg-white/10 px-3 py-3">
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/52">Jogos</p>
-                    <p className="mt-1 text-2xl font-extrabold">
-                      {formatInteger(featuredPlayer.matchesPlayed)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1rem] bg-white/10 px-3 py-3">
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/52">Time</p>
-                    <p className="mt-1 truncate text-sm font-bold">
-                      {featuredPlayer.teamName ?? "Sem time"}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ) : (
-              <div className="rounded-[1.55rem] border border-white/12 bg-white/10 p-5 text-white/70">
-                Sem jogadores para destacar neste recorte.
-              </div>
-            )}
-
-            {featuredPlayers.length > 1 ? (
-              <div className="grid gap-2">
-                {featuredPlayers.slice(1).map((player, index) => {
-                  const playerMetric = resolveFeaturedPlayerMetric(player, sortBy);
-
-                  return (
-                    <Link
-                      className="flex items-center gap-3 rounded-[1.15rem] border border-white/10 bg-white/8 px-3 py-3 text-white transition-colors hover:bg-white/14"
-                      href={getPlayerHref(player.playerId)}
-                      key={player.playerId}
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/12 text-xs font-bold text-white/72">
-                        {index + 2}
-                      </span>
-                      <ProfileMedia
-                        alt={player.playerName}
-                        assetId={player.playerId}
-                        category="players"
-                        className="h-10 w-10 border-0 bg-white/12"
-                        fallback={getInitials(player.playerName)}
-                        imageClassName="p-1"
-                        shape="circle"
-                        linkBehavior="none"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold">{player.playerName}</p>
-                        <p className="truncate text-xs text-white/56">
-                          {player.teamName ?? formatPosition(player.position)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-extrabold">{playerMetric.value}</p>
-                        <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/48">
-                          {playerMetric.label}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+            {sortBy !== "relevance" ? (
+              <label className="text-xs font-semibold text-[#586861]">
+                Direção
+                <select
+                  className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                  onChange={(event) => setSortDirection(event.target.value as PlayersSortDirection)}
+                  value={sortDirection}
+                >
+                  <option value="desc">Maior para menor</option>
+                  <option value="asc">Menor para maior</option>
+                </select>
+              </label>
             ) : null}
-          </aside>
+
+            <label className="text-xs font-semibold text-[#586861]">
+              Mínimo de minutos
+              <input
+                className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                min={0}
+                onChange={(event) => setMinMinutesInput(event.target.value)}
+                placeholder="Sem mínimo"
+                type="number"
+                value={minMinutesInput}
+              />
+            </label>
+
+            <label className="text-xs font-semibold text-[#586861]">
+              Por página
+              <select
+                className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                value={pageSize}
+              >
+                {[20, 40, 60].map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#e4ebe7] pt-4 text-sm">
+          <Link className="font-semibold text-[#00513b] hover:underline" href={clubsHref}>Explorar clubes</Link>
+          <Link className="font-semibold text-[#52635b] hover:text-[#00513b]" href={rankingsHref}>Abrir ranking de gols</Link>
+          <span className="min-h-5 text-[#65736d]" role="status">
+            {playersQuery.isFetching && playersQuery.data ? "Atualizando o acervo…" : ""}
+          </span>
         </div>
       </ProfilePanel>
 
       {playersQuery.isError ? (
-        <ProfileAlert title="Dados carregados com alerta" tone="warning">
-          <p>{playersQuery.error?.message}</p>
+        <ProfileAlert title="O catálogo pode estar desatualizado" tone="warning">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>{playersQuery.error?.message}</p>
+            <button className="button-pill button-pill-secondary" onClick={() => void playersQuery.refetch()} type="button">Tentar novamente</button>
+          </div>
         </ProfileAlert>
       ) : null}
 
-      <ProfilePanel className="space-y-4 border-white/80 bg-white/84">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e9f2ff] text-[#003526]">
-              <PlayersPageIcon className="h-5 w-5" icon="search" />
-            </span>
-            <div>
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#57657a]">
-                Filtros
-              </p>
-              <h2 className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.035em] text-[#111c2d]">
-                Refinar lista
-              </h2>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <ProfileTag>{describeVenue(venue)}</ProfileTag>
-            <ProfileTag>{sortLabel}</ProfileTag>
-            {selectedStageId || selectedStageFormat ? <ProfileTag>Fase filtrada</ProfileTag> : null}
-            <ProfileTag>{localMinMinutesLabel}</ProfileTag>
-            {selectedIds.length > 0 ? (
-              <ProfileTag>{selectedIds.length}/2 comparação</ProfileTag>
-            ) : null}
-          </div>
-        </div>
+      {playersQuery.isPartial ? (
+        <p className="rounded-xl border border-[#dce5e0] bg-white/72 px-4 py-3 text-sm text-[#5d6d66]">
+          Parte dos registros possui cobertura incompleta; os campos disponíveis continuam navegáveis.
+        </p>
+      ) : null}
 
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_220px_220px_220px]">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Busca
-            <div className="flex items-center gap-3 rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[#003526]">
-                <PlayersPageIcon className="h-4 w-4" icon="search" />
-              </span>
-              <input
-                className="w-full border-0 bg-transparent text-base font-medium normal-case tracking-normal text-[#111c2d] outline-none placeholder:text-[#707974] sm:text-sm"
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                }}
-                placeholder="Ex.: Arrascaeta"
-                type="text"
-                value={search}
-              />
-            </div>
-          </label>
-
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Ordenar
-            <div className="flex items-center gap-3 rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[#003526]">
-                <PlayersPageIcon className="h-4 w-4" icon="ranking" />
-              </span>
-              <select
-                className="w-full border-0 bg-transparent text-base font-medium normal-case tracking-normal text-[#111c2d] outline-none ring-0 sm:text-sm"
-                onChange={(event) => {
-                  setSortBy(event.target.value as PlayersSortBy);
-                }}
-                value={sortBy}
-              >
-                <option value="goals">Gols</option>
-                <option value="assists">Assists</option>
-                <option value="minutesPlayed">Minutos</option>
-                <option value="rating">Nota</option>
-                <option value="playerName">Nome</option>
-              </select>
-            </div>
-          </label>
-
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Direção
-            <div className="flex items-center gap-3 rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[#003526]">
-                <PlayersPageIcon className="h-4 w-4" icon="assist" />
-              </span>
-              <select
-                className="w-full border-0 bg-transparent text-base font-medium normal-case tracking-normal text-[#111c2d] outline-none ring-0 sm:text-sm"
-                onChange={(event) => {
-                  setSortDirection(event.target.value as PlayersSortDirection);
-                }}
-                value={sortDirection}
-              >
-                <option value="desc">Maior para menor</option>
-                <option value="asc">Menor para maior</option>
-              </select>
-            </div>
-          </label>
-
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Minutos
-            <div className="flex items-center gap-3 rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[#003526]">
-                <PlayersPageIcon className="h-4 w-4" icon="star" />
-              </span>
-              <input
-                className="w-full border-0 bg-transparent text-base font-medium normal-case tracking-normal text-[#111c2d] outline-none placeholder:text-[#707974] sm:text-sm"
-                min={0}
-                onChange={(event) => {
-                  setMinMinutesInput(event.target.value);
-                }}
-                placeholder="Opcional"
-                type="number"
-                value={minMinutesInput}
-              />
-            </div>
-          </label>
-        </div>
-      </ProfilePanel>
-
-      <ProfilePanel className="space-y-5" tone="soft">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+      <section aria-labelledby="players-results-title" className="space-y-4">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-[#57657a]">
-              Lista de jogadores
+            <p className="text-[0.67rem] font-bold uppercase tracking-[0.18em] text-[#687870]">
+              {isFiltered ? "Resultado do recorte" : "Carreiras documentadas"}
             </p>
-            <h2 className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold text-[#111c2d]">
-              Jogadores encontrados
+            <h2 className="mt-1 font-[family:var(--font-profile-headline)] text-3xl font-extrabold tracking-[-0.04em] text-[#111c2d]" id="players-results-title">
+              {formatInteger(totalCount)} {totalCount === 1 ? "jogador" : "jogadores"}
             </h2>
-            <p className="mt-2 text-sm/6 text-[#57657a]">
-              Mostrando {formatInteger(currentRangeStart)}-{formatInteger(currentRangeEnd)} de{" "}
-              {formatInteger(totalCount)} jogadores.
-              {debouncedSearch.trim().length > 0 ? ` Busca: "${debouncedSearch.trim()}".` : ""}
-            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <ProfileTag>{formatInteger(pageSummary.goalInvolvements)} G+A na página</ProfileTag>
-            <ProfileTag>{formatDecimal(pageSummary.averageRating)} nota média</ProfileTag>
-            <ProfileTag>{formatInteger(pageSummary.totalMinutes)} minutos na página</ProfileTag>
-          </div>
-        </div>
+          <p className="text-sm text-[#64736d]">Exibindo {formatInteger(rangeStart)}–{formatInteger(rangeEnd)}</p>
+        </header>
 
         {rows.length === 0 ? (
           <EmptyState
-            description={
-              debouncedSearch.trim().length > 0
-                ? `Nenhum jogador encontrado para "${debouncedSearch.trim()}" no recorte atual.`
-                : "Não há jogadores suficientes para os filtros atuais."
-            }
-            title="Lista vazia"
+            actionLabel={search || minMinutesInput ? "Limpar busca e filtros" : undefined}
+            description={search ? `Nenhum jogador encontrado para “${search}” neste recorte.` : "Não há jogadores para os filtros atuais."}
+            onAction={search || minMinutesInput ? () => { setSearch(""); setMinMinutesInput(""); } : undefined}
+            title="Nenhuma carreira encontrada"
           />
         ) : (
-          <div className="overflow-hidden rounded-[1.4rem] border border-[rgba(191,201,195,0.52)] bg-white/92">
-            <div className="divide-y divide-[rgba(191,201,195,0.38)] sm:hidden">
-              {rows.map((player, index) => {
-                const teamHref = getTeamHref(player);
-                const teamSummary = player.teamName ?? player.teamContextLabel ?? "Sem time";
-                const recentTeams =
-                  player.recentTeams && player.recentTeams.length > 0
-                    ? player.recentTeams.slice(0, 3)
-                    : player.teamId
-                      ? [{ teamId: player.teamId, teamName: player.teamName ?? null }]
-                      : [];
-                const isSelected = selectedIdsSet.has(player.playerId);
-                const isDisabled = !isSelected && selectedIds.length >= 2;
+          <div className="grid gap-4 md:grid-cols-2">
+            {rows.map((player) => {
+              const metric = activeMetric(player, sortBy);
+              const recentTeams = player.recentTeams?.slice(0, 3) ?? [];
+              const isSelected = selectedIdsSet.has(player.playerId);
+              const isCompareDisabled = !isSelected && selectedIds.length >= 2;
 
-                return (
-                  <article className="space-y-4 p-4" key={`mobile-${player.playerId}`}>
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="inline-flex min-w-10 items-center justify-center rounded-full bg-[rgba(216,227,251,0.72)] px-3 py-1 text-xs font-semibold text-[#003526]">
-                        {formatInteger(currentRangeStart + index)}
-                      </span>
-                      <ProfileMedia
-                        alt={player.playerName}
-                        assetId={player.playerId}
-                        category="players"
-                        className="h-12 w-12 border-0 bg-[rgba(216,227,251,0.82)]"
-                        fallback={getInitials(player.playerName)}
-                        imageClassName="p-1.5"
-                        shape="circle"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          className="inline-flex min-h-11 items-center break-words font-semibold text-[#111c2d]"
-                          href={getPlayerHref(player.playerId)}
-                        >
-                          {player.playerName}
-                        </Link>
-                        <p className="mt-1 text-xs text-[#57657a]">
-                          {player.nationality ?? "Nacionalidade não informada"}
-                        </p>
-                      </div>
+              return (
+                <article className="flex min-w-0 flex-col rounded-[1.4rem] border border-[#dce5e0] bg-white/92 p-4 shadow-[0_22px_55px_-48px_rgba(17,39,30,0.4)] transition-colors hover:border-[#a9cbbb] sm:p-5" key={player.playerId}>
+                  <div className="flex min-w-0 items-start gap-3.5">
+                    <ProfileMedia
+                      alt={player.playerName}
+                      assetId={player.playerId}
+                      category="players"
+                      className="h-14 w-14 border-[#dce6e1] bg-[#edf3f0] sm:h-16 sm:w-16"
+                      fallback={getInitials(player.playerName)}
+                      linkBehavior="none"
+                      shape="circle"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <Link className="break-words font-[family:var(--font-profile-headline)] text-xl font-extrabold tracking-[-0.025em] text-[#15231e] hover:text-[#00513b]" href={getPlayerHref(player.playerId)}>
+                        {player.playerName}
+                      </Link>
+                      <p className="mt-1 text-sm text-[#66756e]">{formatPosition(player.position)}</p>
                     </div>
+                    {metric ? (
+                      <div className="shrink-0 text-right">
+                        <p className="text-lg font-extrabold tabular-nums text-[#00513b]">{metric.value}</p>
+                        <p className="text-[0.6rem] uppercase tracking-[0.13em] text-[#718079]">{metric.label}</p>
+                      </div>
+                    ) : null}
+                  </div>
 
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-[rgba(240,243,255,0.72)] p-3">
+                  <div className="mt-5 min-h-[3rem] border-y border-[#e5ebe8] py-3">
+                    <div className="flex items-center gap-3">
                       {recentTeams.length > 0 ? (
-                        <div className="flex shrink-0 items-center pl-2">
-                          {recentTeams.map((team, teamIndex) => {
-                            const teamHrefForAsset = getTeamAssetHref(team.teamId);
-                            const asset = (
+                        <div className="flex shrink-0 items-center pl-1">
+                          {recentTeams.map((team, index) => (
+                            <Link
+                              aria-label={`Abrir ${team.teamName ?? "equipe"}`}
+                              className={`relative inline-flex rounded-full focus-visible:z-10 ${index > 0 ? "-ml-2" : ""}`}
+                              href={getTeamHref(team.teamId)}
+                              key={team.teamId}
+                            >
                               <ProfileMedia
-                                alt={team.teamName ?? "Time"}
+                                alt={team.teamName ?? "Equipe"}
                                 assetId={team.teamId}
                                 category="clubs"
-                                className={`h-8 w-8 border border-white bg-white ${teamIndex > 0 ? "-ml-2" : ""}`}
-                                fallback={getInitials(team.teamName ?? "Time")}
-                                fallbackClassName="text-[0.64rem]"
-                                imageClassName="p-1"
+                                className="h-9 w-9 border-2 border-white bg-[#f2f5f3]"
+                                fallback={getInitials(team.teamName ?? "Equipe")}
+                                fallbackClassName="text-[0.55rem]"
                                 linkBehavior="none"
                                 shape="circle"
                               />
-                            );
-
-                            return teamHrefForAsset ? (
-                              <Link className="inline-flex min-h-11 min-w-11 items-center justify-center" href={teamHrefForAsset} key={team.teamId}>{asset}</Link>
-                            ) : (
-                              <div key={team.teamId}>{asset}</div>
-                            );
-                          })}
+                            </Link>
+                          ))}
                         </div>
                       ) : null}
-                      {teamHref ? (
-                        <Link className="inline-flex min-h-11 min-w-0 items-center break-words text-sm font-semibold text-[#1f2d40]" href={teamHref}>
-                          {teamSummary}
-                        </Link>
-                      ) : (
-                        <p className="min-w-0 break-words text-sm font-semibold text-[#1f2d40]">{teamSummary}</p>
-                      )}
+                      <div className="min-w-0">
+                        <p className="text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#718079]">Passagens recentes</p>
+                        <p className="mt-0.5 truncate text-sm font-semibold text-[#33443d]">
+                          {player.teamContextLabel ?? player.teamName ?? "Equipes ainda não documentadas"}
+                        </p>
+                      </div>
                     </div>
+                  </div>
 
-                    <dl className="grid grid-cols-2 gap-2 text-sm">
-                      {[
-                        ["Posição", formatPosition(player.position)],
-                        ["Jogos", formatInteger(player.matchesPlayed)],
-                        ["Minutos", formatMinutesCell(player.minutesPlayed)],
-                        ["Gols", formatMetricValue("goals", player.goals)],
-                        ["Assists", formatMetricValue("assists", player.assists)],
-                        ["Nota", formatMetricValue("player_rating", player.rating)],
-                      ].map(([label, value]) => (
-                        <div className="rounded-xl bg-white px-3 py-3" key={label}>
-                          <dt className="text-[0.64rem] font-semibold uppercase tracking-[0.12em] text-[#57657a]">{label}</dt>
-                          <dd className="mt-1 break-words font-semibold tabular-nums text-[#111c2d]">{value}</dd>
-                        </div>
-                      ))}
-                    </dl>
+                  <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <dt className="text-[0.62rem] uppercase tracking-[0.12em] text-[#718079]">Temporadas</dt>
+                      <dd className="mt-1 font-bold tabular-nums text-[#24332d]">{formatInteger(player.seasonCount)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[0.62rem] uppercase tracking-[0.12em] text-[#718079]">Competições</dt>
+                      <dd className="mt-1 font-bold tabular-nums text-[#24332d]">{formatInteger(player.competitionCount)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[0.62rem] uppercase tracking-[0.12em] text-[#718079]">Partidas</dt>
+                      <dd className="mt-1 font-bold tabular-nums text-[#24332d]">{formatInteger(player.matchesPlayed)}</dd>
+                    </div>
+                  </dl>
 
-                    <button
-                      aria-pressed={isSelected}
-                      className={`min-h-11 w-full rounded-full px-4 py-2 text-sm font-semibold ${
-                        isSelected
-                          ? "bg-[#003526] text-white"
-                          : "border border-[rgba(112,121,116,0.28)] bg-white text-[#1f2d40]"
-                      } disabled:cursor-not-allowed disabled:opacity-50`}
-                      disabled={isDisabled}
-                      onClick={() => handleCompareAction(player.playerId)}
-                      type="button"
-                    >
-                      {isSelected ? "Remover da comparação" : "Adicionar à comparação"}
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-
-            <div className="hidden overflow-x-auto sm:block">
-              <table className="w-full min-w-[920px] table-fixed border-collapse text-left text-sm text-[#1f2d40]">
-                <thead className="bg-[rgba(240,243,255,0.82)] text-[0.68rem] uppercase tracking-[0.16em] text-[#57657a]">
-                  <tr>
-                    <th className="w-14 px-2 py-3 text-center font-semibold">#</th>
-                    <th className="w-[23%] px-3 py-3 font-semibold">Jogador</th>
-                    <th className="w-[16%] px-3 py-3 text-center font-semibold">Times</th>
-                    <th className="w-[10%] px-2 py-3 text-center font-semibold">Pos.</th>
-                    <th className="w-[7%] px-2 py-3 text-center font-semibold">Jogos</th>
-                    <th className="w-[9%] px-2 py-3 text-center font-semibold">Min</th>
-                    <th className="w-[6%] px-2 py-3 text-center font-semibold">Gols</th>
-                    <th className="w-[9%] px-2 py-3 text-center font-semibold">Assists</th>
-                    <th className="w-[8%] px-2 py-3 text-center font-semibold">Nota</th>
-                    <th className="w-[10%] px-2 py-3 text-center font-semibold">Comp.</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[rgba(191,201,195,0.38)]">
-                  {rows.map((player, index) => {
-                    const teamHref = getTeamHref(player);
-                    const teamSummary =
-                      player.teamName ?? player.teamContextLabel ?? "Sem time";
-                    const recentTeams =
-                      player.recentTeams && player.recentTeams.length > 0
-                        ? player.recentTeams.slice(0, 3)
-                        : player.teamId
-                          ? [{ teamId: player.teamId, teamName: player.teamName ?? null }]
-                          : [];
-                    const isSelected = selectedIdsSet.has(player.playerId);
-                    const canAddMore = selectedIds.length < 2;
-                    const isDisabled = !isSelected && !canAddMore;
-
-                    return (
-                      <tr className="align-middle hover:bg-[rgba(240,243,255,0.42)]" key={player.playerId}>
-                        <td className="px-2 py-3 text-center">
-                          <span className="inline-flex min-w-10 items-center justify-center rounded-full bg-[rgba(216,227,251,0.72)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#003526]">
-                            {formatInteger(currentRangeStart + index)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <ProfileMedia
-                              alt={player.playerName}
-                              assetId={player.playerId}
-                              category="players"
-                              className="h-10 w-10 border-0 bg-[rgba(216,227,251,0.82)]"
-                              fallback={getInitials(player.playerName)}
-                              imageClassName="p-1.5"
-                              shape="circle"
-                            />
-                            <div className="min-w-0">
-                              <Link
-                                className="block truncate font-semibold text-[#111c2d] transition-colors hover:text-[#003526]"
-                                href={getPlayerHref(player.playerId)}
-                              >
-                                {player.playerName}
-                              </Link>
-                              <p className="mt-1 text-xs text-[#57657a]">
-                                {player.nationality ?? "Nacionalidade não informada"}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {recentTeams.length > 0 ? (
-                            <div className="mb-1.5 flex items-center justify-center">
-                              {recentTeams.map((team, teamIndex) => {
-                                const teamHrefForAsset = getTeamAssetHref(team.teamId);
-                                const asset = (
-                                  <ProfileMedia
-                                    alt={team.teamName ?? "Time"}
-                                    assetId={team.teamId}
-                                    category="clubs"
-                                    className={`h-8 w-8 border border-white bg-white ${
-                                      teamIndex > 0 ? "-ml-2" : ""
-                                    }`}
-                                    fallback={getInitials(team.teamName ?? "Time")}
-                                    fallbackClassName="text-[0.64rem]"
-                                    imageClassName="p-1"
-                                    linkBehavior="none"
-                                    shape="circle"
-                                  />
-                                );
-
-                                return teamHrefForAsset ? (
-                                  <Link href={teamHrefForAsset} key={team.teamId}>
-                                    {asset}
-                                  </Link>
-                                ) : (
-                                  <div key={team.teamId}>{asset}</div>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                          {teamHref ? (
-                            <Link
-                              className="block truncate text-xs font-semibold text-[#1f2d40] transition-colors hover:text-[#003526]"
-                              href={teamHref}
-                            >
-                              {teamSummary}
-                            </Link>
-                          ) : (
-                            <p className="truncate text-xs font-semibold text-[#111c2d]">
-                              {teamSummary}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span className="inline-flex max-w-full items-center justify-center rounded-full bg-[rgba(240,243,255,0.96)] px-2 py-1 text-[0.64rem] font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-                            {formatPosition(player.position)}
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-center font-medium tabular-nums text-[#1f2d40]">
-                          {formatInteger(player.matchesPlayed)}
-                        </td>
-                        <td className="px-2 py-3 text-center font-medium tabular-nums text-[#1f2d40]">
-                          {formatMinutesCell(player.minutesPlayed)}
-                        </td>
-                        <td className="px-2 py-3 text-center font-medium tabular-nums text-[#1f2d40]">
-                          {formatMetricValue("goals", player.goals)}
-                        </td>
-                        <td className="px-2 py-3 text-center font-medium tabular-nums text-[#1f2d40]">
-                          {formatMetricValue("assists", player.assists)}
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <span
-                            className={`inline-flex min-w-14 justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              typeof player.rating === "number"
-                                ? "bg-[#003526] text-white"
-                                : "bg-[rgba(240,243,255,0.96)] text-[#57657a]"
-                            }`}
-                          >
-                            {formatMetricValue("player_rating", player.rating)}
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <button
-                            aria-pressed={isSelected}
-                            className={`rounded-full px-2.5 py-1.5 text-[0.78rem] font-semibold transition-colors ${
-                              isSelected
-                                ? "bg-[#003526] text-white"
-                                : "border border-[rgba(112,121,116,0.28)] bg-white/90 text-[#1f2d40]"
-                            } disabled:cursor-not-allowed disabled:opacity-50`}
-                            disabled={isDisabled}
-                            onClick={() => {
-                              handleCompareAction(player.playerId);
-                            }}
-                            type="button"
-                          >
-                            {isSelected ? "Remover" : "Comp."}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-col gap-3 border-t border-[rgba(191,201,195,0.4)] bg-[rgba(240,243,255,0.52)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-[#57657a]">
-                Página {formatInteger(currentPage)} de {formatInteger(totalPages)}.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-sm text-[#57657a]">
-                  Linhas
-                  <select
-                    className="min-h-11 rounded-full border border-[rgba(112,121,116,0.22)] bg-white/88 px-3 py-1.5 text-base text-[#1f2d40] sm:min-h-0 sm:text-sm"
-                    onChange={(event) => {
-                      setPageSize(Number(event.target.value));
-                    }}
-                    value={pageSize}
-                  >
-                    {[20, 40, 60, 100].map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <button
-                  className="min-h-11 flex-1 rounded-full border border-[rgba(112,121,116,0.22)] bg-white/92 px-3 py-1.5 font-medium text-[#1f2d40] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-                  disabled={playersQuery.isFetching || currentPage <= 1}
-                  onClick={() => {
-                    setPage((currentValue) => Math.max(currentValue - 1, 1));
-                  }}
-                  type="button"
-                >
-                  Anterior
-                </button>
-                <button
-                  className="min-h-11 flex-1 rounded-full border border-[rgba(112,121,116,0.22)] bg-white/92 px-3 py-1.5 font-medium text-[#1f2d40] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
-                  disabled={playersQuery.isFetching || currentPage >= totalPages}
-                  onClick={() => {
-                    setPage((currentValue) => Math.min(currentValue + 1, totalPages));
-                  }}
-                  type="button"
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
+                    <p className="text-sm font-medium text-[#5f7068]">{formatYearSpan(player.careerStartAt, player.careerEndAt)}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        aria-pressed={isSelected}
+                        className={`button-pill ${isSelected ? "button-pill-primary" : "button-pill-ghost"}`}
+                        disabled={isCompareDisabled}
+                        onClick={() => handleCompare(player.playerId)}
+                        type="button"
+                      >
+                        {isSelected ? "Selecionado" : "Comparar"}
+                      </button>
+                      <Link aria-label={`Abrir perfil de ${player.playerName}`} className="button-pill button-pill-soft px-4" href={getPlayerHref(player.playerId)}>
+                        <span className="sr-only">Abrir perfil</span><ArrowIcon />
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
-      </ProfilePanel>
+      </section>
+
+      {rows.length > 0 ? (
+        <ProfilePanel className="flex flex-col gap-3 border-[#dfe7e2] bg-white/88 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[#617169]">Página {formatInteger(currentPage)} de {formatInteger(totalPages)}</p>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button className="button-pill button-pill-secondary" disabled={playersQuery.isFetching || currentPage <= 1} onClick={() => setPage((value) => Math.max(value - 1, 1))} type="button">Anterior</button>
+            <button className="button-pill button-pill-primary" disabled={playersQuery.isFetching || currentPage >= totalPages} onClick={() => setPage((value) => Math.min(value + 1, totalPages))} type="button">Próxima</button>
+          </div>
+        </ProfilePanel>
+      ) : null}
     </ProfileShell>
   );
 }

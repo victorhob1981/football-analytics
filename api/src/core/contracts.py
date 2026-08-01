@@ -41,6 +41,14 @@ def build_coverage_from_counts(available_count: int, total_count: int, label: st
     return payload
 
 
+def build_catalog_scope(*, is_filtered: bool) -> dict[str, Any]:
+    return {
+        "kind": "filtered" if is_filtered else "archive",
+        "label": "Recorte atual" if is_filtered else "Acervo publicado",
+        "isExhaustive": False,
+    }
+
+
 def build_api_response(
     data: Any,
     *,

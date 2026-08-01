@@ -39,7 +39,11 @@ export async function fetchPlayersList(
 ): Promise<ApiResponse<PlayersListData>> {
   return apiRequest<ApiResponse<PlayersListData>>(PLAYERS_ENDPOINTS.list, {
     method: "GET",
-    params: toQueryParams(filters),
+    params: toQueryParams({
+      ...filters,
+      sortBy: filters.sortBy ?? "relevance",
+      sortDirection: filters.sortDirection ?? "desc",
+    }),
     signal,
   });
 }
