@@ -139,6 +139,23 @@ class TeamProfileContractTests(unittest.TestCase):
             "archiveCoverage": {"status": "complete", "percentage": 100, "label": "Team archive coverage"},
         }
 
+    @patch.object(teams.db_client, "fetch_one")
+    def test_team_profile_foundation_serializes_live_summary_counts(self, fetch_one_mock) -> None:
+        fetch_one_mock.return_value = {
+            "team_id": 1024,
+            "team_name": "Flamengo",
+            "team_type": "club",
+            "competition_count": 4,
+            "season_count": 18,
+            "matches_played": 400,
+        }
+
+        foundation = teams._fetch_team_profile_foundation(1024, "Flamengo")
+
+        self.assertEqual(foundation["archive"]["competitionCount"], 4)
+        self.assertEqual(foundation["archive"]["seasonCount"], 18)
+        self.assertEqual(foundation["archive"]["matchesPlayed"], 400)
+
     def _request_profile(self, *, honors: object) -> dict[str, object]:
         with (
             patch.object(teams, "_fetch_team_profile_foundation", return_value=self._foundation()),

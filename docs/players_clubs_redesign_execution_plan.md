@@ -599,7 +599,7 @@ reportados, não adivinhados.
    - `raw.tm_clubs`;
    - país da competição doméstica quando confiável;
    - estádios documentados;
-   - `data/team_honors_seed.csv`;
+   - `api/data/team_honors_seed.csv`;
    - campeões determináveis a partir do acervo publicado.
 2. Preservar fonte e confiança de cada conquista.
 3. Descrever conquistas como documentadas no acervo.
