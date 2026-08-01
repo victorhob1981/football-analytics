@@ -223,6 +223,12 @@ class TeamProfileContractTests(unittest.TestCase):
         self.assertIsNotNone(honors)
         self.assertGreater(honors["total"], 0)
 
+    def test_honors_loader_matches_official_name_suffix(self) -> None:
+        honors = teams._load_team_honors(3000000000284, "Clube de Regatas do Flamengo")
+
+        self.assertIsNotNone(honors)
+        self.assertGreater(honors["total"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
