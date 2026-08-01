@@ -36,8 +36,8 @@ export function usePlayersList(localFilters: PlayersListLocalFilters = {}) {
       position: localFilters.position ?? undefined,
       page: localFilters.page,
       pageSize: localFilters.pageSize,
-      sortBy: localFilters.sortBy ?? undefined,
-      sortDirection: localFilters.sortDirection ?? undefined,
+      sortBy: localFilters.sortBy ?? "relevance",
+      sortDirection: localFilters.sortDirection ?? "desc",
     };
   }, [
     competitionId,

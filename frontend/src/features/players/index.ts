@@ -2,7 +2,11 @@ export { playersQueryKeys } from "@/features/players/queryKeys";
 export { usePlayerProfile, usePlayersList } from "@/features/players/hooks";
 export { fetchPlayerProfile, fetchPlayersList, PLAYERS_ENDPOINTS } from "@/features/players/services";
 export type {
+  CareerTeamType,
+  CatalogScope,
   Player,
+  PlayerCareerSummary,
+  PlayerCareerTeam,
   PlayerHistoryEntry,
   PlayerListItem,
   PlayerMatchStatsPoint,
