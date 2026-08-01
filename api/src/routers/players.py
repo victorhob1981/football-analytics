@@ -6,7 +6,12 @@ from typing import Any, Literal
 from fastapi import APIRouter, Query, Request
 
 from ..core.context_registry import build_canonical_context, select_default_context
-from ..core.contracts import build_api_response, build_coverage_from_counts, build_pagination
+from ..core.contracts import (
+    build_api_response,
+    build_catalog_scope,
+    build_coverage_from_counts,
+    build_pagination,
+)
 from ..core.errors import AppError
 from ..core.filters import GlobalFilters, VenueFilter, append_fact_match_filters, validate_and_build_global_filters
 from ..db.client import db_client
@@ -14,7 +19,7 @@ from .world_cup_labels import translate_world_cup_display_name
 
 router = APIRouter(prefix="/api/v1/players", tags=["players"])
 
-PlayersSortBy = Literal["playerName", "minutesPlayed", "goals", "assists", "rating"]
+PlayersSortBy = Literal["relevance", "playerName", "minutesPlayed", "goals", "assists", "rating"]
 SortDirection = Literal["asc", "desc"]
 
 SEARCH_NORMALIZATION_SOURCE = "áàâãäéèêëíìîïóòôõöúùûüçñ"
@@ -120,6 +125,14 @@ def _fetch_players_from_serving_summary(
     sort_direction: SortDirection,
 ) -> list[dict[str, Any]]:
     sort_column = {
+        "relevance": (
+            "pss.season_count desc nulls last, "
+            "pss.competition_count desc nulls last, "
+            "pss.team_count desc nulls last, "
+            "pss.matches_played desc nulls last, "
+            "pss.minutes_played desc nulls last, "
+            "pss.career_end_at desc nulls last"
+        ),
         "playerName": "pss.player_name",
         "minutesPlayed": "pss.minutes_played",
         "goals": "pss.goals",
@@ -127,6 +140,7 @@ def _fetch_players_from_serving_summary(
         "rating": "pss.rating",
     }[sort_by]
     sort_dir = "asc" if sort_direction == "asc" else "desc"
+    order_by = sort_column if sort_by == "relevance" else f"{sort_column} {sort_dir}"
 
     return db_client.fetch_all(
         f"""
@@ -138,6 +152,10 @@ def _fetch_players_from_serving_summary(
             pss.position_name,
             pss.nationality,
             pss.team_count,
+            pss.competition_count,
+            pss.season_count,
+            pss.career_start_at,
+            pss.career_end_at,
             pss.recent_teams,
             pss.matches_played,
             pss.minutes_played,
@@ -153,7 +171,7 @@ def _fetch_players_from_serving_summary(
           and (%s::bigint is null or pss.team_id = %s)
           and (%s::text is null or coalesce(pss.position_name, '') ilike %s)
           and (%s::numeric is null or pss.minutes_played >= %s)
-        order by {sort_column} {sort_dir}, pss.player_id asc
+        order by {order_by}, pss.player_id asc
         limit %s offset %s;
         """,
         [
@@ -358,7 +376,7 @@ def get_players(
     minMinutes: int | None = Query(default=None, ge=0),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
-    sortBy: PlayersSortBy = "goals",
+    sortBy: PlayersSortBy = "relevance",
     sortDirection: SortDirection = "desc",
 ) -> dict[str, Any]:
     global_filters = validate_and_build_global_filters(
@@ -377,6 +395,14 @@ def get_players(
 
     where_sql, where_params = _player_scope_filters_sql(global_filters)
     sort_column = {
+        "relevance": (
+            "f.season_count desc nulls last, "
+            "f.competition_count desc nulls last, "
+            "f.team_count desc nulls last, "
+            "f.matches_played desc nulls last, "
+            "f.minutes_played desc nulls last, "
+            "f.career_end_at desc nulls last"
+        ),
         "playerName": "f.player_name",
         "minutesPlayed": "f.minutes_played",
         "goals": "f.goals",
@@ -384,6 +410,7 @@ def get_players(
         "rating": "f.rating",
     }[sortBy]
     sort_dir = "asc" if sortDirection == "asc" else "desc"
+    order_by = sort_column if sortBy == "relevance" else f"{sort_column} {sort_dir}"
     offset = (page - 1) * pageSize
 
     team_id_int: int | None = None
@@ -432,6 +459,8 @@ def get_players(
                 pms.position_name,
                 pms.match_id,
                 pms.match_date,
+                pms.competition_sk,
+                pms.season,
                 coalesce(pms.minutes_played, 0) as minutes_played,
                 coalesce(pms.goals, 0) as goals,
                 coalesce(pms.assists, 0) as assists,
@@ -459,6 +488,10 @@ def get_players(
                 max(fs.player_name) as player_name,
                 count(distinct fs.match_id) as matches_played,
                 count(distinct fs.team_id) filter (where fs.team_id is not null)::int as team_count,
+                count(distinct fs.competition_sk)::int as competition_count,
+                count(distinct fs.season)::int as season_count,
+                min(fs.match_date) as career_start_at,
+                max(fs.match_date) as career_end_at,
                 sum(fs.minutes_played)::numeric as minutes_played,
                 sum(fs.goals)::numeric as goals,
                 sum(fs.assists)::numeric as assists,
@@ -525,6 +558,10 @@ def get_players(
                 lc.position_name,
                 dp.nationality,
                 a.team_count,
+                a.competition_count,
+                a.season_count,
+                a.career_start_at,
+                a.career_end_at,
                 rt.recent_teams,
                 a.matches_played,
                 a.minutes_played,
@@ -550,7 +587,7 @@ def get_players(
             f.*,
             count(*) over() as _total_count
         from final_rows f
-        order by {sort_column} {sort_dir}, f.player_id asc
+        order by {order_by}, f.player_id asc
         limit %s offset %s;
         """
 
@@ -582,6 +619,10 @@ def get_players(
             "teamId": str(row["team_id"]) if row.get("team_id") is not None else None,
             "teamName": row.get("team_name"),
             "teamCount": int(row.get("team_count") or 0) if row.get("team_count") is not None else None,
+            "competitionCount": _to_int_count(row.get("competition_count")),
+            "seasonCount": _to_int_count(row.get("season_count")),
+            "careerStartAt": row.get("career_start_at"),
+            "careerEndAt": row.get("career_end_at"),
             "teamContextLabel": (
                 f"{int(row['team_count'])} clubes"
                 if row.get("team_count") is not None and int(row["team_count"]) > 1
@@ -603,10 +644,34 @@ def get_players(
         for row in rows
     ]
 
+    is_filtered = any(
+        (
+            global_filters.competition_id is not None,
+            global_filters.season_id is not None,
+            global_filters.round_id is not None,
+            global_filters.stage_id is not None,
+            global_filters.stage_format is not None,
+            global_filters.venue != VenueFilter.all,
+            global_filters.last_n is not None,
+            global_filters.date_start is not None,
+            global_filters.date_end is not None,
+            search_pattern is not None,
+            team_id_int is not None,
+            position_pattern is not None,
+            minMinutes is not None,
+        )
+    )
+    coverage = (
+        {"status": "complete", "percentage": 100, "label": "Players list coverage"}
+        if rows
+        else {"status": "empty", "percentage": 0, "label": "Players list coverage"}
+    )
+
     return build_api_response(
-        {"items": items},
+        {"items": items, "scope": build_catalog_scope(is_filtered=is_filtered)},
         request_id=_request_id(request),
         pagination=pagination,
+        coverage=coverage,
     )
 
 
