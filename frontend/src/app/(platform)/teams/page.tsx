@@ -1,6 +1,5 @@
 import { permanentRedirect } from "next/navigation";
 
-import { TeamsPageContent } from "@/features/teams/components/TeamsPageContent";
 import { buildPassthroughSearchParamsQueryString } from "@/shared/utils/context-routing";
 
 type TeamsPageProps = {
