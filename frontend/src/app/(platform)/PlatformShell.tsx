@@ -644,7 +644,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
               return (
                 <Link
                   className={joinClasses(
-                    "flex items-center gap-3 px-4 py-3.5 text-[0.8rem] font-semibold uppercase tracking-[0.16em] transition-colors lg:py-2.5",
+                    "flex items-center gap-3 px-4 py-3.5 text-[0.8rem] font-semibold uppercase tracking-[0.16em] transition-colors lg:py-2",
                     isActive
                       ? item.href === "/copa-do-mundo"
                         ? "border-r-4 border-[var(--wc-accent)] bg-[rgba(138,109,24,0.18)] text-[var(--wc-accent-soft)]"
