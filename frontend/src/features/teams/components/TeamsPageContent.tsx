@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { useHomePage } from "@/features/home/hooks/useHomePage";
 import { useTeamsList } from "@/features/teams/hooks/useTeamsList";
 import type {
   TeamListItem,
@@ -14,13 +15,7 @@ import type {
 } from "@/features/teams/types";
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
-import {
-  ProfileAlert,
-  ProfileMetricTile,
-  ProfilePanel,
-  ProfileShell,
-  ProfileTag,
-} from "@/shared/components/profile/ProfilePrimitives";
+import { ProfileAlert, ProfilePanel, ProfileShell } from "@/shared/components/profile/ProfilePrimitives";
 import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
@@ -30,23 +25,61 @@ import {
   buildCanonicalTeamPath,
   buildClubResolverPath,
   buildFilterQueryString,
+  buildHeadToHeadPath,
   buildPlayersPath,
   buildRankingPath,
-  buildSeasonHubTabPath,
   buildTeamResolverPath,
   resolveCompetitionSeasonContextFromSearchParams,
 } from "@/shared/utils/context-routing";
 
+const INTEGER_FORMATTER = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+const COMPACT_FORMATTER = new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 1,
+  notation: "compact",
+});
+
+const BASE_SORT_OPTIONS: Array<{ label: string; value: TeamsListSortBy }> = [
+  { label: "Relevância", value: "relevance" },
+  { label: "Nome", value: "teamName" },
+  { label: "Pontos", value: "points" },
+  { label: "Vitórias", value: "wins" },
+  { label: "Saldo", value: "goalDiff" },
+];
+
+function formatInteger(value: number | null | undefined): string {
+  return typeof value === "number" && !Number.isNaN(value) ? INTEGER_FORMATTER.format(value) : "—";
+}
+
+function formatCompact(value: number | null | undefined): string {
+  return typeof value === "number" && !Number.isNaN(value) ? COMPACT_FORMATTER.format(value) : "—";
+}
+
+function formatGoalDiff(value: number | null | undefined): string {
+  if (typeof value !== "number") return "—";
+  return value > 0 ? `+${formatInteger(value)}` : formatInteger(value);
+}
+
+function formatYearSpan(start: string | null | undefined, end: string | null | undefined): string {
+  const startYear = start?.slice(0, 4);
+  const endYear = end?.slice(0, 4);
+
+  if (startYear && endYear) return startYear === endYear ? startYear : `${startYear}–${endYear}`;
+  return startYear ?? endYear ?? "Período não informado";
+}
+
+function getMonogram(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "CL";
+}
+
 function describeVenue(venue: string | null | undefined): string {
-  if (venue === "home") {
-    return "Casa";
-  }
-
-  if (venue === "away") {
-    return "Fora";
-  }
-
-  return "Todos os mandos";
+  if (venue === "home") return "jogos como mandante";
+  if (venue === "away") return "jogos como visitante";
+  return "todos os mandos";
 }
 
 function describeTimeWindow(params: {
@@ -55,240 +88,56 @@ function describeTimeWindow(params: {
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
 }): string {
-  if (typeof params.lastN === "number" && params.lastN > 0) {
-    return `Últimas ${params.lastN} partidas`;
-  }
-
-  if (params.dateRangeStart || params.dateRangeEnd) {
-    return `${params.dateRangeStart ?? "..."} até ${params.dateRangeEnd ?? "..."}`;
-  }
-
-  if (params.roundId) {
-    return `Rodada ${params.roundId}`;
-  }
-
-  return "Temporada inteira";
+  if (params.lastN) return `últimas ${params.lastN} partidas`;
+  if (params.dateRangeStart || params.dateRangeEnd) return `${params.dateRangeStart ?? "início"} a ${params.dateRangeEnd ?? "hoje"}`;
+  if (params.roundId) return `rodada ${params.roundId}`;
+  return "todo o período publicado";
 }
 
-function formatGoalDiff(value: number | null | undefined): string {
-  if (typeof value !== "number") {
-    return "-";
-  }
-
-  return value > 0 ? `+${value}` : String(value);
+function activeMetric(team: TeamListItem, sortBy: TeamsListSortBy) {
+  if (sortBy === "points") return { label: "Pontos", value: formatInteger(team.points) };
+  if (sortBy === "wins") return { label: "Vitórias", value: formatInteger(team.wins) };
+  if (sortBy === "goalDiff") return { label: "Saldo", value: formatGoalDiff(team.goalDiff) };
+  if (sortBy === "position") return { label: "Posição", value: team.position ? `${team.position}º` : "—" };
+  return null;
 }
 
-function formatInteger(value: number | null | undefined): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
-}
-
-type TeamsPageIconName =
-  | "arrow"
-  | "chart"
-  | "players"
-  | "search"
-  | "shield"
-  | "star"
-  | "table";
-
-function TeamsPageIcon({
-  className,
-  icon,
-}: {
-  className?: string;
-  icon: TeamsPageIconName;
-}) {
-  const sharedClassName = className ?? "h-4 w-4";
-
-  if (icon === "shield") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path
-          d="M12 4.5 18 7v5.4c0 3.3-2 5.8-6 7.1-4-1.3-6-3.8-6-7.1V7l6-2.5Z"
-          stroke="currentColor"
-          strokeLinejoin="round"
-          strokeWidth="1.8"
-        />
-      </svg>
-    );
-  }
-
-  if (icon === "chart") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path d="M5 18V10h4v8M10 18V5h4v13M15 18v-6h4v6" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M4 18.5h16" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (icon === "players") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path
-          d="M8.5 11.2a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2ZM15.5 11.2a3.1 3.1 0 1 0 0-6.2"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.8"
-        />
-        <path
-          d="M3.8 19c.6-3.1 2.3-4.8 4.7-4.8s4.1 1.7 4.7 4.8M12.7 16c.8-1.2 1.9-1.8 3.2-1.8 2.2 0 3.7 1.6 4.3 4.5"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.8"
-        />
-      </svg>
-    );
-  }
-
-  if (icon === "search") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <circle cx="10.8" cy="10.8" r="5.8" stroke="currentColor" strokeWidth="1.8" />
-        <path d="m15.4 15.4 4.1 4.1" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
-  if (icon === "table") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path
-          d="M6 6.5h12M6 11.5h12M6 16.5h12"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.8"
-        />
-      </svg>
-    );
-  }
-
-  if (icon === "arrow") {
-    return (
-      <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-        <path d="M6.5 12h11m0 0-4.5-4.5M17.5 12l-4.5 4.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-
+function SearchIcon() {
   return (
-    <svg aria-hidden="true" className={sharedClassName} fill="none" viewBox="0 0 24 24">
-      <path
-        d="m12 4.6 1.9 4 4.4.6-3.2 3.1.8 4.4-3.9-2.1-3.9 2.1.8-4.4-3.2-3.1 4.4-.6 1.9-4Z"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
+    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
+      <circle cx="10.8" cy="10.8" r="5.8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m15.4 15.4 4.1 4.1" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
     </svg>
   );
 }
 
-function TeamsHeroMetric({
-  hint,
-  icon,
-  label,
-  value,
-}: {
-  hint: string;
-  icon: TeamsPageIconName;
-  label: string;
-  value: string;
-}) {
+function ArrowIcon() {
   return (
-    <article className="flex min-h-[9.2rem] flex-col justify-between rounded-[1.35rem] border border-white/12 bg-white/10 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-white/14">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white">
-          <TeamsPageIcon className="h-5 w-5" icon={icon} />
-        </span>
-        <p className="text-right text-[0.62rem] font-bold uppercase tracking-[0.18em] text-white/58">
-          {label}
-        </p>
-      </div>
-      <p className="mt-4 font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-none tracking-[-0.03em]">
-        {value}
-      </p>
-      <p className="mt-2 text-sm text-white/62">{hint}</p>
-    </article>
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
   );
 }
-
-function TeamsLinkButton({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: TeamsPageIconName;
-  label: string;
-}) {
-  return (
-    <Link
-      className="group inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-white/14 bg-white/10 px-4 py-2 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-white/86 transition-colors hover:border-white/28 hover:bg-white/18 sm:w-auto"
-      href={href}
-    >
-      <TeamsPageIcon className="h-4 w-4 transition-transform group-hover:scale-110" icon={icon} />
-      {label}
-    </Link>
-  );
-}
-
-function resolveFeaturedTeamMetric(team: TeamListItem) {
-  if (typeof team.points === "number") {
-    return { label: "Pontos", value: formatInteger(team.points) };
-  }
-
-  if (typeof team.wins === "number") {
-    return { label: "Vitórias", value: formatInteger(team.wins) };
-  }
-
-  return { label: "Saldo", value: formatGoalDiff(team.goalDiff) };
-}
-
-function calculateTotals(items: TeamListItem[]) {
-  return items.reduce(
-    (acc, team) => ({
-      goalsFor: acc.goalsFor + (team.goalsFor ?? 0),
-      matchesPlayed: acc.matchesPlayed + (team.matchesPlayed ?? 0),
-      wins: acc.wins + (team.wins ?? 0),
-    }),
-    { goalsFor: 0, matchesPlayed: 0, wins: 0 },
-  );
-}
-
-const TEAM_PAGE_SIZE_OPTIONS = [10, 20, 40, 100] as const;
-type TeamPageSizeSelection = (typeof TEAM_PAGE_SIZE_OPTIONS)[number];
-
-const TEAM_SORT_OPTIONS: Array<{ label: string; value: TeamsListSortBy }> = [
-  { label: "Pontos", value: "points" },
-  { label: "Vitórias", value: "wins" },
-  { label: "Saldo", value: "goalDiff" },
-  { label: "Posição", value: "position" },
-  { label: "Nome", value: "teamName" },
-];
 
 export function TeamsPageContent({ entityType }: { entityType?: TeamType | null } = {}) {
   const isClubCatalog = entityType === "club";
-  const entityLabel = isClubCatalog ? "Clubes" : "Times";
-  const entityPlural = isClubCatalog ? "clubes" : "times";
-  const entitySingular = isClubCatalog ? "clube" : "time";
+  const entityLabel = isClubCatalog ? "Clubes" : "Equipes";
+  const entityPlural = isClubCatalog ? "clubes" : "equipes";
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<TeamPageSizeSelection>(40);
-  const [sortBy, setSortBy] = useState<TeamsListSortBy>("points");
+  const [pageSize, setPageSize] = useState(24);
+  const [sortBy, setSortBy] = useState<TeamsListSortBy>("relevance");
   const [sortDirection, setSortDirection] = useState<TeamsListSortDirection>("desc");
+  const debouncedSearch = useDebouncedValue(search);
   const searchParams = useSearchParams();
-  const resolvedGlobalContext = useResolvedCompetitionContext();
+  const globalContext = useResolvedCompetitionContext();
   const resolvedContext = useMemo(
-    () => resolvedGlobalContext ?? resolveCompetitionSeasonContextFromSearchParams(searchParams),
-    [resolvedGlobalContext, searchParams],
+    () => globalContext ?? resolveCompetitionSeasonContextFromSearchParams(searchParams),
+    [globalContext, searchParams],
   );
   const { competitionId, seasonId, roundId, venue, lastN, dateRangeStart, dateRangeEnd } =
     useGlobalFiltersState();
+  const archiveQuery = useHomePage();
   const teamsQuery = useTeamsList(
     {
       page,
@@ -300,471 +149,309 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
     },
     resolvedContext,
   );
-  const sharedFilterInput = useMemo(
-    () => ({
-      competitionId,
-      seasonId,
-      roundId,
-      venue,
-      lastN,
-      dateRangeStart,
-      dateRangeEnd,
-    }),
+  const sharedFilters = useMemo(
+    () => ({ competitionId, seasonId, roundId, venue, lastN, dateRangeStart, dateRangeEnd }),
     [competitionId, dateRangeEnd, dateRangeStart, lastN, roundId, seasonId, venue],
   );
   const canonicalExtraQuery = useMemo(
-    () => buildFilterQueryString(sharedFilterInput, ["competitionId", "seasonId"]),
-    [sharedFilterInput],
+    () => buildFilterQueryString(sharedFilters, ["competitionId", "seasonId"]),
+    [sharedFilters],
   );
-  const seasonHubHref = resolvedContext
-    ? buildSeasonHubTabPath(resolvedContext, "standings", sharedFilterInput)
-    : "/competitions";
-  const buildProfileHref = (teamId: string) =>
-    resolvedContext
-      ? `${isClubCatalog ? buildCanonicalClubPath(resolvedContext, teamId) : buildCanonicalTeamPath(resolvedContext, teamId)}${canonicalExtraQuery}`
-      : isClubCatalog
-        ? buildClubResolverPath(teamId, sharedFilterInput)
-        : buildTeamResolverPath(teamId, sharedFilterInput);
-  const seasonLinkLabel = resolvedContext ? "Temporada" : "Temporadas";
-  const playersHref = buildPlayersPath(sharedFilterInput);
-  const rankingsHref = buildRankingPath("team-possession", sharedFilterInput);
-  const activeWindowLabel = describeTimeWindow({
-    roundId,
-    lastN,
-    dateRangeStart,
-    dateRangeEnd,
-  });
+  const sortOptions = useMemo(
+    () => resolvedContext ? [...BASE_SORT_OPTIONS, { label: "Posição", value: "position" as const }] : BASE_SORT_OPTIONS,
+    [resolvedContext],
+  );
+
   useEffect(() => {
     setPage(1);
   }, [
     dateRangeEnd,
     dateRangeStart,
+    debouncedSearch,
     lastN,
+    pageSize,
     resolvedContext?.competitionId,
     resolvedContext?.seasonId,
     roundId,
+    sortBy,
+    sortDirection,
     venue,
   ]);
 
-  if (teamsQuery.isLoading) {
-    return (
-      <ProfileShell className="space-y-6">
-        <header className="space-y-3">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            {entityLabel}
-          </p>
-          <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Carregando {entityPlural}
-          </h1>
-        </header>
-        <LoadingSkeleton height={120} />
-        <LoadingSkeleton height={140} />
-        <LoadingSkeleton height={140} />
-      </ProfileShell>
-    );
-  }
+  const buildProfileHref = (teamId: string) =>
+    resolvedContext
+      ? `${isClubCatalog ? buildCanonicalClubPath(resolvedContext, teamId) : buildCanonicalTeamPath(resolvedContext, teamId)}${canonicalExtraQuery}`
+      : isClubCatalog
+        ? buildClubResolverPath(teamId, sharedFilters)
+        : buildTeamResolverPath(teamId, sharedFilters);
 
-  if (teamsQuery.isError && !teamsQuery.data) {
-    return (
-      <ProfileShell className="space-y-6">
-        <header className="space-y-3">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            {entityLabel}
-          </p>
-          <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Falha ao carregar {entityPlural}
-          </h1>
-        </header>
-        <ProfileAlert title="Erro no carregamento" tone="critical">
-          <p>{teamsQuery.error?.message}</p>
-        </ProfileAlert>
-      </ProfileShell>
-    );
-  }
-
-  if (!teamsQuery.data) {
-    return (
-      <ProfileShell className="space-y-6">
-        <header className="space-y-3">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            {entityLabel}
-          </p>
-          <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Nenhum {entitySingular} encontrado
-          </h1>
-        </header>
-        <EmptyState
-          title={`Sem ${entityPlural} disponíveis`}
-          description={`Não há ${entityPlural} disponíveis com os filtros atuais.`}
-        />
-      </ProfileShell>
-    );
-  }
-
-  const items = teamsQuery.data.items;
+  const items = teamsQuery.data?.items ?? [];
   const pagination = teamsQuery.meta?.pagination;
   const totalCount = pagination?.totalCount ?? items.length;
   const currentPage = pagination?.page ?? page;
   const resolvedPageSize = pagination?.pageSize ?? pageSize;
   const totalPages = Math.max(pagination?.totalPages ?? Math.ceil(totalCount / resolvedPageSize), 1);
-  const currentRangeStart = totalCount === 0 ? 0 : (currentPage - 1) * resolvedPageSize + 1;
-  const currentRangeEnd = totalCount === 0 ? 0 : currentRangeStart + items.length - 1;
-  const featuredTeams = items.slice(0, 3);
-  const featuredTeam = featuredTeams[0] ?? null;
-  const featuredTeamMetric = featuredTeam ? resolveFeaturedTeamMetric(featuredTeam) : null;
-  const totals = calculateTotals(items);
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * resolvedPageSize + 1;
+  const rangeEnd = totalCount === 0 ? 0 : rangeStart + items.length - 1;
+  const archiveSummary = archiveQuery.data?.archiveSummary;
+  const archiveEntityCount = isClubCatalog ? archiveSummary?.clubs ?? totalCount : totalCount;
+  const scopeLabel = teamsQuery.data?.scope.label ?? "Acervo publicado";
   const contextLabel = resolvedContext
-    ? `${resolvedContext.competitionName} ${resolvedContext.seasonLabel}`
-    : `${entityPlural} do acervo`;
+    ? `${resolvedContext.competitionName} · ${resolvedContext.seasonLabel}`
+    : "Todas as competições e temporadas";
+  const isFiltered = teamsQuery.data?.scope.kind === "filtered";
+  const playersHref = buildPlayersPath(sharedFilters);
+  const rankingsHref = buildRankingPath("team-possession", sharedFilters);
+
+  if (teamsQuery.isLoading && !teamsQuery.data) {
+    return (
+      <ProfileShell className="space-y-5" variant="plain">
+        <LoadingSkeleton className="motion-reduce:animate-none" height={330} rounded="md" />
+        <LoadingSkeleton className="motion-reduce:animate-none" height={118} rounded="md" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((item) => (
+            <LoadingSkeleton className="motion-reduce:animate-none" height={210} key={item} rounded="md" />
+          ))}
+        </div>
+      </ProfileShell>
+    );
+  }
+
+  if (teamsQuery.isError && items.length === 0) {
+    return (
+      <ProfileShell variant="plain">
+        <EmptyState
+          actionLabel="Tentar novamente"
+          description={teamsQuery.error?.message ?? `Não foi possível consultar ${entityPlural} agora.`}
+          onAction={() => void teamsQuery.refetch()}
+          title={`Falha ao carregar ${entityPlural}`}
+        />
+      </ProfileShell>
+    );
+  }
 
   return (
-    <ProfileShell className="space-y-6">
-      {teamsQuery.isFetching && teamsQuery.data ? (
-        <p className="text-sm font-semibold text-[#57657a]" role="status">
-          Atualizando {entityPlural}…
-        </p>
-      ) : null}
-      <ProfilePanel className="profile-hero-clean relative overflow-hidden p-0" tone="accent">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(166,242,209,0.24),transparent_30%),radial-gradient(circle_at_88%_0%,rgba(216,227,251,0.2),transparent_34%)]" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full border border-white/10" />
-        <div className="pointer-events-none absolute -bottom-24 left-10 h-52 w-52 rounded-full bg-white/5 blur-3xl" />
+    <ProfileShell className="space-y-6" variant="plain">
+      <nav aria-label="Caminho da página" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#66756e]">
+        <Link className="hover:text-[#00513b]" href="/competitions">Competições</Link>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{entityLabel}</span>
+      </nav>
 
-        <div className="relative grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)] xl:items-stretch">
-          <div className="flex min-h-full flex-col gap-5 xl:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <ProfileTag className="bg-white/10 text-white/82">{contextLabel}</ProfileTag>
-              <ProfileTag className="bg-white/10 text-white/82">{describeVenue(venue)}</ProfileTag>
-              <ProfileTag className="bg-white/10 text-white/82">{activeWindowLabel}</ProfileTag>
-            </div>
+      <section className="overflow-hidden rounded-[1.75rem] border border-[#1c4136] bg-[#08231a] text-white shadow-[0_30px_70px_-50px_rgba(0,31,22,0.72)]">
+        <div className="grid lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
+          <div className="p-5 sm:p-7 lg:p-9">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.24em] text-[#9ddfc2]">Acervo de {entityPlural}</p>
+            <h1 className="mt-4 max-w-3xl font-[family:var(--font-profile-headline)] text-4xl font-extrabold leading-[0.98] tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+              Identidades e trajetórias reunidas em um só arquivo.
+            </h1>
+            <p className="mt-5 max-w-2xl text-sm/6 text-white/72 sm:text-base/7">
+              Encontre um clube e percorra as competições, temporadas, partidas e conquistas documentadas pela plataforma.
+            </p>
 
-            <div className="max-w-3xl">
-              <p className="flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-white/58">
-                <TeamsPageIcon className="h-4 w-4" icon="shield" />
-                {entityLabel}
-              </p>
-              <h1 className="mt-3 font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-tight tracking-[-0.04em] text-white sm:text-4xl">
-                {entityLabel}
-              </h1>
-            </div>
-
-            <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <TeamsHeroMetric
-                hint={`de ${formatInteger(totalCount)} no recorte`}
-                icon="shield"
-                label="Mostrando"
-                value={`${formatInteger(currentRangeStart)}-${formatInteger(currentRangeEnd)}`}
-              />
-              <TeamsHeroMetric
-                hint="somados"
-                icon="table"
-                label="Jogos"
-                value={formatInteger(totals.matchesPlayed)}
-              />
-              <TeamsHeroMetric
-                hint="somadas"
-                icon="star"
-                label="Vitórias"
-                value={formatInteger(totals.wins)}
-              />
-              <TeamsHeroMetric
-                hint="gols pró"
-                icon="chart"
-                label="Ataque"
-                value={formatInteger(totals.goalsFor)}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <TeamsLinkButton href={rankingsHref} icon="chart" label="Rankings" />
-              <TeamsLinkButton href={playersHref} icon="players" label="Jogadores" />
-              <TeamsLinkButton href={seasonHubHref} icon="table" label={seasonLinkLabel} />
-            </div>
+            <dl className="mt-8 grid grid-cols-3 gap-4 border-t border-white/12 pt-5">
+              <div>
+                <dt className="text-[0.62rem] uppercase tracking-[0.15em] text-white/48">Competições</dt>
+                <dd className="mt-1 text-xl font-bold">{formatInteger(archiveSummary?.competitions)}</dd>
+              </div>
+              <div>
+                <dt className="text-[0.62rem] uppercase tracking-[0.15em] text-white/48">Temporadas</dt>
+                <dd className="mt-1 text-xl font-bold">{formatInteger(archiveSummary?.seasons)}</dd>
+              </div>
+              <div>
+                <dt className="text-[0.62rem] uppercase tracking-[0.15em] text-white/48">Partidas</dt>
+                <dd className="mt-1 text-xl font-bold">{formatCompact(archiveSummary?.matches)}</dd>
+              </div>
+            </dl>
           </div>
 
-          <aside className="grid content-start gap-3 xl:pt-14">
-            {featuredTeam && featuredTeamMetric ? (
-              <Link
-                className="group flex min-h-[9rem] flex-col justify-between rounded-[1.55rem] border border-white/12 bg-white/12 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-white/16"
-                href={buildProfileHref(featuredTeam.teamId)}
+          <div className="border-t border-white/12 bg-white/[0.055] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-9">
+            <p className="font-[family:var(--font-profile-headline)] text-5xl font-extrabold tracking-[-0.055em] sm:text-6xl">
+              {formatInteger(archiveEntityCount)}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white/86">{entityPlural} no acervo publicado</p>
+            <p className="mt-2 text-sm/6 text-white/56">
+              {formatInteger(totalCount)} {totalCount === 1 ? "resultado" : "resultados"} neste recorte. A cobertura publicada não representa tudo que existe no futebol.
+            </p>
+
+            <label className="mt-7 block" htmlFor="club-search">
+              <span className="text-[0.68rem] font-bold uppercase tracking-[0.17em] text-white/62">Buscar clube</span>
+              <span className="mt-2 flex min-h-14 items-center gap-3 rounded-[1rem] bg-white px-4 text-[#111c2d] shadow-[0_14px_35px_-24px_rgba(0,0,0,0.55)]">
+                <span className="shrink-0 text-[#35624f]"><SearchIcon /></span>
+                <input
+                  className="min-w-0 flex-1 border-0 bg-transparent py-3 text-base font-medium outline-none placeholder:text-[#7c8882]"
+                  id="club-search"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Digite um clube"
+                  type="search"
+                  value={search}
+                />
+              </span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <ProfilePanel className="border-[#dfe7e2] bg-white/90 p-4 md:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[0.66rem] font-bold uppercase tracking-[0.18em] text-[#65736d]">{scopeLabel}</p>
+            <h2 className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.035em] text-[#111c2d]">Explorar o catálogo</h2>
+            <p className="mt-1 text-sm text-[#66756e]">{contextLabel} · {describeVenue(venue)} · {describeTimeWindow({ roundId, lastN, dateRangeStart, dateRangeEnd })}</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="text-xs font-semibold text-[#586861]">
+              Ordem
+              <select
+                className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                onChange={(event) => {
+                  const nextSort = event.target.value as TeamsListSortBy;
+                  setSortBy(nextSort);
+                  if (nextSort === "relevance") setSortDirection("desc");
+                }}
+                value={sortBy}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <ProfileMedia
-                      alt={`Escudo de ${featuredTeam.teamName}`}
-                      assetId={featuredTeam.teamId}
-                      category="clubs"
-                      className="h-16 w-16 border border-white/18 bg-white/12"
-                      fallback={featuredTeam.teamName.slice(0, 3)}
-                      imageClassName="p-2"
-                      linkBehavior="none"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-[0.64rem] font-bold uppercase tracking-[0.18em] text-white/52">
-                        Destaque da lista
-                      </p>
-                      <h2 className="mt-1 truncate font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.035em] text-white">
-                        {featuredTeam.teamName}
-                      </h2>
-                    </div>
-                  </div>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/12 text-white transition-transform group-hover:scale-105">
-                    <TeamsPageIcon className="h-4 w-4" icon="star" />
-                  </span>
-                </div>
+                {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
 
-                <div className="mt-5 grid grid-cols-3 gap-2">
-                  <div className="rounded-[1rem] bg-white/10 px-3 py-3">
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/52">
-                      {featuredTeamMetric.label}
-                    </p>
-                    <p className="mt-1 text-2xl font-extrabold">{featuredTeamMetric.value}</p>
-                  </div>
-                  <div className="rounded-[1rem] bg-white/10 px-3 py-3">
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/52">Saldo</p>
-                    <p className="mt-1 text-2xl font-extrabold">
-                      {formatGoalDiff(featuredTeam.goalDiff)}
-                    </p>
-                  </div>
-                  <div className="rounded-[1rem] bg-white/10 px-3 py-3">
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/52">Pos.</p>
-                    <p className="mt-1 text-2xl font-extrabold">
-                      {featuredTeam.position ? `${featuredTeam.position}º` : "-"}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ) : (
-              <div className="rounded-[1.55rem] border border-white/12 bg-white/10 p-5 text-white/70">
-                Sem {entityPlural} para destacar neste recorte.
-              </div>
-            )}
-
-            {featuredTeams.length > 1 ? (
-              <div className="grid gap-2">
-                {featuredTeams.slice(1).map((team, index) => (
-                  <Link
-                    className="flex items-center gap-3 rounded-[1.15rem] border border-white/10 bg-white/8 px-3 py-3 text-white transition-colors hover:bg-white/14"
-                    href={buildProfileHref(team.teamId)}
-                    key={team.teamId}
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/12 text-xs font-bold text-white/72">
-                      {index + 2}
-                    </span>
-                    <ProfileMedia
-                      alt={`Escudo de ${team.teamName}`}
-                      assetId={team.teamId}
-                      category="clubs"
-                      className="h-10 w-10 border-0 bg-white/12"
-                      fallback={team.teamName.slice(0, 3)}
-                      imageClassName="p-1.5"
-                      linkBehavior="none"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold">{team.teamName}</p>
-                      <p className="truncate text-xs text-white/56">
-                        {team.position && team.totalTeams
-                          ? `${team.position}º de ${team.totalTeams}`
-                          : "Sem posição oficial"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-extrabold">{formatInteger(team.points)}</p>
-                      <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/48">
-                        pts
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+            {sortBy !== "relevance" ? (
+              <label className="text-xs font-semibold text-[#586861]">
+                Direção
+                <select
+                  className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                  onChange={(event) => setSortDirection(event.target.value as TeamsListSortDirection)}
+                  value={sortDirection}
+                >
+                  <option value="desc">Maior para menor</option>
+                  <option value="asc">Menor para maior</option>
+                </select>
+              </label>
             ) : null}
-          </aside>
+
+            <label className="text-xs font-semibold text-[#586861]">
+              Por página
+              <select
+                className="mt-1 min-h-11 w-full rounded-xl border border-[#ced9d3] bg-white px-3 text-base text-[#17231f] sm:text-sm"
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                value={pageSize}
+              >
+                {[12, 24, 48].map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#e4ebe7] pt-4 text-sm">
+          <Link className="font-semibold text-[#00513b] hover:underline" href={playersHref}>Explorar jogadores</Link>
+          <Link className="font-semibold text-[#52635b] hover:text-[#00513b]" href={rankingsHref}>Abrir rankings de clubes</Link>
+          <span className="min-h-5 text-[#65736d]" role="status">{teamsQuery.isFetching && teamsQuery.data ? `Atualizando ${entityPlural}…` : ""}</span>
         </div>
       </ProfilePanel>
 
       {teamsQuery.isError ? (
-        <ProfileAlert title="Lista carregada com alerta" tone="warning">
-          <p>{teamsQuery.error?.message}</p>
+        <ProfileAlert title="O catálogo pode estar desatualizado" tone="warning">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>{teamsQuery.error?.message}</p>
+            <button className="button-pill button-pill-secondary" onClick={() => void teamsQuery.refetch()} type="button">Tentar novamente</button>
+          </div>
         </ProfileAlert>
       ) : null}
 
-      <ProfilePanel className="space-y-4 border-white/80 bg-white/84">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e9f2ff] text-[#003526]">
-              <TeamsPageIcon className="h-5 w-5" icon="search" />
-            </span>
-            <div>
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#57657a]">
-                Filtros
-              </p>
-              <h2 className="font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.035em] text-[#111c2d]">
-                Encontrar clube
-              </h2>
-            </div>
+      {teamsQuery.isPartial ? (
+        <p className="rounded-xl border border-[#dce5e0] bg-white/72 px-4 py-3 text-sm text-[#5d6d66]">
+          Alguns clubes possuem identidade ou trajetória parcial; apenas os dados documentados são exibidos.
+        </p>
+      ) : null}
+
+      <section aria-labelledby="clubs-results-title" className="space-y-4">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[0.67rem] font-bold uppercase tracking-[0.18em] text-[#687870]">{isFiltered ? "Resultado do recorte" : "Trajetórias documentadas"}</p>
+            <h2 className="mt-1 font-[family:var(--font-profile-headline)] text-3xl font-extrabold tracking-[-0.04em] text-[#111c2d]" id="clubs-results-title">
+              {formatInteger(totalCount)} {totalCount === 1 ? "clube" : "clubes"}
+            </h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <ProfileTag>{describeVenue(venue)}</ProfileTag>
-            <ProfileTag>{activeWindowLabel}</ProfileTag>
-            <ProfileTag>{formatInteger(totalCount)} times</ProfileTag>
-          </div>
-        </div>
+          <p className="text-sm text-[#64736d]">Exibindo {formatInteger(rangeStart)}–{formatInteger(rangeEnd)}</p>
+        </header>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_220px_220px_160px]">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Busca
-            <div className="flex items-center gap-3 rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(216,227,251,0.82)] text-[#003526]">
-                <TeamsPageIcon className="h-4 w-4" icon="search" />
-              </span>
-              <input
-                className="w-full border-0 bg-transparent text-base font-medium normal-case tracking-normal text-[#111c2d] outline-none placeholder:text-[#707974] sm:text-sm"
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
-                placeholder="Ex.: Palmeiras, Liverpool, Flamengo"
-                type="search"
-                value={search}
-              />
-            </div>
-          </label>
+        {items.length === 0 ? (
+          <EmptyState
+            actionLabel={search ? "Limpar busca" : undefined}
+            description={search ? `Nenhum clube encontrado para “${search}” neste recorte.` : "Não há clubes para os filtros atuais."}
+            onAction={search ? () => setSearch("") : undefined}
+            title="Nenhuma trajetória encontrada"
+          />
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((team) => {
+              const metric = activeMetric(team, sortBy);
+              const profileHref = buildProfileHref(team.teamId);
+              const compareHref = buildHeadToHeadPath({ ...sharedFilters, teamA: team.teamId });
+              const origin = [team.countryOrTerritory, team.stadiumName].filter(Boolean).join(" · ");
 
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Ordenar
-            <select
-              className="h-[58px] rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 text-base font-semibold normal-case tracking-normal text-[#111c2d] outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:text-sm"
-              onChange={(event) => {
-                setSortBy(event.target.value as TeamsListSortBy);
-                setPage(1);
-              }}
-              value={sortBy}
-            >
-              {TEAM_SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Direção
-            <select
-              className="h-[58px] rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 text-base font-semibold normal-case tracking-normal text-[#111c2d] outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:text-sm"
-              onChange={(event) => {
-                setSortDirection(event.target.value as TeamsListSortDirection);
-                setPage(1);
-              }}
-              value={sortDirection}
-            >
-              <option value="desc">Maior para menor</option>
-              <option value="asc">Menor para maior</option>
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#57657a]">
-            Linhas
-            <select
-              className="h-[58px] rounded-[1.2rem] border border-[rgba(191,201,195,0.48)] bg-[#f9f9ff] px-4 text-base font-semibold normal-case tracking-normal text-[#111c2d] outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:text-sm"
-              onChange={(event) => {
-                setPageSize(Number(event.target.value) as TeamPageSizeSelection);
-                setPage(1);
-              }}
-              value={pageSize}
-            >
-              {TEAM_PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </ProfilePanel>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        {items.length > 0 ? (
-          items.map((team) => {
-            const profileHref = buildProfileHref(team.teamId);
-
-            return (
-              <ProfilePanel className="space-y-5 overflow-hidden border-white/78 bg-white/84" key={team.teamId}>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-start gap-4">
+              return (
+                <article className="flex min-w-0 flex-col rounded-[1.4rem] border border-[#dce5e0] bg-white/92 p-4 shadow-[0_22px_55px_-48px_rgba(17,39,30,0.4)] transition-colors hover:border-[#a9cbbb] sm:p-5" key={team.teamId}>
+                  <div className="flex min-w-0 items-start gap-3.5">
                     <ProfileMedia
                       alt={`Escudo de ${team.teamName}`}
                       assetId={team.teamId}
                       category="clubs"
-                      className="h-16 w-16"
-                      fallback={team.teamName.slice(0, 3)}
+                      className="h-16 w-16 border-[#dce6e1] bg-[#f3f6f4]"
+                      fallback={getMonogram(team.teamName)}
+                      imageClassName="p-2"
+                      linkBehavior="none"
                     />
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ProfileTag>
-                          {team.position && team.totalTeams
-                            ? `${team.position}º de ${team.totalTeams}`
-                            : "Sem posição oficial"}
-                        </ProfileTag>
-                        <ProfileTag>{team.points ?? "-"} pts</ProfileTag>
-                      </div>
-                      <h2 className="font-[family:var(--font-profile-headline)] text-3xl font-extrabold text-[#111c2d]">
-                        {team.teamName}
-                      </h2>
+                    <div className="min-w-0 flex-1">
+                      <Link className="break-words font-[family:var(--font-profile-headline)] text-xl font-extrabold tracking-[-0.025em] text-[#15231e] hover:text-[#00513b]" href={profileHref}>{team.teamName}</Link>
+                      <p className="mt-1 text-sm text-[#66756e]">{origin || "Origem ainda não documentada"}</p>
                     </div>
+                    {metric ? (
+                      <div className="shrink-0 text-right">
+                        <p className="text-lg font-extrabold tabular-nums text-[#00513b]">{metric.value}</p>
+                        <p className="text-[0.6rem] uppercase tracking-[0.13em] text-[#718079]">{metric.label}</p>
+                      </div>
+                    ) : null}
                   </div>
-                  <Link
-                    className="button-pill button-pill-primary min-h-11 w-full justify-center gap-2 sm:w-auto"
-                    href={profileHref}
-                  >
-                    <span>Abrir perfil</span>
-                    <TeamsPageIcon className="h-4 w-4" icon="arrow" />
-                  </Link>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <ProfileMetricTile label="Jogos" value={team.matchesPlayed ?? "-"} />
-                  <ProfileMetricTile label="Vitórias" value={team.wins ?? "-"} />
-                  <ProfileMetricTile label="Saldo" value={formatGoalDiff(team.goalDiff)} tone="soft" />
-                  <ProfileMetricTile label="Pontos" value={team.points ?? "-"} tone="soft" />
-                </div>
-              </ProfilePanel>
-            );
-          })
-        ) : (
-          <div className="xl:col-span-2">
-            <EmptyState
-              title="Nenhum clube encontrado"
-              description="Ajuste a busca, o tamanho da lista ou a ordenação para continuar explorando o recorte."
-            />
+                  <p className="mt-5 border-y border-[#e5ebe8] py-3 text-sm leading-6 text-[#4d5f57]">
+                    Presença documentada em {formatInteger(team.seasonCount)} temporadas e {formatInteger(team.competitionCount)} {team.competitionCount === 1 ? "competição" : "competições"}.
+                  </p>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-[0.62rem] uppercase tracking-[0.12em] text-[#718079]">Período</dt>
+                      <dd className="mt-1 font-bold text-[#24332d]">{formatYearSpan(team.firstMatchAt, team.lastMatchAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[0.62rem] uppercase tracking-[0.12em] text-[#718079]">Partidas</dt>
+                      <dd className="mt-1 font-bold tabular-nums text-[#24332d]">{formatInteger(team.matchesPlayed)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
+                    <Link className="text-sm font-semibold text-[#52635b] hover:text-[#00513b] hover:underline" href={compareHref}>Comparar</Link>
+                    <Link aria-label={`Abrir perfil de ${team.teamName}`} className="button-pill button-pill-soft px-4" href={profileHref}>
+                      <span className="sr-only">Abrir perfil</span><ArrowIcon />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
 
-      <ProfilePanel className="flex flex-col gap-3 border-white/80 bg-white/84 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm font-medium text-[#57657a]">
-          Página {formatInteger(currentPage)} de {formatInteger(totalPages)} · mostrando{" "}
-          {formatInteger(currentRangeStart)}-{formatInteger(currentRangeEnd)} de{" "}
-          {formatInteger(totalCount)} clubes
-        </p>
-        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
-            <button
-              className="button-pill min-h-11 justify-center disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={teamsQuery.isFetching || currentPage <= 1}
-              onClick={() => setPage((value) => Math.max(value - 1, 1))}
-              type="button"
-            >
-              Anterior
-            </button>
-            <button
-              className="button-pill button-pill-primary min-h-11 justify-center disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={teamsQuery.isFetching || currentPage >= totalPages}
-              onClick={() => setPage((value) => Math.min(value + 1, totalPages))}
-              type="button"
-            >
-              Próxima
-            </button>
-        </div>
-      </ProfilePanel>
+      {items.length > 0 ? (
+        <ProfilePanel className="flex flex-col gap-3 border-[#dfe7e2] bg-white/88 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[#617169]">Página {formatInteger(currentPage)} de {formatInteger(totalPages)}</p>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button className="button-pill button-pill-secondary" disabled={teamsQuery.isFetching || currentPage <= 1} onClick={() => setPage((value) => Math.max(value - 1, 1))} type="button">Anterior</button>
+            <button className="button-pill button-pill-primary" disabled={teamsQuery.isFetching || currentPage >= totalPages} onClick={() => setPage((value) => Math.min(value + 1, totalPages))} type="button">Próxima</button>
+          </div>
+        </ProfilePanel>
+      ) : null}
     </ProfileShell>
   );
 }
