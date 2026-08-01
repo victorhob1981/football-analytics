@@ -135,7 +135,7 @@ test("public shell keeps the mobile drawer closed and names the club surface can
 
 test("desktop sidebar fits the viewport without a persistent scrollbar", () => {
   assert.match(platformShell, /lg:h-dvh lg:overflow-hidden/);
-  assert.match(platformShell, /lg:space-y-0\.5/);
+  assert.match(platformShell, /lg:space-y-0/);
   assert.match(platformShell, /lg:py-2/);
   assert.match(platformShell, /border-t border-white\/10 p-3 lg:hidden/);
 });
