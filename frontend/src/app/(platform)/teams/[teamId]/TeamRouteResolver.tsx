@@ -5,56 +5,74 @@ import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { TeamAggregateProfileContent } from "@/features/teams/components/TeamAggregateProfileContent";
+import { useTeamContexts } from "@/features/teams/hooks/useTeamContexts";
+import { useTeamProfile } from "@/features/teams/hooks/useTeamProfile";
 import type { TeamHonorsPreview } from "@/features/teams/types";
 import { PlatformStateSurface } from "@/shared/components/feedback/PlatformStateSurface";
+import { buildWorldCupTeamPath } from "@/features/world-cup/routes";
 import {
-  buildCanonicalTeamPath,
-  buildRetainedFilterQueryString,
   resolveCompetitionSeasonContextFromSearchParams,
 } from "@/shared/utils/context-routing";
 
 type TeamRouteResolverProps = {
   teamId: string;
   honorsPreview?: TeamHonorsPreview | null;
+  surface?: "clubs" | "teams";
 };
 
-export function TeamRouteResolver({ teamId, honorsPreview }: TeamRouteResolverProps) {
+export function TeamRouteResolver({
+  teamId,
+  honorsPreview,
+  surface = "teams",
+}: TeamRouteResolverProps) {
   const searchParams = useSearchParams();
-  const retainedFilterQueryString = useMemo(
-    () => buildRetainedFilterQueryString(searchParams),
-    [searchParams],
-  );
-
   const localContext = useMemo(
     () => resolveCompetitionSeasonContextFromSearchParams(searchParams),
     [searchParams],
   );
-
-  const canonicalHref = useMemo(
-    () =>
-      localContext
-        ? `${buildCanonicalTeamPath(localContext, teamId)}${retainedFilterQueryString}`
-        : null,
-    [localContext, retainedFilterQueryString, teamId],
+  const currentQueryString = useMemo(() => {
+    const serialized = searchParams.toString();
+    return serialized.length > 0 ? `?${serialized}` : "";
+  }, [searchParams]);
+  const contextsQuery = useTeamContexts(teamId);
+  const profileContext = localContext ?? contextsQuery.data?.defaultContext ?? null;
+  const profileQuery = useTeamProfile(
+    teamId,
+    { includeRecentMatches: false, includeSquad: false, includeStats: false },
+    profileContext,
   );
+  const teamType = profileQuery.data?.identity.teamType;
+  const worldCupContext = useMemo(
+    () =>
+      [localContext, ...(contextsQuery.data?.availableContexts ?? [])].find(
+        (context) => context?.competitionKey === "fifa_world_cup_mens",
+      ) ?? null,
+    [contextsQuery.data?.availableContexts, localContext],
+  );
+  const redirectHref =
+    teamType === "club" && surface === "teams"
+      ? `/clubs/${encodeURIComponent(teamId.trim())}${currentQueryString}`
+      : teamType === "national_team" && worldCupContext
+        ? `${buildWorldCupTeamPath(teamId)}${currentQueryString}`
+        : null;
 
   useEffect(() => {
-    if (!canonicalHref) {
+    if (!redirectHref) {
       return;
     }
 
     const currentHref = `${window.location.pathname}${window.location.search}`;
-    if (currentHref === canonicalHref) {
+    if (currentHref === redirectHref) {
       return;
     }
 
-    window.location.replace(canonicalHref);
-  }, [canonicalHref]);
+    window.location.replace(redirectHref);
+  }, [redirectHref]);
 
-  if (canonicalHref) {
+  if (redirectHref) {
     return (
       <PlatformStateSurface
-        description="Estamos levando você para o perfil completo do time neste contexto."
+        description="Estamos levando você para a superfície correta desta entidade."
         kicker="Abrindo perfil"
         loading
         title="Abrindo time"
@@ -62,5 +80,29 @@ export function TeamRouteResolver({ teamId, honorsPreview }: TeamRouteResolverPr
     );
   }
 
-  return <TeamAggregateProfileContent honorsPreview={honorsPreview} teamId={teamId} />;
+  if (contextsQuery.isLoading || profileQuery.isLoading) {
+    return (
+      <PlatformStateSurface
+        description="Estamos verificando a identidade desta entidade antes de abrir o perfil."
+        kicker="Abrindo perfil"
+        loading
+        title="Preparando entidade"
+      />
+    );
+  }
+
+  if (teamType === "club" && surface === "clubs") {
+    return <TeamAggregateProfileContent honorsPreview={honorsPreview} teamId={teamId} />;
+  }
+
+  return (
+    <PlatformStateSurface
+      actionHref={`/clubs${currentQueryString}`}
+      actionLabel="Voltar para clubes"
+      description="Esta entidade não possui uma identidade de clube confirmada neste acervo."
+      kicker="Entidade não encontrada"
+      title="Perfil de clube indisponível"
+      tone="warning"
+    />
+  );
 }
