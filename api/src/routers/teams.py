@@ -26,7 +26,7 @@ from ..db.client import db_client
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams"])
 
-_TEAM_HONORS_PATH = Path(__file__).resolve().parents[3] / "data" / "team_honors_seed.csv"
+_TEAM_HONORS_PATH = Path(__file__).resolve().parents[2] / "data" / "team_honors_seed.csv"
 _TEAM_HONORS_CRITERION = "Títulos oficiais selecionados para o acervo histórico."
 _TEAM_TYPES = {"club", "national_team", "representative", "other", "unknown"}
 
@@ -216,7 +216,7 @@ def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dic
     team_type = row.get("team_type") if row.get("team_type") in _TEAM_TYPES else "unknown"
     official_name = row.get("team_name") or fallback_team_name
     identity_complete = bool(row) and team_type != "unknown" and bool(official_name)
-    matches_played = _to_int(row.get("matches_played"))
+    matches_played = int(row.get("matches_played") or 0)
     archive_complete = bool(row) and matches_played > 0
 
     return {
@@ -230,8 +230,8 @@ def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dic
             "stadiumCapacity": None,
         },
         "archive": {
-            "competitionCount": _to_int(row.get("competition_count")),
-            "seasonCount": _to_int(row.get("season_count")),
+            "competitionCount": int(row.get("competition_count") or 0),
+            "seasonCount": int(row.get("season_count") or 0),
             "matchesPlayed": matches_played,
             "firstMatchAt": row.get("first_match_at"),
             "lastMatchAt": row.get("last_match_at"),
