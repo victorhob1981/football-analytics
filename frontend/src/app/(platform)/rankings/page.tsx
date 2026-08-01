@@ -2,9 +2,6 @@ import Link from "next/link";
 
 import { listRankingsByEntity } from "@/config/ranking.registry";
 import type { RankingDefinition, RankingMinSample } from "@/config/ranking.types";
-import { fetchRanking } from "@/features/rankings/services/rankings.service";
-import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
-import type { VenueFilter } from "@/shared/types/filters.types";
 import { buildRankingPath } from "@/shared/utils/context-routing";
 
 import styles from "./page.module.css";
@@ -26,10 +23,6 @@ type RankingGroup = {
 
 type RankingHubCard = {
   href: string;
-  leader: {
-    assetId: string | null;
-    name: string | null;
-  };
   ranking: RankingDefinition;
   sample: RankingMinSample;
 };
@@ -66,17 +59,9 @@ function parseLastNValue(value: string | null): number | null {
   return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
 }
 
-function normalizeVenue(value: string | null): VenueFilter | undefined {
-  if (value === "home" || value === "away" || value === "all") {
-    return value;
-  }
-
-  return undefined;
-}
-
 function describeEntityLabel(entity: RankingDefinition["entity"]): string {
   if (entity === "team") {
-    return "Times";
+    return "Clubes";
   }
 
   return "Jogadores";
@@ -100,30 +85,6 @@ function describeSampleValue(sample: RankingMinSample): string {
   }
 
   return `${formatWholeNumber(sample.min)} jogos`;
-}
-
-function describeLeaderValue(leaderName: string | null): string {
-  if (!leaderName) {
-    return "Sem líder";
-  }
-
-  return leaderName;
-}
-
-function buildLeaderFallback(name: string | null): string {
-  if (!name) {
-    return "RK";
-  }
-
-  const initials = name
-    .split(/\s+/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .map((chunk) => chunk[0]?.toUpperCase() ?? "")
-    .join("")
-    .slice(0, 3);
-
-  return initials.length > 0 ? initials : "RK";
 }
 
 function ArrowRightIcon({ className }: { className?: string }) {
@@ -297,9 +258,7 @@ function RankingsCatalogCard({
 }: {
   card: RankingHubCard;
 }) {
-  const { href, leader, ranking, sample } = card;
-  const leaderLabel = describeLeaderValue(leader.name);
-  const leaderMediaCategory = ranking.entity === "team" ? "clubs" : "players";
+  const { href, ranking, sample } = card;
 
   return (
     <Link className={styles.catalogCard} href={href}>
@@ -321,20 +280,11 @@ function RankingsCatalogCard({
 
         <div className={styles.statsGrid}>
           <div className={joinClasses(styles.statTile, styles.statTileLeader)}>
-            <p className={styles.statLabel}>Líder</p>
+            <p className={styles.statLabel}>Leitura</p>
             <div className={styles.leaderTileBody}>
-              <ProfileMedia
-                alt={leaderLabel}
-                assetId={leader.assetId}
-                category={leaderMediaCategory}
-                className={styles.leaderMedia}
-                fallback={buildLeaderFallback(leader.name)}
-                fallbackClassName={styles.leaderMediaFallback}
-                imageClassName={styles.leaderMediaImage}
-                shape={ranking.entity === "team" ? "rounded" : "circle"}
-                linkBehavior="none"
-              />
-              <p className={joinClasses(styles.statValue, styles.statValueLeader)}>{leaderLabel}</p>
+              <p className={joinClasses(styles.statValue, styles.statValueLeader)}>
+                Abra para ver líderes
+              </p>
             </div>
           </div>
           <div className={styles.statTile}>
@@ -352,7 +302,7 @@ function RankingsCatalogCard({
   );
 }
 
-async function buildRankingHubCard(
+function buildRankingHubCard(
   ranking: RankingDefinition,
   sharedFilters: {
     competitionId: string | null;
@@ -363,47 +313,14 @@ async function buildRankingHubCard(
     dateRangeStart: string | null;
     dateRangeEnd: string | null;
   },
-): Promise<RankingHubCard> {
+): RankingHubCard {
   const sample = resolveDefaultSample(ranking);
 
-  try {
-    const response = await fetchRanking({
-      rankingDefinition: ranking,
-      filters: {
-        competitionId: sharedFilters.competitionId,
-        seasonId: sharedFilters.seasonId,
-        roundId: sharedFilters.roundId,
-        venue: normalizeVenue(sharedFilters.venue),
-        lastN: sharedFilters.lastN,
-        dateRangeStart: sharedFilters.dateRangeStart,
-        dateRangeEnd: sharedFilters.dateRangeEnd,
-        minSampleValue: sample.min,
-        page: 1,
-        pageSize: 1,
-        sortDirection: ranking.defaultSort,
-      },
-    });
-
-    return {
-      href: buildRankingPath(ranking.id, sharedFilters),
-      leader: {
-        assetId: response.data.rows[0]?.entityId ?? null,
-        name: response.data.rows[0]?.entityName ?? null,
-      },
-      ranking,
-      sample,
-    };
-  } catch {
-    return {
-      href: buildRankingPath(ranking.id, sharedFilters),
-      leader: {
-        assetId: null,
-        name: null,
-      },
-      ranking,
-      sample,
-    };
-  }
+  return {
+    href: buildRankingPath(ranking.id, sharedFilters),
+    ranking,
+    sample,
+  };
 }
 
 export default async function RankingsHubPage({ searchParams }: RankingsHubPageProps) {
@@ -418,11 +335,11 @@ export default async function RankingsHubPage({ searchParams }: RankingsHubPageP
     dateRangeEnd: readSearchParam(resolvedSearchParams, "dateRangeEnd"),
   };
 
-  const playerRankings = await Promise.all(
-    listRankingsByEntity("player").map((ranking) => buildRankingHubCard(ranking, sharedFilters)),
+  const playerRankings = listRankingsByEntity("player").map((ranking) =>
+    buildRankingHubCard(ranking, sharedFilters),
   );
-  const teamRankings = await Promise.all(
-    listRankingsByEntity("team").map((ranking) => buildRankingHubCard(ranking, sharedFilters)),
+  const teamRankings = listRankingsByEntity("team").map((ranking) =>
+    buildRankingHubCard(ranking, sharedFilters),
   );
   const rankingGroups: RankingGroup[] = [
     {
@@ -434,7 +351,7 @@ export default async function RankingsHubPage({ searchParams }: RankingsHubPageP
     },
     {
       key: "team",
-      eyebrow: "Times",
+      eyebrow: "Clubes",
       title: "Leituras coletivas",
       description: "Visão rápida dos rankings de posse e circulação que já estão prontos para abrir.",
       items: teamRankings,
@@ -458,7 +375,7 @@ export default async function RankingsHubPage({ searchParams }: RankingsHubPageP
             <p className={styles.headerEyebrow}>Catálogo analítico</p>
             <h1 className={styles.headerTitle}>Hub de rankings</h1>
             <p className={styles.headerLead}>
-              Escolha o ranking certo para começar a explorar os destaques de jogadores e times.
+                  Escolha o ranking certo para começar a explorar os destaques de jogadores e clubes.
             </p>
           </div>
 
