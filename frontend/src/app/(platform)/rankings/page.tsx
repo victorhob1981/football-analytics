@@ -1,14 +1,12 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { listRankingsByEntity } from "@/config/ranking.registry";
 import type { RankingDefinition, RankingMinSample } from "@/config/ranking.types";
 import { buildRankingPath } from "@/shared/utils/context-routing";
 
+import { RankingCatalogLink } from "./RankingCatalogLink";
 import styles from "./page.module.css";
-
-type RankingsHubPageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
 
 type RankingGroup = {
   description: string;
@@ -29,31 +27,6 @@ function joinClasses(...classes: Array<string | false | null | undefined>) {
 }
 function formatWholeNumber(value: number): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(value);
-}
-
-function readSearchParam(
-  searchParams: Record<string, string | string[] | undefined>,
-  key: string,
-): string | null {
-  const rawValue = searchParams[key];
-
-  const value = Array.isArray(rawValue) ? (rawValue[0] ?? null) : (rawValue ?? null);
-
-  if (!value) {
-    return null;
-  }
-
-  const normalizedValue = value.trim();
-  return normalizedValue.toLowerCase() === "all" ? null : normalizedValue;
-}
-
-function parseLastNValue(value: string | null): number | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsedValue = Number.parseInt(value, 10);
-  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : null;
 }
 
 function describeEntityLabel(entity: RankingDefinition["entity"]): string {
@@ -256,88 +229,65 @@ function RankingsCatalogCard({
   card: RankingHubCard;
 }) {
   const { href, ranking, sample } = card;
-
-  return (
-    <Link className={styles.catalogCard} href={href}>
-      <div className={styles.catalogCardContent}>
-        <div className={styles.catalogCardHeader}>
-          <div className={styles.cardIdentity}>
-            <div className={styles.cardMarkFrame}>
-              <RankingIcon rankingId={ranking.id} />
-            </div>
-            <span className={styles.metaPill}>{describeEntityLabel(ranking.entity)}</span>
+  const cardContent = (
+    <div className={styles.catalogCardContent}>
+      <div className={styles.catalogCardHeader}>
+        <div className={styles.cardIdentity}>
+          <div className={styles.cardMarkFrame}>
+            <RankingIcon rankingId={ranking.id} />
           </div>
-          <span className={styles.coverageBadge}>Disponível</span>
+          <span className={styles.metaPill}>{describeEntityLabel(ranking.entity)}</span>
         </div>
+        <span className={styles.coverageBadge}>Disponível</span>
+      </div>
 
-        <div className={styles.catalogCardBody}>
-          <h3 className={styles.catalogCardTitle}>{ranking.label}</h3>
-          <p className={styles.catalogCardDescription}>{ranking.description}</p>
-        </div>
+      <div className={styles.catalogCardBody}>
+        <h3 className={styles.catalogCardTitle}>{ranking.label}</h3>
+        <p className={styles.catalogCardDescription}>{ranking.description}</p>
+      </div>
 
-        <div className={styles.statsGrid}>
-          <div className={joinClasses(styles.statTile, styles.statTileLeader)}>
-            <p className={styles.statLabel}>Leitura</p>
-            <div className={styles.leaderTileBody}>
-              <p className={joinClasses(styles.statValue, styles.statValueLeader)}>
-                Abra para ver líderes
-              </p>
-            </div>
-          </div>
-          <div className={styles.statTile}>
-            <p className={styles.statLabel}>Amostra</p>
-            <p className={styles.statValue}>{describeSampleValue(sample)}</p>
+      <div className={styles.statsGrid}>
+        <div className={joinClasses(styles.statTile, styles.statTileLeader)}>
+          <p className={styles.statLabel}>Leitura</p>
+          <div className={styles.leaderTileBody}>
+            <p className={joinClasses(styles.statValue, styles.statValueLeader)}>
+              Abra para ver líderes
+            </p>
           </div>
         </div>
-
-        <div className={styles.cardFooter}>
-          <span className={styles.cardFooterLabel}>Abrir ranking</span>
-          <ArrowRightIcon className={styles.cardFooterArrow} />
+        <div className={styles.statTile}>
+          <p className={styles.statLabel}>Amostra</p>
+          <p className={styles.statValue}>{describeSampleValue(sample)}</p>
         </div>
       </div>
-    </Link>
+
+      <div className={styles.cardFooter}>
+        <span className={styles.cardFooterLabel}>Abrir ranking</span>
+        <ArrowRightIcon className={styles.cardFooterArrow} />
+      </div>
+    </div>
+  );
+
+  return (
+    <Suspense fallback={<Link className={styles.catalogCard} href={href}>{cardContent}</Link>}>
+      <RankingCatalogLink rankingId={ranking.id}>{cardContent}</RankingCatalogLink>
+    </Suspense>
   );
 }
 
-function buildRankingHubCard(
-  ranking: RankingDefinition,
-  sharedFilters: {
-    competitionId: string | null;
-    seasonId: string | null;
-    roundId: string | null;
-    venue: string | null;
-    lastN: number | null;
-    dateRangeStart: string | null;
-    dateRangeEnd: string | null;
-  },
-): RankingHubCard {
+function buildRankingHubCard(ranking: RankingDefinition): RankingHubCard {
   const sample = resolveDefaultSample(ranking);
 
   return {
-    href: buildRankingPath(ranking.id, sharedFilters),
+    href: buildRankingPath(ranking.id),
     ranking,
     sample,
   };
 }
 
-export default async function RankingsHubPage({ searchParams }: RankingsHubPageProps) {
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const sharedFilters = {
-    competitionId: readSearchParam(resolvedSearchParams, "competitionId"),
-    seasonId: readSearchParam(resolvedSearchParams, "seasonId"),
-    roundId: readSearchParam(resolvedSearchParams, "roundId"),
-    venue: readSearchParam(resolvedSearchParams, "venue"),
-    lastN: parseLastNValue(readSearchParam(resolvedSearchParams, "lastN")),
-    dateRangeStart: readSearchParam(resolvedSearchParams, "dateRangeStart"),
-    dateRangeEnd: readSearchParam(resolvedSearchParams, "dateRangeEnd"),
-  };
-
-  const playerRankings = listRankingsByEntity("player").map((ranking) =>
-    buildRankingHubCard(ranking, sharedFilters),
-  );
-  const teamRankings = listRankingsByEntity("team").map((ranking) =>
-    buildRankingHubCard(ranking, sharedFilters),
-  );
+export default function RankingsHubPage() {
+  const playerRankings = listRankingsByEntity("player").map(buildRankingHubCard);
+  const teamRankings = listRankingsByEntity("team").map(buildRankingHubCard);
   const rankingGroups: RankingGroup[] = [
     {
       key: "player",

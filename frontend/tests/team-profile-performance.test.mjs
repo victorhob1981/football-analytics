@@ -42,4 +42,6 @@ test("player profile defers history, matches and stats by active tab", () => {
 test("rankings hub does not force an uncached server render", () => {
   assert.doesNotMatch(rankingsPageSource, /export const dynamic = "force-dynamic"/);
   assert.doesNotMatch(rankingsPageSource, /export const revalidate = 0/);
+  assert.doesNotMatch(rankingsPageSource, /searchParams/);
+  assert.match(rankingsPageSource, /<RankingCatalogLink/);
 });
