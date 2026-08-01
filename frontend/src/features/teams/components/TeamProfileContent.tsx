@@ -26,10 +26,12 @@ import { ProfileMedia } from "@/shared/components/profile/ProfileMedia";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 import type { CompetitionSeasonContext } from "@/shared/types/context.types";
 import {
+  buildCanonicalClubPath,
+  buildClubResolverPath,
+  buildClubsPath,
   buildHeadToHeadPath,
   buildPlayersPath,
   buildSeasonHubTabPath,
-  buildTeamsPath,
 } from "@/shared/utils/context-routing";
 
 type TeamProfileContentProps = {
@@ -337,7 +339,9 @@ export function TeamProfileContent({
   const seasonHubHref = buildSeasonHubTabPath(contextOverride, "standings", sharedFilters);
   const rankingsHref = buildSeasonHubTabPath(contextOverride, "rankings", sharedFilters);
   const playersHref = buildPlayersPath(sharedFilters);
-  const teamsHref = buildTeamsPath(sharedFilters);
+  const clubsHref = buildClubsPath(sharedFilters);
+  const canonicalClubHref = buildCanonicalClubPath(contextOverride, teamId);
+  const clubResolverHref = buildClubResolverPath(teamId, sharedFilters);
   const headToHeadHref = buildHeadToHeadPath({
     ...sharedFilters,
     teamA: teamId,
@@ -349,10 +353,10 @@ export function TeamProfileContent({
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Perfil de time
+            Perfil de clube
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Carregando perfil do time
+            Carregando perfil do clube
           </h1>
         </header>
         <LoadingSkeleton height={140} />
@@ -367,10 +371,10 @@ export function TeamProfileContent({
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Perfil de time
+            Perfil de clube
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Falha ao carregar perfil do time
+            Falha ao carregar perfil do clube
           </h1>
         </header>
         <ProfileAlert title="Erro no carregamento" tone="critical">
@@ -385,15 +389,15 @@ export function TeamProfileContent({
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Perfil de time
+            Perfil de clube
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Perfil de time indisponível
+            Perfil de clube indisponível
           </h1>
         </header>
         <EmptyState
           title="Perfil indisponível"
-          description="A base retornou dados insuficientes para o time no contexto atual."
+          description="A base retornou dados insuficientes para o clube no contexto atual."
         />
       </ProfileShell>
     );
@@ -448,8 +452,8 @@ export function TeamProfileContent({
           {contextOverride.competitionName}
         </Link>
         <span className="text-[#8fa097]">/</span>
-        <Link className="transition-colors hover:text-[#00513b]" href={teamsHref}>
-          Times
+        <Link className="transition-colors hover:text-[#00513b]" href={clubsHref}>
+          Clubes
         </Link>
         <span className="text-[#8fa097]">/</span>
         <span>{team.teamName}</span>
@@ -483,6 +487,7 @@ export function TeamProfileContent({
                 category="clubs"
                 className="h-16 w-16 shrink-0 border border-white/18 bg-white/12 sm:h-24 sm:w-24"
                 fallback={getTeamMonogram(team.teamName)}
+                href={clubResolverHref}
                 imageClassName="p-3"
                 tone="contrast"
               />
@@ -674,12 +679,12 @@ export function TeamProfileContent({
       ) : null}
 
       <ProfileTabs
-        ariaLabel="Abas do perfil do time"
+        ariaLabel="Abas do perfil do clube"
         aside={<ProfileTag>{activeTabLabel}</ProfileTag>}
         items={tabLinks.map((tabLink) => ({
           key: tabLink.key,
           label: tabLink.label,
-          href: buildTeamProfileTabHref(pathname, searchParams, tabLink.key),
+          href: buildTeamProfileTabHref(canonicalClubHref, searchParams, tabLink.key),
           isActive: activeTab === tabLink.key,
           badge: tabLink.badge,
         }))}

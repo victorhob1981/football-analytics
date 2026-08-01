@@ -68,7 +68,7 @@ function buildDefaultProfileMediaHref(
       return `/copa-do-mundo/selecoes/${encodePathSegment(normalizedAssetId)}`;
     }
 
-    return `/teams/${encodePathSegment(normalizedAssetId)}`;
+    return `/clubs/${encodePathSegment(normalizedAssetId)}`;
   }
 
   return buildCompetitionProfileHref(normalizedAssetId);

@@ -18,6 +18,10 @@ const contextualClubsRoute = read(
   "src/app/(platform)/competitions/[competitionKey]/seasons/[seasonLabel]/clubs/[clubId]/page.tsx",
 );
 const contextualResolver = read("src/features/teams/components/ContextualTeamRouteResolver.tsx");
+const aggregateProfile = read("src/features/teams/components/TeamAggregateProfileContent.tsx");
+const contextualProfile = read("src/features/teams/components/TeamProfileContent.tsx");
+const shellState = read("src/shared/components/navigation/usePlatformShellState.ts");
+const profileMedia = read("src/shared/components/profile/ProfileMedia.tsx");
 
 test("clubs renders the existing catalog filtered to clubs", () => {
   assert.match(clubsRoute, /<TeamsPageContent entityType="club" \/>/);
@@ -66,4 +70,23 @@ test("club builders and contextual profile routes keep entity guards", () => {
   assert.match(contextualResolver, /teamType === "national_team"/);
   assert.match(contextualResolver, /fifa_world_cup_mens/);
   assert.match(contextualResolver, /Equipe indisponível/);
+});
+
+test("validated club consumers use club routes and labels", () => {
+  assert.match(teamsContent, /isClubCatalog/);
+  assert.match(teamsContent, /buildCanonicalClubPath/);
+  assert.match(teamsContent, /buildClubResolverPath/);
+  assert.match(teamsContent, /entityLabel = isClubCatalog \? "Clubes"/);
+  assert.match(aggregateProfile, /buildClubsPath/);
+  assert.match(aggregateProfile, /buildClubResolverPath/);
+  assert.match(aggregateProfile, /buildCanonicalClubPath/);
+  assert.match(aggregateProfile, /Ver clubes no recorte/);
+  assert.match(contextualProfile, /buildClubsPath/);
+  assert.match(contextualProfile, /buildClubResolverPath/);
+  assert.match(contextualProfile, /buildCanonicalClubPath/);
+  assert.match(contextualProfile, /Perfil de clube/);
+  assert.match(shellState, /buildClubsPath/);
+  assert.doesNotMatch(shellState, /buildTeamsPath/);
+  assert.match(shellState, /surfaceLabel = "Clubes"/);
+  assert.match(profileMedia, /return `\/clubs\/\$\{encodePathSegment\(normalizedAssetId\)\}`/);
 });
