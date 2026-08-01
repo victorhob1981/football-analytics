@@ -270,6 +270,10 @@ export function buildCanonicalTeamPath(context: CompetitionSeasonContext, teamId
   return `${buildCompetitionSeasonBasePath(context)}/teams/${encodePathSegment(teamId)}`;
 }
 
+export function buildCanonicalClubPath(context: CompetitionSeasonContext, clubId: string): string {
+  return `${buildCompetitionSeasonBasePath(context)}/clubs/${encodePathSegment(clubId)}`;
+}
+
 export function buildContextFilterQueryString(contextInput: CompetitionSeasonContextInput): string {
   return buildFilterQueryString(contextInput);
 }
@@ -371,6 +375,13 @@ export function buildTeamResolverPath(
   return `/teams/${encodePathSegment(teamId)}${buildFilterQueryString(contextInput)}`;
 }
 
+export function buildClubResolverPath(
+  clubId: string,
+  contextInput: SharedFilterQueryInput = {},
+): string {
+  return `/clubs/${encodePathSegment(clubId)}${buildFilterQueryString(contextInput)}`;
+}
+
 export function buildMatchCenterPath(
   matchId: string,
   contextInput: SharedFilterQueryInput = {},
@@ -384,6 +395,10 @@ export function buildPlayersPath(contextInput: SharedFilterQueryInput = {}): str
 
 export function buildTeamsPath(contextInput: SharedFilterQueryInput = {}): string {
   return `/teams${buildFilterQueryString(contextInput)}`;
+}
+
+export function buildClubsPath(contextInput: SharedFilterQueryInput = {}): string {
+  return `/clubs${buildFilterQueryString(contextInput)}`;
 }
 
 export function buildMatchesPath(contextInput: SharedFilterQueryInput = {}): string {
