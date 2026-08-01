@@ -685,9 +685,7 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
       <section className="grid gap-4 xl:grid-cols-2">
         {items.length > 0 ? (
           items.map((team) => {
-            const profileHref = resolvedContext
-              ? `${buildCanonicalTeamPath(resolvedContext, team.teamId)}${canonicalExtraQuery}`
-              : buildTeamResolverPath(team.teamId, sharedFilterInput);
+            const profileHref = buildProfileHref(team.teamId);
 
             return (
               <ProfilePanel className="space-y-5 overflow-hidden border-white/78 bg-white/84" key={team.teamId}>

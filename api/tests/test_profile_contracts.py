@@ -194,11 +194,17 @@ class TeamProfileContractTests(unittest.TestCase):
         self.assertEqual(data["sectionCoverage"]["honors"]["status"], "empty")
 
     def test_honors_loader_reads_canonical_seed(self) -> None:
-        honors = teams._load_team_honors("Flamengo")
+        honors = teams._load_team_honors(1024, "Flamengo")
 
         self.assertIsNotNone(honors)
         self.assertGreater(honors["total"], 0)
         self.assertEqual(honors["items"][0]["sourceName"], "flamengo_official")
+
+    def test_honors_loader_falls_back_to_name_when_id_is_unmapped(self) -> None:
+        honors = teams._load_team_honors(9999, "Flamengo")
+
+        self.assertIsNotNone(honors)
+        self.assertGreater(honors["total"], 0)
 
 
 if __name__ == "__main__":

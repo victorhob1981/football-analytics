@@ -136,17 +136,28 @@ def _normalize_team_name(value: str | None) -> str:
     return "".join(character for character in normalized if not unicodedata.combining(character)).strip().casefold()
 
 
-def _load_team_honors(team_name: str | None) -> dict[str, Any] | None:
-    if not team_name or not _TEAM_HONORS_PATH.exists():
+def _load_team_honors(team_id: int | None, team_name: str | None) -> dict[str, Any] | None:
+    if (team_id is None and not team_name) or not _TEAM_HONORS_PATH.exists():
         return None
 
-    normalized_team_name = _normalize_team_name(team_name)
     with _TEAM_HONORS_PATH.open("r", encoding="utf-8", newline="") as handle:
-        rows = [
+        champion_rows = [
             row
             for row in csv.DictReader(handle)
             if row.get("title_type") == "champion"
-            and _normalize_team_name(row.get("team_name")) == normalized_team_name
+        ]
+
+    rows = []
+    if team_id is not None:
+        canonical_team_id = str(team_id)
+        rows = [row for row in champion_rows if row.get("team_id") == canonical_team_id]
+
+    if not rows and team_name:
+        normalized_team_name = _normalize_team_name(team_name)
+        rows = [
+            row
+            for row in champion_rows
+            if _normalize_team_name(row.get("team_name")) == normalized_team_name
         ]
 
     if not rows:
@@ -725,7 +736,7 @@ def get_team_profile(
         )
 
     foundation = _fetch_team_profile_foundation(team_id, str(team_ref["team_name"]))
-    honors = _load_team_honors(foundation["identity"]["officialName"])
+    honors = _load_team_honors(team_id, foundation["identity"]["officialName"])
 
     competition_ref = db_client.fetch_one(
         "select league_id, league_name from mart.dim_competition where league_id = %s;",
