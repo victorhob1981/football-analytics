@@ -222,9 +222,9 @@ export function PlayerProfileContent({
   const profileQuery = usePlayerProfile(
     playerId,
     {
-      includeHistory: true,
-      includeRecentMatches: true,
-      includeStats: true,
+      includeHistory: activeTab === "history",
+      includeRecentMatches: activeTab === "overview" || activeTab === "matches",
+      includeStats: activeTab === "stats",
       stageId: searchParams.get("stageId"),
       stageFormat: searchParams.get("stageFormat"),
     },

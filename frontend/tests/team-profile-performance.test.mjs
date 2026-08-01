@@ -14,9 +14,25 @@ const teamProfilePath = path.join(
   "TeamProfileContent.tsx",
 );
 const teamProfileSource = readFileSync(teamProfilePath, "utf8");
+const playerProfilePath = path.join(
+  projectRoot,
+  "src",
+  "app",
+  "(platform)",
+  "players",
+  "[playerId]",
+  "PlayerProfileContent.tsx",
+);
+const playerProfileSource = readFileSync(playerProfilePath, "utf8");
 
 test("team profile defers optional squad and stats payloads", () => {
   assert.match(teamProfileSource, /activeTab = resolveTeamProfileTab/);
   assert.match(teamProfileSource, /includeSquad: activeTab === "squad"/);
   assert.match(teamProfileSource, /includeStats: activeTab === "stats"/);
+});
+
+test("player profile defers history, matches and stats by active tab", () => {
+  assert.match(playerProfileSource, /includeHistory: activeTab === "history"/);
+  assert.match(playerProfileSource, /includeRecentMatches: activeTab === "overview" \|\| activeTab === "matches"/);
+  assert.match(playerProfileSource, /includeStats: activeTab === "stats"/);
 });
