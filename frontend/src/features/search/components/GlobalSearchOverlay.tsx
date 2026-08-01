@@ -16,6 +16,7 @@ import type {
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
 import { ProfilePanel, ProfileTag } from "@/shared/components/profile/ProfilePrimitives";
+import { buildWorldCupTeamPath } from "@/features/world-cup/routes";
 import type {
   CompetitionSeasonContext,
   CompetitionSeasonContextInput,
@@ -66,13 +67,21 @@ function resolveDisplayContext(
 function buildTeamResultHref(result: TeamSearchResult): string {
   const contextInput = {
     competitionId: result.defaultContext.competitionId,
-    competitionKey: result.defaultContext.competitionKey,
     seasonId: result.defaultContext.seasonId,
   };
 
-  return result.teamType === "club"
-    ? buildClubResolverPath(result.teamId, contextInput)
-    : buildTeamResolverPath(result.teamId, contextInput);
+  if (result.teamType === "club") {
+    return buildClubResolverPath(result.teamId, contextInput);
+  }
+
+  if (
+    result.teamType === "national_team" &&
+    result.defaultContext.competitionKey === "fifa_world_cup_mens"
+  ) {
+    return buildWorldCupTeamPath(result.teamId);
+  }
+
+  return buildTeamResolverPath(result.teamId, contextInput);
 }
 
 function teamTypeLabel(teamType: TeamSearchResult["teamType"]): string {
@@ -172,6 +181,7 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
     return group.items.map((item: TeamSearchResult) => {
       const displayContext = resolveDisplayContext(item.defaultContext);
       const contextLine = buildContextLine(displayContext);
+      const typeLabel = teamTypeLabel(item.teamType);
 
       return (
         <Link
@@ -182,7 +192,9 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
         >
           <div className="min-w-0">
             <p className="font-semibold text-[#111c2d]">{item.teamName}</p>
-            <p className="mt-1 text-xs text-[#57657a]">{contextLine ?? "Abrir perfil do time"}</p>
+            <p className="mt-1 text-xs text-[#57657a]">
+              {contextLine ? `${typeLabel} • ${contextLine}` : typeLabel}
+            </p>
           </div>
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#003526]">
             {teamTypeLabel(item.teamType)}

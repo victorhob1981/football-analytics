@@ -38,6 +38,8 @@ test("teams permanently redirects to clubs preserving search params", () => {
 test("TeamsPageContent forwards entityType to the catalog hook", () => {
   assert.match(teamsContent, /entityType\?: TeamType \| null/);
   assert.match(teamsContent, /entityType,\n\s+sortBy/);
+  assert.match(teamsContent, /const profileHref = buildProfileHref\(team\.teamId\)/);
+  assert.doesNotMatch(teamsContent, /const profileHref = resolvedContext/);
 });
 
 test("team profile aliases guard identity before rendering or redirecting", () => {
@@ -90,6 +92,11 @@ test("validated club consumers use club routes and labels", () => {
   assert.match(shellState, /buildClubsPath/);
   assert.doesNotMatch(shellState, /buildTeamsPath/);
   assert.match(shellState, /surfaceLabel = "Clubes"/);
+  assert.match(shellState, /surfaceLabel = "Perfil de clube"/);
+  assert.match(shellState, /surfaceLabel = "Perfil de equipe"/);
+  assert.match(shellState, /pathname\.startsWith\("\/clubs\/"\)/);
+  assert.match(shellState, /pathname\.startsWith\("\/teams\/"\)/);
+  assert.doesNotMatch(shellState, /isLegacyClubResolverPath\(pathname\) \|\| isShortTeamResolverPath\(pathname\)/);
   assert.match(profileMedia, /return `\/clubs\/\$\{encodePathSegment\(normalizedAssetId\)\}`/);
 });
 
@@ -98,6 +105,9 @@ test("typed team search uses entity routes and labels", () => {
   assert.match(searchOverlay, /buildClubResolverPath/);
   assert.match(searchOverlay, /result\.teamType === "club"/);
   assert.match(searchOverlay, /buildTeamResolverPath/);
+  assert.match(searchOverlay, /buildWorldCupTeamPath/);
+  assert.match(searchOverlay, /teamType === "national_team"/);
+  assert.match(searchOverlay, /\$\{typeLabel\} • \$\{contextLine\}/);
   assert.match(searchOverlay, /"Clube"/);
   assert.match(searchOverlay, /"Seleção"/);
   assert.match(searchOverlay, /"Equipe"/);
