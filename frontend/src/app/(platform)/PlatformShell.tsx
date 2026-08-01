@@ -637,7 +637,7 @@ export function PlatformShell({ children }: PlatformShellProps) {
         </div>
 
         <nav aria-label="Navegação principal" className="flex min-h-0 flex-1 px-3">
-          <div className="space-y-1.5 lg:space-y-0.5">
+          <div className="space-y-1.5 lg:space-y-0">
             {sidebarNavLinks.map((item) => {
               const isActive = isActiveNavLink(pathname, item.href);
 
