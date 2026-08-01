@@ -95,13 +95,19 @@ export function TeamRouteResolver({
     return <TeamAggregateProfileContent honorsPreview={honorsPreview} teamId={teamId} />;
   }
 
+  const isClubSurface = surface === "clubs";
+
   return (
     <PlatformStateSurface
-      actionHref={`/clubs${currentQueryString}`}
-      actionLabel="Voltar para clubes"
-      description="Esta entidade não possui uma identidade de clube confirmada neste acervo."
+      actionHref={`${isClubSurface ? "/clubs" : "/competitions"}${currentQueryString}`}
+      actionLabel={isClubSurface ? "Voltar para clubes" : "Abrir competições"}
+      description={
+        isClubSurface
+          ? "Esta entidade não possui uma identidade de clube confirmada neste acervo."
+          : "Esta entidade não possui uma identidade de equipe confirmada neste acervo."
+      }
       kicker="Entidade não encontrada"
-      title="Perfil de clube indisponível"
+      title={isClubSurface ? "Perfil de clube indisponível" : "Equipe indisponível"}
       tone="warning"
     />
   );
