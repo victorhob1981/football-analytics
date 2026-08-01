@@ -109,7 +109,11 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
   const activeTab = resolveTeamProfileTab(searchParams.get("tab"));
   const profileQuery = useTeamProfile(
     teamId,
-    { includeRecentMatches: false, includeSquad: true, includeStats: true },
+    {
+      includeRecentMatches: false,
+      includeSquad: activeTab === "squad",
+      includeStats: activeTab === "stats",
+    },
     contextOverride,
   );
   const matchesQuery = useTeamMatches(teamId, contextOverride, {

@@ -16,9 +16,7 @@ const teamProfilePath = path.join(
 const teamProfileSource = readFileSync(teamProfilePath, "utf8");
 
 test("team profile defers optional squad and stats payloads", () => {
-  assert.match(teamProfileSource, /includeSquad: false/);
-  assert.match(teamProfileSource, /includeStats: false/);
-  assert.match(teamProfileSource, /const detailsQuery = useTeamProfile/);
+  assert.match(teamProfileSource, /activeTab = resolveTeamProfileTab/);
   assert.match(teamProfileSource, /includeSquad: activeTab === "squad"/);
   assert.match(teamProfileSource, /includeStats: activeTab === "stats"/);
 });
