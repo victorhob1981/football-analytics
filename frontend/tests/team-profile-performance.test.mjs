@@ -39,6 +39,13 @@ test("player profile defers history, matches and stats by active tab", () => {
   assert.match(playerProfileSource, /includeStats: activeTab === "stats"/);
 });
 
+test("deferred profile tabs do not present unloaded sections as empty", () => {
+  assert.match(teamProfileSource, /badge: squad \? `\$\{squad\.length\}` : "Abrir"/);
+  assert.match(teamProfileSource, /badge: stats \? "Detalhes" : "Abrir"/);
+  assert.match(playerProfileSource, /badge: history \? `\$\{history\.length\}` : "Abrir"/);
+  assert.match(playerProfileSource, /badge: stats \? "Detalhes" : "Abrir"/);
+});
+
 test("rankings hub does not force an uncached server render", () => {
   assert.doesNotMatch(rankingsPageSource, /export const dynamic = "force-dynamic"/);
   assert.doesNotMatch(rankingsPageSource, /export const revalidate = 0/);
