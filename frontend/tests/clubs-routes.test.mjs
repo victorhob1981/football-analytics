@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const read = (path) => readFileSync(path, "utf8");
+const read = (path) => readFileSync(path, "utf8").replaceAll("\r\n", "\n");
 
 const clubsRoute = read("src/app/(platform)/clubs/page.tsx");
 const teamsRoute = read("src/app/(platform)/teams/page.tsx");
@@ -131,6 +131,13 @@ test("public shell keeps the mobile drawer closed and names the club surface can
   assert.match(searchOverlay, /team: "Clubes e seleções"/);
   assert.match(searchOverlay, /"Clubes"/);
   assert.doesNotMatch(searchOverlay, /\bTimes\b|\btimes\b/);
+});
+
+test("desktop sidebar fits the viewport without a persistent scrollbar", () => {
+  assert.match(platformShell, /lg:h-dvh lg:overflow-hidden/);
+  assert.match(platformShell, /lg:space-y-0\.5/);
+  assert.match(platformShell, /lg:py-2\.5/);
+  assert.match(platformShell, /border-t border-white\/10 p-3 lg:hidden/);
 });
 
 test("player surfaces preserve unknown team resolution and known club semantics", () => {
