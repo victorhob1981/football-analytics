@@ -24,6 +24,8 @@ const playerProfilePath = path.join(
   "PlayerProfileContent.tsx",
 );
 const playerProfileSource = readFileSync(playerProfilePath, "utf8");
+const rankingsPagePath = path.join(projectRoot, "src", "app", "(platform)", "rankings", "page.tsx");
+const rankingsPageSource = readFileSync(rankingsPagePath, "utf8");
 
 test("team profile defers optional squad and stats payloads", () => {
   assert.match(teamProfileSource, /activeTab = resolveTeamProfileTab/);
@@ -35,4 +37,9 @@ test("player profile defers history, matches and stats by active tab", () => {
   assert.match(playerProfileSource, /includeHistory: activeTab === "history"/);
   assert.match(playerProfileSource, /includeRecentMatches: activeTab === "overview" \|\| activeTab === "matches"/);
   assert.match(playerProfileSource, /includeStats: activeTab === "stats"/);
+});
+
+test("rankings hub does not force an uncached server render", () => {
+  assert.doesNotMatch(rankingsPageSource, /export const dynamic = "force-dynamic"/);
+  assert.doesNotMatch(rankingsPageSource, /export const revalidate = 0/);
 });
