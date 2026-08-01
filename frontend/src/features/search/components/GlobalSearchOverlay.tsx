@@ -16,12 +16,14 @@ import type {
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
 import { ProfilePanel, ProfileTag } from "@/shared/components/profile/ProfilePrimitives";
+import { buildWorldCupTeamPath } from "@/features/world-cup/routes";
 import type {
   CompetitionSeasonContext,
   CompetitionSeasonContextInput,
 } from "@/shared/types/context.types";
 import {
   buildCompetitionHubPath,
+  buildClubResolverPath,
   buildMatchCenterPath,
   buildPlayerResolverPath,
   buildTeamResolverPath,
@@ -38,10 +40,10 @@ const SEARCH_GROUP_LABELS: Record<SearchGroup["type"], string> = {
   competition: "Competições",
   match: "Partidas",
   player: "Jogadores",
-  team: "Times",
+  team: "Clubes e seleções",
 };
 
-const SEARCH_GROUP_TAGS = ["Competições", "Partidas", "Times", "Jogadores"] as const;
+const SEARCH_GROUP_TAGS = ["Competições", "Partidas", "Clubes", "Jogadores"] as const;
 
 type SearchDisplayContext =
   | (CompetitionSeasonContext & CompetitionSeasonContextInput)
@@ -63,11 +65,35 @@ function resolveDisplayContext(
 }
 
 function buildTeamResultHref(result: TeamSearchResult): string {
-  return buildTeamResolverPath(result.teamId, {
+  const contextInput = {
     competitionId: result.defaultContext.competitionId,
-    competitionKey: result.defaultContext.competitionKey,
     seasonId: result.defaultContext.seasonId,
-  });
+  };
+
+  if (result.teamType === "club") {
+    return buildClubResolverPath(result.teamId, contextInput);
+  }
+
+  if (
+    result.teamType === "national_team" &&
+    result.defaultContext.competitionKey === "fifa_world_cup_mens"
+  ) {
+    return buildWorldCupTeamPath(result.teamId);
+  }
+
+  return buildTeamResolverPath(result.teamId, contextInput);
+}
+
+function teamTypeLabel(teamType: TeamSearchResult["teamType"]): string {
+  if (teamType === "club") {
+    return "Clube";
+  }
+
+  if (teamType === "national_team") {
+    return "Seleção";
+  }
+
+  return "Equipe";
 }
 
 function buildPlayerResultHref(result: PlayerSearchResult): string {
@@ -155,6 +181,7 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
     return group.items.map((item: TeamSearchResult) => {
       const displayContext = resolveDisplayContext(item.defaultContext);
       const contextLine = buildContextLine(displayContext);
+      const typeLabel = teamTypeLabel(item.teamType);
 
       return (
         <Link
@@ -165,10 +192,12 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
         >
           <div className="min-w-0">
             <p className="font-semibold text-[#111c2d]">{item.teamName}</p>
-            <p className="mt-1 text-xs text-[#57657a]">{contextLine ?? "Abrir perfil do time"}</p>
+            <p className="mt-1 text-xs text-[#57657a]">
+              {contextLine ? `${typeLabel} • ${contextLine}` : typeLabel}
+            </p>
           </div>
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#003526]">
-            Time
+            {teamTypeLabel(item.teamType)}
           </span>
         </Link>
       );
@@ -380,7 +409,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
               onChange={(event) => {
                 setQuery(event.target.value);
               }}
-              placeholder="Buscar competições, partidas, times ou jogadores"
+              placeholder="Buscar competições, partidas, clubes ou jogadores"
               ref={inputRef}
               value={query}
             />
@@ -394,7 +423,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
             </button>
           </div>
           <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[#57657a]">
-            Encontre competições, partidas, times e jogadores nas telas disponíveis agora.
+            Encontre competições, partidas, clubes, seleções e jogadores nas telas disponíveis agora.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {SEARCH_GROUP_TAGS.map((tag) => (

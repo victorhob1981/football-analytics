@@ -1,7 +1,8 @@
 import type { VenueFilter } from "@/shared/types/filters.types";
 import type { CoverageState } from "@/shared/types/coverage.types";
+import type { CatalogScope } from "@/shared/types/catalog.types";
 
-export type PlayersSortBy = "playerName" | "minutesPlayed" | "goals" | "assists" | "rating";
+export type PlayersSortBy = "relevance" | "playerName" | "minutesPlayed" | "goals" | "assists" | "rating";
 export type PlayersSortDirection = "asc" | "desc";
 
 export interface PlayerRecentTeam {
@@ -23,6 +24,10 @@ export interface PlayerListItem extends Player {
   teamCount?: number | null;
   teamContextLabel?: string | null;
   recentTeams?: PlayerRecentTeam[] | null;
+  competitionCount: number;
+  seasonCount: number;
+  careerStartAt?: string | null;
+  careerEndAt?: string | null;
   matchesPlayed?: number | null;
   minutesPlayed?: number | null;
   goals?: number | null;
@@ -32,6 +37,33 @@ export interface PlayerListItem extends Player {
   yellowCards?: number | null;
   redCards?: number | null;
   rating?: number | null;
+}
+
+export type CareerTeamType = "club" | "national_team" | "representative" | "other" | "unknown";
+
+export interface PlayerCareerTeam {
+  teamId: string;
+  teamName: string;
+  teamType: CareerTeamType;
+  competitionCount: number;
+  seasonCount: number;
+  matchesPlayed: number;
+  minutesPlayed: number;
+  goals: number;
+  assists: number;
+  firstMatchAt?: string | null;
+  lastMatchAt?: string | null;
+}
+
+export interface PlayerCareerSummary {
+  teamCount: number;
+  clubCount: number;
+  nationalTeamCount: number;
+  competitionCount: number;
+  seasonCount: number;
+  firstMatchAt?: string | null;
+  lastMatchAt?: string | null;
+  teams: PlayerCareerTeam[];
 }
 
 export interface PlayerStatsSummary {
@@ -153,6 +185,7 @@ export interface PlayerProfileMeta {
 export interface PlayerProfile {
   player: Player;
   summary: PlayerStatsSummary;
+  career: PlayerCareerSummary;
   profileMeta: PlayerProfileMeta;
   recentMatches?: PlayerMatchStatsPoint[];
   history?: PlayerHistoryEntry[];
@@ -162,6 +195,7 @@ export interface PlayerProfile {
 
 export interface PlayersListData {
   items: PlayerListItem[];
+  scope: CatalogScope;
 }
 
 export interface PlayersGlobalFilters {

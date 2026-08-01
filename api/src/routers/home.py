@@ -252,7 +252,16 @@ def _build_home_coverage(
 
 def _fetch_archive_summary() -> dict[str, Any]:
     row = db_client.fetch_one(
-        "select count(distinct player_id)::int as players from mart.dim_player;"
+        """
+        select
+            count(distinct dp.player_id)::int as players,
+            (
+                select count(distinct team_id)::int
+                from mart.team_serving_summary
+                where team_type = 'club'
+            ) as clubs
+        from mart.dim_player dp;
+        """
     ) or {}
 
     return {
@@ -260,6 +269,7 @@ def _fetch_archive_summary() -> dict[str, Any]:
         "seasons": _to_int(row.get("seasons")),
         "matches": _to_int(row.get("matches")),
         "players": _to_int(row.get("players")),
+        "clubs": _to_int(row.get("clubs")),
     }
 
 

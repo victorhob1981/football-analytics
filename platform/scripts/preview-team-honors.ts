@@ -37,7 +37,7 @@ type PreviewPayload = {
   scopes: ScopeBlock[];
 };
 
-const CSV_PATH = path.resolve("data", "team_honors_seed.csv");
+const CSV_PATH = path.resolve("api", "data", "team_honors_seed.csv");
 const OUTPUT_DIR = path.resolve("data", "team_honors_preview");
 const SCOPE_ORDER: Scope[] = ["mundial", "continental", "nacional", "estadual"];
 const SCOPE_LABEL: Record<Scope, string> = {

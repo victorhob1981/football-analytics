@@ -21,12 +21,12 @@ import type {
 import { describeTimeWindowLabel, describeVenueLabel } from "@/shared/utils/filter-descriptions";
 import {
   buildCompetitionHubPath,
+  buildClubsPath,
   buildMatchesPath,
   buildPlayersPath,
   buildRankingsHubPath,
   buildSeasonHubPath,
   buildSeasonHubTabPath,
-  buildTeamsPath,
   resolveCompetitionSeasonContext,
 } from "@/shared/utils/context-routing";
 
@@ -245,7 +245,7 @@ function buildSeasonSurfaceLinks(
       buildSeasonHubTabPath(context, "rankings", filterInput),
     ),
     buildSurfaceLink(pathname, currentSearchParams, "Jogadores", buildPlayersPath(filterInput)),
-    buildSurfaceLink(pathname, currentSearchParams, "Times", buildTeamsPath(filterInput)),
+    buildSurfaceLink(pathname, currentSearchParams, "Clubes", buildClubsPath(filterInput)),
     buildSurfaceLink(pathname, currentSearchParams, "Partidas", buildMatchesPath(filterInput)),
   ];
 }
@@ -427,7 +427,7 @@ export function usePlatformShellState(): PlatformShellState {
             buildRankingsHubPath(sharedFilterInput),
           ),
           buildSurfaceLink(pathname, searchParams, "Jogadores", buildPlayersPath(sharedFilterInput)),
-          buildSurfaceLink(pathname, searchParams, "Times", buildTeamsPath(sharedFilterInput)),
+          buildSurfaceLink(pathname, searchParams, "Clubes", buildClubsPath(sharedFilterInput)),
         );
       }
     }
@@ -449,7 +449,7 @@ export function usePlatformShellState(): PlatformShellState {
         surfaceLinks.length,
         buildSurfaceLink(pathname, searchParams, "Competições", "/competitions"),
         buildSurfaceLink(pathname, searchParams, "Jogadores", buildPlayersPath(sharedFilterInput)),
-        buildSurfaceLink(pathname, searchParams, "Times", buildTeamsPath(sharedFilterInput)),
+        buildSurfaceLink(pathname, searchParams, "Clubes", buildClubsPath(sharedFilterInput)),
       );
     } else if (pathname === "/copa-do-mundo") {
       surfaceLabel = "Copa do Mundo";
@@ -507,23 +507,33 @@ export function usePlatformShellState(): PlatformShellState {
         buildSurfaceLink(pathname, searchParams, "Jogadores", buildPlayersPath(sharedFilterInput)),
         buildSurfaceLink(pathname, searchParams, "Competições", "/competitions"),
       );
-    } else if (isLegacyClubResolverPath(pathname) || isShortTeamResolverPath(pathname)) {
-      surfaceLabel = "Compatibilidade";
-      surfaceTitle = "Abrindo time";
-      description = isLegacyClubResolverPath(pathname)
-        ? "Estamos abrindo o perfil do time na página atualizada."
-        : "Estamos localizando a competição e a temporada mais adequadas para este perfil.";
-      helperText = isLegacyClubResolverPath(pathname)
-        ? "Você será levado para a versão mais completa do perfil."
-        : "Se houver contexto disponível, o perfil abre automaticamente.";
+    } else if (isLegacyClubResolverPath(pathname)) {
+      surfaceLabel = "Perfil de clube";
+      surfaceTitle = "Perfil de clube";
+      description = "Estamos abrindo o perfil do clube na página atualizada.";
+      helperText = "Se houver contexto disponível, o perfil preserva o recorte atual.";
       breadcrumbs.push({
-        label: "Abrindo time",
+        label: "Perfil de clube",
       });
       surfaceLinks.splice(
         0,
         surfaceLinks.length,
-        buildSurfaceLink(pathname, searchParams, "Times", buildTeamsPath(sharedFilterInput)),
+        buildSurfaceLink(pathname, searchParams, "Clubes", buildClubsPath(sharedFilterInput)),
         buildSurfaceLink(pathname, searchParams, "Competições", "/competitions"),
+      );
+    } else if (isShortTeamResolverPath(pathname)) {
+      surfaceLabel = "Perfil de equipe";
+      surfaceTitle = "Perfil de equipe";
+      description = "Estamos localizando a competição e a temporada mais adequadas para esta equipe.";
+      helperText = "Se houver contexto disponível, o perfil abre automaticamente.";
+      breadcrumbs.push({
+        label: "Perfil de equipe",
+      });
+      surfaceLinks.splice(
+        0,
+        surfaceLinks.length,
+        buildSurfaceLink(pathname, searchParams, "Competições", "/competitions"),
+        buildSurfaceLink(pathname, searchParams, "Clubes", buildClubsPath(sharedFilterInput)),
       );
     } else if (pathname === "/players") {
       surfaceLabel = "Jogadores";
@@ -545,26 +555,35 @@ export function usePlatformShellState(): PlatformShellState {
       helperText = context
         ? "Use os atalhos para voltar a rankings, times e jogadores."
         : "Abra jogadores ou competições para entrar em um contexto específico.";
-    } else if (pathname === "/teams") {
-      surfaceLabel = "Times";
+    } else if (pathname === "/teams" || pathname === "/clubs") {
+      surfaceLabel = "Clubes";
       surfaceTitle = context
-        ? `Times no recorte ${context.competitionName} ${context.seasonLabel}`
-        : "Lista de times";
+        ? `Clubes no recorte ${context.competitionName} ${context.seasonLabel}`
+        : "Lista de clubes";
       description =
-        "Encontre times e siga para o perfil completo no recorte atual.";
+        "Encontre clubes e siga para o perfil completo no recorte atual.";
       helperText = context
         ? "Os perfis preservam a mesma competição e temporada quando disponíveis."
         : "Escolha uma competição ou abra um perfil para encontrar o melhor contexto.";
-    } else if (pathname.startsWith("/teams/") || pathname.includes("/teams/")) {
-      surfaceLabel = "Perfil de time";
+    } else if (pathname.startsWith("/clubs/") || pathname.includes("/clubs/")) {
+      surfaceLabel = "Perfil de clube";
       surfaceTitle = context
         ? `Perfil em ${context.competitionName} ${context.seasonLabel}`
-        : "Perfil de time";
+        : "Perfil de clube";
       description =
-        "Resumo, elenco, partidas e desempenho do time.";
+        "Resumo, elenco, partidas e desempenho do clube.";
       helperText = context
         ? "Use os atalhos para voltar a rankings, jogadores e competição."
-        : "Abra times ou competições para entrar em um contexto específico.";
+        : "Abra clubes ou competições para entrar em um contexto específico.";
+    } else if (pathname.startsWith("/teams/") || pathname.includes("/teams/")) {
+      surfaceLabel = "Perfil de equipe";
+      surfaceTitle = context
+        ? `Perfil de equipe em ${context.competitionName} ${context.seasonLabel}`
+        : "Perfil de equipe";
+      description = "Resumo, elenco, partidas e desempenho da equipe.";
+      helperText = context
+        ? "Use os atalhos para voltar a rankings, jogadores e competição."
+        : "Abra uma equipe ou competição para entrar em um contexto específico.";
     } else if (pathname === "/matches") {
       surfaceLabel = "Partidas";
       surfaceTitle = context
@@ -619,7 +638,7 @@ export function usePlatformShellState(): PlatformShellState {
           "Rankings",
           buildRankingsHubPath(sharedFilterInput),
         ),
-        buildSurfaceLink(pathname, searchParams, "Times", buildTeamsPath(sharedFilterInput)),
+        buildSurfaceLink(pathname, searchParams, "Clubes", buildClubsPath(sharedFilterInput)),
       );
     } else if (pathname === "/head-to-head") {
       surfaceLabel = "Confronto direto";
@@ -634,7 +653,7 @@ export function usePlatformShellState(): PlatformShellState {
       surfaceLinks.splice(
         0,
         surfaceLinks.length,
-        buildSurfaceLink(pathname, searchParams, "Times", buildTeamsPath(sharedFilterInput)),
+        buildSurfaceLink(pathname, searchParams, "Clubes", buildClubsPath(sharedFilterInput)),
         buildSurfaceLink(
           pathname,
           searchParams,

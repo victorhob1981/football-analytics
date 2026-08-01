@@ -177,6 +177,14 @@ models:
       - name: minutes_played
         tests:
           - not_null
+      - name: competition_count
+        tests:
+          - not_null
+      - name: season_count
+        tests:
+          - not_null
+      - name: career_start_at
+      - name: career_end_at
 
   - name: team_serving_summary
     description: "Resumo global por time para a rota de listagem sem recorte."
@@ -188,6 +196,19 @@ models:
       - name: matches_played
         tests:
           - not_null
+      - name: team_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['club', 'national_team', 'representative', 'other', 'unknown']
+      - name: competition_count
+        tests:
+          - not_null
+      - name: season_count
+        tests:
+          - not_null
+      - name: first_match_at
+      - name: last_match_at
 
   - name: player_season_summary
     description: "Resumo por temporada de estatisticas individuais."

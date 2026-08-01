@@ -1,5 +1,8 @@
 import type { VenueFilter } from "@/shared/types/filters.types";
 import type { CoverageState } from "@/shared/types/coverage.types";
+import type { CatalogScope } from "@/shared/types/catalog.types";
+
+export type TeamType = "club" | "national_team" | "representative" | "other" | "unknown";
 
 export interface Team {
   teamId: string;
@@ -11,6 +14,13 @@ export interface Team {
 }
 
 export interface TeamListItem extends Team {
+  teamType: TeamType;
+  countryOrTerritory?: string | null;
+  competitionCount: number;
+  seasonCount: number;
+  firstMatchAt?: string | null;
+  lastMatchAt?: string | null;
+  stadiumName?: string | null;
   position?: number | null;
   totalTeams?: number | null;
   matchesPlayed?: number | null;
@@ -140,6 +150,9 @@ export interface TeamJourneyHistoryData {
 
 export interface TeamProfileSectionCoverage {
   overview?: CoverageState;
+  identity?: CoverageState;
+  archive?: CoverageState;
+  honors?: CoverageState;
   squad?: CoverageState;
   stats?: CoverageState;
 }
@@ -165,6 +178,9 @@ export interface TeamMatchListItem {
 export interface TeamProfile {
   team: Team;
   summary: TeamStatsSummary;
+  identity: TeamIdentity;
+  archive: TeamArchiveSummary;
+  honors?: ClubHonors | null;
   standing?: TeamStandingSnapshot | null;
   form?: TeamFormResult[];
   recentMatches?: TeamRecentMatch[];
@@ -174,6 +190,44 @@ export interface TeamProfile {
 }
 
 export type TeamHonorScope = "mundial" | "continental" | "nacional" | "estadual";
+
+export type ClubHonorScope = TeamHonorScope | "other";
+
+export interface TeamIdentity {
+  teamType: TeamType;
+  officialName: string;
+  countryOrTerritory?: string | null;
+  city?: string | null;
+  foundedYear?: number | null;
+  stadiumName?: string | null;
+  stadiumCapacity?: number | null;
+}
+
+export interface TeamArchiveSummary {
+  competitionCount: number;
+  seasonCount: number;
+  matchesPlayed: number;
+  firstMatchAt?: string | null;
+  lastMatchAt?: string | null;
+}
+
+export interface ClubHonor {
+  competitionName: string;
+  competitionKey?: string | null;
+  scope: ClubHonorScope;
+  seasonLabel?: string | null;
+  year?: number | null;
+  sourceName: string;
+  sourceUrl?: string | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface ClubHonors {
+  criterionLabel: string;
+  total: number;
+  items: ClubHonor[];
+  coverage: CoverageState;
+}
 
 export interface TeamHonorItem {
   label: string;
@@ -196,6 +250,7 @@ export interface TeamHonorsPreview {
 
 export interface TeamsListData {
   items: TeamListItem[];
+  scope: CatalogScope;
 }
 
 export interface TeamMatchesListData {
@@ -212,13 +267,14 @@ export interface TeamsGlobalFilters {
   dateRangeEnd?: string | null;
 }
 
-export type TeamsListSortBy = "teamName" | "points" | "goalDiff" | "wins" | "position";
+export type TeamsListSortBy = "relevance" | "teamName" | "points" | "goalDiff" | "wins" | "position";
 export type TeamsListSortDirection = "asc" | "desc";
 export type TeamMatchesListSortBy = "kickoffAt" | "status" | "homeTeamName" | "awayTeamName";
 export type TeamMatchesListSortDirection = "asc" | "desc";
 
 export interface TeamsListLocalFilters {
   search?: string;
+  entityType?: TeamType | null;
   page?: number;
   pageSize?: number;
   sortBy?: TeamsListSortBy;

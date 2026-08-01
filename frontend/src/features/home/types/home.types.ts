@@ -6,6 +6,7 @@ export interface HomeArchiveSummary {
   seasons: number;
   matches: number;
   players: number;
+  clubs: number;
 }
 
 export interface HomeCompetitionRange {
