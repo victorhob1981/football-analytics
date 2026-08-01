@@ -26,7 +26,9 @@ import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useGlobalFiltersState } from "@/shared/hooks/useGlobalFilters";
 import { useResolvedCompetitionContext } from "@/shared/hooks/useResolvedCompetitionContext";
 import {
+  buildCanonicalClubPath,
   buildCanonicalTeamPath,
+  buildClubResolverPath,
   buildFilterQueryString,
   buildPlayersPath,
   buildRankingPath,
@@ -269,6 +271,10 @@ const TEAM_SORT_OPTIONS: Array<{ label: string; value: TeamsListSortBy }> = [
 ];
 
 export function TeamsPageContent({ entityType }: { entityType?: TeamType | null } = {}) {
+  const isClubCatalog = entityType === "club";
+  const entityLabel = isClubCatalog ? "Clubes" : "Times";
+  const entityPlural = isClubCatalog ? "clubes" : "times";
+  const entitySingular = isClubCatalog ? "clube" : "time";
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
   const [page, setPage] = useState(1);
@@ -313,6 +319,12 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
   const seasonHubHref = resolvedContext
     ? buildSeasonHubTabPath(resolvedContext, "standings", sharedFilterInput)
     : "/competitions";
+  const buildProfileHref = (teamId: string) =>
+    resolvedContext
+      ? `${isClubCatalog ? buildCanonicalClubPath(resolvedContext, teamId) : buildCanonicalTeamPath(resolvedContext, teamId)}${canonicalExtraQuery}`
+      : isClubCatalog
+        ? buildClubResolverPath(teamId, sharedFilterInput)
+        : buildTeamResolverPath(teamId, sharedFilterInput);
   const seasonLinkLabel = resolvedContext ? "Temporada" : "Temporadas";
   const playersHref = buildPlayersPath(sharedFilterInput);
   const rankingsHref = buildRankingPath("team-possession", sharedFilterInput);
@@ -339,10 +351,10 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Times
+            {entityLabel}
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Carregando times
+            Carregando {entityPlural}
           </h1>
         </header>
         <LoadingSkeleton height={120} />
@@ -357,10 +369,10 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Times
+            {entityLabel}
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Falha ao carregar times
+            Falha ao carregar {entityPlural}
           </h1>
         </header>
         <ProfileAlert title="Erro no carregamento" tone="critical">
@@ -375,15 +387,15 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
       <ProfileShell className="space-y-6">
         <header className="space-y-3">
           <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-[#57657a]">
-            Times
+            {entityLabel}
           </p>
           <h1 className="font-[family:var(--font-profile-headline)] text-4xl font-extrabold tracking-tight text-[#111c2d]">
-            Nenhum time encontrado
+            Nenhum {entitySingular} encontrado
           </h1>
         </header>
         <EmptyState
-          title="Sem times disponíveis"
-          description="Não há times disponíveis com os filtros atuais."
+          title={`Sem ${entityPlural} disponíveis`}
+          description={`Não há ${entityPlural} disponíveis com os filtros atuais.`}
         />
       </ProfileShell>
     );
@@ -403,13 +415,13 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
   const totals = calculateTotals(items);
   const contextLabel = resolvedContext
     ? `${resolvedContext.competitionName} ${resolvedContext.seasonLabel}`
-    : "times do acervo";
+    : `${entityPlural} do acervo`;
 
   return (
     <ProfileShell className="space-y-6">
       {teamsQuery.isFetching && teamsQuery.data ? (
         <p className="text-sm font-semibold text-[#57657a]" role="status">
-          Atualizando times…
+          Atualizando {entityPlural}…
         </p>
       ) : null}
       <ProfilePanel className="profile-hero-clean relative overflow-hidden p-0" tone="accent">
@@ -428,10 +440,10 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
             <div className="max-w-3xl">
               <p className="flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-white/58">
                 <TeamsPageIcon className="h-4 w-4" icon="shield" />
-                Times
+                {entityLabel}
               </p>
               <h1 className="mt-3 font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-tight tracking-[-0.04em] text-white sm:text-4xl">
-                Times
+                {entityLabel}
               </h1>
             </div>
 
@@ -473,11 +485,7 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
             {featuredTeam && featuredTeamMetric ? (
               <Link
                 className="group flex min-h-[9rem] flex-col justify-between rounded-[1.55rem] border border-white/12 bg-white/12 p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-white/16"
-                href={
-                  resolvedContext
-                    ? `${buildCanonicalTeamPath(resolvedContext, featuredTeam.teamId)}${canonicalExtraQuery}`
-                    : buildTeamResolverPath(featuredTeam.teamId, sharedFilterInput)
-                }
+                href={buildProfileHref(featuredTeam.teamId)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -527,7 +535,7 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
               </Link>
             ) : (
               <div className="rounded-[1.55rem] border border-white/12 bg-white/10 p-5 text-white/70">
-                Sem times para destacar neste recorte.
+                Sem {entityPlural} para destacar neste recorte.
               </div>
             )}
 
@@ -536,11 +544,7 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
                 {featuredTeams.slice(1).map((team, index) => (
                   <Link
                     className="flex items-center gap-3 rounded-[1.15rem] border border-white/10 bg-white/8 px-3 py-3 text-white transition-colors hover:bg-white/14"
-                    href={
-                      resolvedContext
-                        ? `${buildCanonicalTeamPath(resolvedContext, team.teamId)}${canonicalExtraQuery}`
-                        : buildTeamResolverPath(team.teamId, sharedFilterInput)
-                    }
+                    href={buildProfileHref(team.teamId)}
                     key={team.teamId}
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/12 text-xs font-bold text-white/72">
