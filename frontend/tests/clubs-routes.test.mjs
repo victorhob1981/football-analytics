@@ -22,6 +22,8 @@ const aggregateProfile = read("src/features/teams/components/TeamAggregateProfil
 const contextualProfile = read("src/features/teams/components/TeamProfileContent.tsx");
 const shellState = read("src/shared/components/navigation/usePlatformShellState.ts");
 const profileMedia = read("src/shared/components/profile/ProfileMedia.tsx");
+const searchTypes = read("src/features/search/types/search.types.ts");
+const searchOverlay = read("src/features/search/components/GlobalSearchOverlay.tsx");
 
 test("clubs renders the existing catalog filtered to clubs", () => {
   assert.match(clubsRoute, /<TeamsPageContent entityType="club" \/>/);
@@ -89,4 +91,14 @@ test("validated club consumers use club routes and labels", () => {
   assert.doesNotMatch(shellState, /buildTeamsPath/);
   assert.match(shellState, /surfaceLabel = "Clubes"/);
   assert.match(profileMedia, /return `\/clubs\/\$\{encodePathSegment\(normalizedAssetId\)\}`/);
+});
+
+test("typed team search uses entity routes and labels", () => {
+  assert.match(searchTypes, /teamType: TeamType/);
+  assert.match(searchOverlay, /buildClubResolverPath/);
+  assert.match(searchOverlay, /result\.teamType === "club"/);
+  assert.match(searchOverlay, /buildTeamResolverPath/);
+  assert.match(searchOverlay, /"Clube"/);
+  assert.match(searchOverlay, /"Seleção"/);
+  assert.match(searchOverlay, /"Equipe"/);
 });

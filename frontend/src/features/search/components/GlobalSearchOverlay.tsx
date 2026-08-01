@@ -22,6 +22,7 @@ import type {
 } from "@/shared/types/context.types";
 import {
   buildCompetitionHubPath,
+  buildClubResolverPath,
   buildMatchCenterPath,
   buildPlayerResolverPath,
   buildTeamResolverPath,
@@ -63,11 +64,27 @@ function resolveDisplayContext(
 }
 
 function buildTeamResultHref(result: TeamSearchResult): string {
-  return buildTeamResolverPath(result.teamId, {
+  const contextInput = {
     competitionId: result.defaultContext.competitionId,
     competitionKey: result.defaultContext.competitionKey,
     seasonId: result.defaultContext.seasonId,
-  });
+  };
+
+  return result.teamType === "club"
+    ? buildClubResolverPath(result.teamId, contextInput)
+    : buildTeamResolverPath(result.teamId, contextInput);
+}
+
+function teamTypeLabel(teamType: TeamSearchResult["teamType"]): string {
+  if (teamType === "club") {
+    return "Clube";
+  }
+
+  if (teamType === "national_team") {
+    return "Seleção";
+  }
+
+  return "Equipe";
 }
 
 function buildPlayerResultHref(result: PlayerSearchResult): string {
@@ -168,7 +185,7 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
             <p className="mt-1 text-xs text-[#57657a]">{contextLine ?? "Abrir perfil do time"}</p>
           </div>
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#003526]">
-            Time
+            {teamTypeLabel(item.teamType)}
           </span>
         </Link>
       );
