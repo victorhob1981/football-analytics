@@ -396,7 +396,7 @@ export function TeamsPageContent({ entityType }: { entityType?: TeamType | null 
                   <div className="flex min-w-0 items-start gap-3.5">
                     <ProfileMedia
                       alt={`Escudo de ${team.teamName}`}
-                      assetId={team.teamId}
+                      assetId={team.visualAssetId ?? team.teamId}
                       category="clubs"
                       className="h-16 w-16 border-[#dce6e1] bg-[#f3f6f4]"
                       fallback={getMonogram(team.teamName)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 
@@ -16,6 +16,7 @@ import type {
 import { EmptyState } from "@/shared/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/shared/components/feedback/LoadingSkeleton";
 import { ProfilePanel, ProfileTag } from "@/shared/components/profile/ProfilePrimitives";
+import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { buildWorldCupTeamPath } from "@/features/world-cup/routes";
 import type {
   CompetitionSeasonContext,
@@ -272,11 +273,11 @@ function renderGroupItems(group: SearchGroup, onClose: () => void) {
 
 export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProps) {
   const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query.trim());
+  const debouncedQuery = useDebouncedValue(query.trim(), 250);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
-  const searchQuery = useGlobalSearch(deferredQuery, {
+  const searchQuery = useGlobalSearch(debouncedQuery, {
     enabled: isOpen,
   });
 
@@ -285,7 +286,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
     [searchQuery.data?.groups],
   );
   const hasResults = visibleGroups.length > 0;
-  const hasQuery = deferredQuery.length >= 2;
+  const hasQuery = debouncedQuery.length >= 2;
 
   useEffect(() => {
     if (!isOpen) {
@@ -472,7 +473,7 @@ export function GlobalSearchOverlay({ isOpen, onClose }: GlobalSearchOverlayProp
           {hasQuery && !searchQuery.isLoading && !searchQuery.isError && !hasResults ? (
             <EmptyState
               className="rounded-[1.45rem] border-[rgba(191,201,195,0.55)] bg-white/80"
-              description={`Nenhum resultado foi encontrado para "${deferredQuery}". Tente o nome completo ou o número da partida.`}
+              description={`Nenhum resultado foi encontrado para "${debouncedQuery}". Tente o nome completo ou o número da partida.`}
               title="Sem resultados"
             />
           ) : null}

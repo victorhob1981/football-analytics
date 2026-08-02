@@ -210,7 +210,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
             <div className="flex min-w-0 items-start gap-4 sm:items-center sm:gap-6">
               <ProfileMedia
                 alt={`Escudo de ${team.teamName}`}
-                assetId={team.teamId}
+                assetId={team.visualAssetId ?? team.teamId}
                 category="clubs"
                 className="h-20 w-20 shrink-0 border border-white/18 bg-white/10 sm:h-28 sm:w-28"
                 fallback={getMonogram(team.teamName)}

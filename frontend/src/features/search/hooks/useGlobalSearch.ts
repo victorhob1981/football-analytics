@@ -39,7 +39,7 @@ export function useGlobalSearch(
 
   return useQueryWithCoverage<GlobalSearchData>({
     queryKey: searchQueryKeys.global(filters),
-    queryFn: () => fetchGlobalSearch(filters),
+    queryFn: ({ signal }) => fetchGlobalSearch(filters, signal),
     enabled: searchEnabled,
     staleTime: SEARCH_STALE_TIME_MS,
     gcTime: SEARCH_GC_TIME_MS,
