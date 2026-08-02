@@ -7,6 +7,7 @@ export type TeamType = "club" | "national_team" | "representative" | "other" | "
 export interface Team {
   teamId: string;
   teamName: string;
+  visualAssetId?: number | string | null;
   competitionId?: string | null;
   competitionName?: string | null;
   seasonId?: string | null;

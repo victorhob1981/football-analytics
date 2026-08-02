@@ -31,9 +31,11 @@ function toQueryParams(filters: GlobalSearchFilters): QueryParams {
 
 export async function fetchGlobalSearch(
   filters: GlobalSearchFilters,
+  signal?: AbortSignal,
 ): Promise<ApiResponse<GlobalSearchData>> {
   return apiRequest<ApiResponse<GlobalSearchData>>(SEARCH_ENDPOINT, {
     method: "GET",
     params: toQueryParams(filters),
+    signal,
   });
 }

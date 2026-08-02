@@ -48,6 +48,7 @@ class TeamsApiTests(unittest.TestCase):
                 "first_match_at": "1995-08-01",
                 "last_match_at": "2025-05-25",
                 "stadium_name": "Camp Nou",
+                "visual_asset_id": "715",
                 "matches_played": 1125,
                 "wins": 748,
                 "draws": 190,
@@ -72,9 +73,11 @@ class TeamsApiTests(unittest.TestCase):
         self.assertEqual(item["seasonCount"], 24)
         self.assertEqual(item["countryOrTerritory"], "Espanha")
         self.assertEqual(item["stadiumName"], "Camp Nou")
+        self.assertEqual(item["visualAssetId"], "715")
         query = fetch_all_mock.call_args.args[0].lower()
         self.assertIn("team_type", query)
         self.assertIn("season_count", query)
+        self.assertIn("raw.provider_entity_map", query)
 
     @patch("api.src.routers.teams.db_client.fetch_all")
     def test_filtered_club_catalog_recalculates_relevance(self, fetch_all_mock) -> None:

@@ -96,6 +96,21 @@ def _section_coverage_from_match_count(match_count: int, label: str) -> dict[str
     return {"status": "complete", "percentage": 100, "label": label}
 
 
+def _visual_asset_id_sql(team_id_expression: str) -> str:
+    return f"""
+        (
+            select p.source_id
+            from raw.provider_entity_map p
+            where p.provider = 'legacy_dim_team'
+              and p.entity_type = 'team'
+              and p.canonical_id = ({team_id_expression})::text
+              and p.mapping_state = 'approved'
+            order by length(p.source_id), p.source_id
+            limit 1
+        ) as visual_asset_id
+    """
+
+
 def _coverage_score(coverage: dict[str, Any]) -> float | None:
     if isinstance(coverage.get("percentage"), (int, float)):
         return float(coverage["percentage"])
@@ -207,20 +222,21 @@ def _load_team_honors(team_id: int | None, team_name: str | None) -> dict[str, A
 
 def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dict[str, Any]:
     row = db_client.fetch_one(
-        """
+        f"""
         select
-            team_id,
-            team_name,
-            team_type,
-            country_or_territory,
-            stadium_name,
-            competition_count,
-            season_count,
-            matches_played,
-            first_match_at,
-            last_match_at
-        from mart.team_serving_summary
-        where team_id = %s;
+            tss.team_id,
+            tss.team_name,
+            tss.team_type,
+            tss.country_or_territory,
+            tss.stadium_name,
+            tss.competition_count,
+            tss.season_count,
+            tss.matches_played,
+            tss.first_match_at,
+            tss.last_match_at,
+            {_visual_asset_id_sql("tss.team_id")}
+        from mart.team_serving_summary tss
+        where tss.team_id = %s;
         """,
         [team_id],
     ) or {}
@@ -231,6 +247,7 @@ def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dic
     archive_complete = bool(row) and matches_played > 0
 
     return {
+        "visualAssetId": row.get("visual_asset_id"),
         "identity": {
             "teamType": team_type,
             "officialName": official_name,
@@ -377,6 +394,7 @@ def get_teams(
             with classified as (
                 select
                     tss.*,
+                    {_visual_asset_id_sql("tss.team_id")},
                     coalesce(tss.team_type, 'unknown') as resolved_team_type
                 from mart.team_serving_summary tss
                 where (%s::text is null or tss.team_type = %s)
@@ -496,6 +514,7 @@ def get_teams(
         documented as (
             select
                 a.*,
+                {_visual_asset_id_sql("a.team_id")},
                 coalesce(tss.team_type, 'unknown') as team_type,
                 tss.country_or_territory,
                 tss.stadium_name
@@ -553,6 +572,7 @@ def get_teams(
         {
             "teamId": str(row["team_id"]),
             "teamName": row["team_name"],
+            "visualAssetId": row.get("visual_asset_id"),
             "competitionId": str(global_filters.competition_id) if global_filters.competition_id is not None else None,
             "seasonId": str(global_filters.season_id) if global_filters.season_id is not None else None,
             "teamType": row.get("resolved_team_type") or row.get("team_type") or "unknown",
@@ -1093,6 +1113,7 @@ def get_team_profile(
         "team": {
             "teamId": str(team_ref["team_id"]),
             "teamName": team_ref["team_name"],
+            "visualAssetId": foundation.get("visualAssetId"),
             "competitionId": str(global_filters.competition_id),
             "competitionName": canonical_context["competitionName"]
             if canonical_context

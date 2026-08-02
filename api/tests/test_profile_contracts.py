@@ -135,6 +135,7 @@ class TeamProfileContractTests(unittest.TestCase):
                 "firstMatchAt": "1980-01-01",
                 "lastMatchAt": "2025-12-01",
             },
+            "visualAssetId": "1024",
             "identityCoverage": {"status": "complete", "percentage": 100, "label": "Team identity coverage"},
             "archiveCoverage": {"status": "complete", "percentage": 100, "label": "Team archive coverage"},
         }
@@ -145,6 +146,7 @@ class TeamProfileContractTests(unittest.TestCase):
             "team_id": 1024,
             "team_name": "Flamengo",
             "team_type": "club",
+            "visual_asset_id": "1024",
             "competition_count": 4,
             "season_count": 18,
             "matches_played": 400,
@@ -155,6 +157,7 @@ class TeamProfileContractTests(unittest.TestCase):
         self.assertEqual(foundation["archive"]["competitionCount"], 4)
         self.assertEqual(foundation["archive"]["seasonCount"], 18)
         self.assertEqual(foundation["archive"]["matchesPlayed"], 400)
+        self.assertEqual(foundation["visualAssetId"], "1024")
 
     def _request_profile(self, *, honors: object) -> dict[str, object]:
         with (
@@ -198,6 +201,7 @@ class TeamProfileContractTests(unittest.TestCase):
         data = self._request_profile(honors=honors)
 
         self.assertEqual(data["identity"]["teamType"], "club")
+        self.assertEqual(data["team"]["visualAssetId"], "1024")
         self.assertEqual(data["archive"]["seasonCount"], 18)
         self.assertEqual(data["honors"]["total"], 1)
         self.assertEqual(data["summary"]["wins"], 6)
