@@ -13,6 +13,7 @@ type ProfileMediaLinkBehavior = "auto" | "none";
 type ProfileMediaProps = {
   alt: string;
   assetId: number | string | null | undefined;
+  assetUrl?: string | null;
   category: VisualAssetCategory;
   fallback: string;
   className?: string;
@@ -94,6 +95,7 @@ export function buildVisualAssetUrl(
 export function ProfileMedia({
   alt,
   assetId,
+  assetUrl: directAssetUrl,
   category,
   fallback,
   className,
@@ -105,7 +107,7 @@ export function ProfileMedia({
   tone = "base",
 }: ProfileMediaProps) {
   const [hasError, setHasError] = useState(false);
-  const assetUrl = buildVisualAssetUrl(category, assetId);
+  const assetUrl = directAssetUrl?.trim() || buildVisualAssetUrl(category, assetId);
   const isPlayerAvatar = category === "players";
   const resolvedHref = linkBehavior === "none"
     ? null

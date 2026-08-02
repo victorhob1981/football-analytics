@@ -211,6 +211,7 @@ export function TeamProfileContent({ teamId, contextOverride }: TeamProfileConte
               <ProfileMedia
                 alt={`Escudo de ${team.teamName}`}
                 assetId={team.visualAssetId ?? team.teamId}
+                assetUrl={team.visualAssetUrl ?? identity.assetUrl}
                 category="clubs"
                 className="h-20 w-20 shrink-0 border border-white/18 bg-white/10 sm:h-28 sm:w-28"
                 fallback={getMonogram(team.teamName)}

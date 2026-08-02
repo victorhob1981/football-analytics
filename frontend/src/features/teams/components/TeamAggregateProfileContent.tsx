@@ -184,6 +184,7 @@ export function TeamAggregateProfileContent({ teamId }: TeamAggregateProfileCont
                 <ProfileMedia
                   alt={`Escudo de ${team.teamName}`}
                   assetId={team.visualAssetId ?? team.teamId}
+                  assetUrl={team.visualAssetUrl ?? identity.assetUrl}
                   category="clubs"
                   className="h-28 w-28 border border-white/18 bg-white/10 shadow-[0_20px_45px_-28px_rgba(0,0,0,0.9)] sm:h-36 sm:w-36"
                   fallback={getMonogram(team.teamName)}
