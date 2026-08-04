@@ -28,3 +28,12 @@ def test_legacy_summary_is_not_marked_explained_only_from_zero_pending_rows() ->
         "WHERE reconciliation_state = 'pending') > 0 THEN 'pending' ELSE 'explained' END"
     )
     assert obsolete_rule not in validation
+
+
+def test_fingerprints_cover_all_logical_tables_and_partition_rollups() -> None:
+    validation = (ROOT / "db/rebuild_v2/009_validation.sql").read_text(encoding="utf-8")
+
+    assert "pg_inherits" in validation
+    assert "to_jsonb(t)" in validation
+    assert "logical_partition_rollup" in validation
+    assert "source_run_id" in validation
