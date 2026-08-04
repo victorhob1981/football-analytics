@@ -1,11 +1,14 @@
 [CmdletBinding()]
 param(
     [string]$CandidateContainer = "football_postgres_v2",
-    [string]$RunKey = "mart-v2-local-current",
+    [string]$RunKey = "",
     [string]$ArtifactRoot = "D:\football-analytics-rebuild"
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $RunKey) {
+    $RunKey = "mart-v2-local-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\")).Path
 $logRoot = Join-Path $ArtifactRoot "logs"
 $null = New-Item -ItemType Directory -Force -Path $logRoot
