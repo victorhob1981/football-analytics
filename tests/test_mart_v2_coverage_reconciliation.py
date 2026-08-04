@@ -37,3 +37,10 @@ def test_fingerprints_cover_all_logical_tables_and_partition_rollups() -> None:
     assert "to_jsonb(t)" in validation
     assert "logical_partition_rollup" in validation
     assert "source_run_id" in validation
+
+
+def test_validation_runbook_excludes_restore() -> None:
+    script = (ROOT / "tools/validate_mart_v2.ps1").read_text(encoding="utf-8")
+
+    for forbidden in ("pg_dump", "pg_restore", "createdb", "restore_validation", "restore_database"):
+        assert forbidden not in script
