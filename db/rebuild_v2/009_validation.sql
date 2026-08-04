@@ -14,6 +14,13 @@ WHERE rebuild_run_id = :rebuild_rebuild_run_id;
 DELETE FROM control.coverage_delta_reason
 WHERE rebuild_run_id = :rebuild_rebuild_run_id;
 
+DELETE FROM control.rebuild_fingerprint
+WHERE rebuild_run_id = :rebuild_rebuild_run_id;
+
+DROP TABLE IF EXISTS _current_rebuild_run;
+CREATE TEMP TABLE _current_rebuild_run AS
+SELECT :rebuild_rebuild_run_id::bigint AS rebuild_run_id;
+
 DROP TABLE IF EXISTS _match_coverage_reconciliation;
 CREATE TEMP TABLE _match_coverage_reconciliation AS
 WITH edition_map AS (
@@ -444,6 +451,116 @@ FROM (
 ) q
 ON CONFLICT (rebuild_run_id, object_name) DO UPDATE
 SET row_count = EXCLUDED.row_count, fingerprint = EXCLUDED.fingerprint, metadata = EXCLUDED.metadata;
+
+-- Fingerprint every physical canonical/serving table. Operational columns are
+-- excluded so a rebuild is compared by logical content, not by run metadata.
+DO $$
+DECLARE
+  current_run_id bigint;
+  table_rec record;
+  row_sql text;
+  stable_columns text;
+  row_count bigint;
+  hash_xor bigint;
+  hash_sum numeric;
+  hash_minmax text;
+  row_fingerprint text;
+  ignored_columns text[] := ARRAY[
+    'rebuild_run_id', 'source_run_id', 'created_at', 'updated_at',
+    'ingested_at', 'loaded_at', 'first_seen_at', 'last_seen_at',
+    'decided_at', 'started_at', 'finished_at', 'metadata'
+  ];
+BEGIN
+  SELECT rebuild_run_id INTO current_run_id FROM _current_rebuild_run;
+
+  FOR table_rec IN
+    SELECT n.nspname AS schema_name, c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname IN ('mart_v2', 'serving_v2')
+      AND c.relkind = 'r'
+    ORDER BY n.nspname, c.relname
+  LOOP
+    SELECT coalesce(string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position), '')
+    INTO stable_columns
+    FROM information_schema.columns
+    WHERE table_schema = table_rec.schema_name
+      AND table_name = table_rec.relname
+      AND NOT (column_name = ANY (ignored_columns));
+
+    row_sql := format($fingerprint$
+      SELECT count(*)::bigint,
+             coalesce(bit_xor(hashtextextended((to_jsonb(t) - %L::text[])::text, 0)), 0),
+             coalesce(sum(hashtextextended((to_jsonb(t) - %L::text[])::text, 0)), 0),
+             concat_ws(':',
+               min(hashtextextended((to_jsonb(t) - %L::text[])::text, 0)),
+               max(hashtextextended((to_jsonb(t) - %L::text[])::text, 0)))
+      FROM %I.%I t
+    $fingerprint$,
+      ignored_columns, ignored_columns, ignored_columns, ignored_columns,
+      table_rec.schema_name, table_rec.relname);
+
+    EXECUTE row_sql INTO row_count, hash_xor, hash_sum, hash_minmax;
+    row_fingerprint := md5(format('%s|%s|%s|%s', row_count, hash_xor, hash_sum, hash_minmax));
+
+    EXECUTE format($insert$
+      INSERT INTO control.rebuild_fingerprint
+        (rebuild_run_id, object_name, row_count, fingerprint, metadata)
+      VALUES ($1, $2, $3, $4,
+              jsonb_build_object('scope', 'physical', 'columns', $5))
+      ON CONFLICT (rebuild_run_id, object_name) DO UPDATE
+      SET row_count = EXCLUDED.row_count,
+          fingerprint = EXCLUDED.fingerprint,
+          metadata = EXCLUDED.metadata
+    $insert$)
+    USING current_run_id,
+      table_rec.schema_name || '.' || table_rec.relname,
+      row_count,
+      row_fingerprint,
+      stable_columns;
+  END LOOP;
+
+  FOR table_rec IN
+    SELECT p.oid, n.nspname AS schema_name, p.relname
+    FROM pg_class p
+    JOIN pg_namespace n ON n.oid = p.relnamespace
+    WHERE n.nspname IN ('mart_v2', 'serving_v2')
+      AND p.relkind = 'p'
+      AND EXISTS (SELECT 1 FROM pg_inherits i WHERE i.inhparent = p.oid)
+    ORDER BY n.nspname, p.relname
+  LOOP
+    SELECT
+      coalesce(sum(f.row_count), 0)::bigint,
+      md5(coalesce(string_agg(
+        f.object_name || ':' || f.row_count || ':' || f.fingerprint,
+        '|' ORDER BY f.object_name
+      ), ''))
+    INTO row_count, row_fingerprint
+    FROM control.rebuild_fingerprint f
+    WHERE f.rebuild_run_id = current_run_id
+      AND f.object_name IN (
+        SELECT cn.nspname || '.' || c.relname
+        FROM pg_inherits i
+        JOIN pg_class c ON c.oid = i.inhrelid
+        JOIN pg_namespace cn ON cn.oid = c.relnamespace
+        WHERE i.inhparent = table_rec.oid
+      );
+
+    INSERT INTO control.rebuild_fingerprint
+      (rebuild_run_id, object_name, row_count, fingerprint, metadata)
+    VALUES (
+      current_run_id,
+      table_rec.schema_name || '.' || table_rec.relname,
+      row_count,
+      row_fingerprint,
+      jsonb_build_object('scope', 'logical_partition_rollup', 'parent_table', table_rec.schema_name || '.' || table_rec.relname)
+    )
+    ON CONFLICT (rebuild_run_id, object_name) DO UPDATE
+    SET row_count = EXCLUDED.row_count,
+        fingerprint = EXCLUDED.fingerprint,
+        metadata = EXCLUDED.metadata;
+  END LOOP;
+END $$;
 
 DO $$
 DECLARE
