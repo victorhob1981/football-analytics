@@ -52,3 +52,12 @@ def test_rebuild_runbook_does_not_reuse_a_hardcoded_run_key() -> None:
     assert '[string]$RunKey = ""' in script
     assert "if (-not $RunKey)" in script
     assert "Get-Date -Format" in script
+
+
+def test_pipeline_runs_sql_rebuild_dbt_contracts_and_read_only_validation() -> None:
+    script = (ROOT / "tools/run_mart_v2_pipeline.ps1").read_text(encoding="utf-8")
+
+    assert "rebuild_mart_v2.ps1" in script
+    assert '"dbt", "test"' in script
+    assert "validate_mart_v2.ps1" in script
+    assert "D:\\" in script

@@ -1,0 +1,136 @@
+version: 2
+
+sources:
+  - name: mart_v2
+    schema: mart_v2
+    description: "Core canônico reconstruído. A raw é apenas origem da carga e não é fonte de runtime."
+    tables:
+      - name: dim_competition
+        columns:
+          - name: competition_key
+            tests: [not_null, unique]
+      - name: dim_edition
+        columns:
+          - name: edition_key
+            tests: [not_null, unique]
+          - name: competition_key
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'dim_competition')
+                  field: competition_key
+      - name: dim_team
+        columns:
+          - name: team_id
+            tests: [not_null, unique]
+      - name: dim_player
+        columns:
+          - name: player_key
+            tests: [not_null, unique]
+      - name: fact_match
+        columns:
+          - name: match_id
+            tests: [not_null, unique]
+          - name: competition_key
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'dim_competition')
+                  field: competition_key
+          - name: edition_key
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'dim_edition')
+                  field: edition_key
+      - name: match_source
+        columns:
+          - name: source_system
+            tests: [not_null]
+          - name: source_match_id
+            tests: [not_null]
+          - name: canonical_match_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_lineup
+        columns:
+          - name: match_id
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_match_team_stats
+        columns:
+          - name: match_id
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_match_player_stats
+        columns:
+          - name: match_id
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_match_event
+        columns:
+          - name: match_id
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_match_odds
+        columns:
+          - name: match_id
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_match_elo_team_stats
+        columns:
+          - name: match_id
+            tests:
+              - relationships:
+                  to: source('mart_v2', 'fact_match')
+                  field: match_id
+      - name: fact_transfer
+        columns:
+          - name: transfer_key
+            tests: [not_null, unique]
+      - name: fact_player_valuation
+        columns:
+          - name: valuation_key
+            tests: [not_null, unique]
+
+  - name: serving_v2
+    schema: serving_v2
+    description: "Projeções derivadas e reconstruíveis para consumo da API e da busca."
+    tables:
+      - name: competition_catalog
+        columns:
+          - name: competition_key
+            tests: [not_null, unique]
+      - name: edition_catalog
+        columns:
+          - name: edition_key
+            tests: [not_null, unique]
+      - name: team_profile
+        columns:
+          - name: team_id
+            tests: [not_null, unique]
+      - name: player_profile
+        columns:
+          - name: player_key
+            tests: [not_null, unique]
+      - name: match_catalog
+        columns:
+          - name: match_id
+            tests: [not_null, unique]
+      - name: search_document
+        columns:
+          - name: document_id
+            tests: [not_null, unique]
+          - name: entity_type
+            tests: [not_null]
+
