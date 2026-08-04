@@ -11,6 +11,287 @@ WHERE run_key = :'rebuild_run_key'\gset rebuild_
 DELETE FROM control.coverage_reconciliation
 WHERE rebuild_run_id = :rebuild_rebuild_run_id;
 
+DELETE FROM control.coverage_delta_reason
+WHERE rebuild_run_id = :rebuild_rebuild_run_id;
+
+DROP TABLE IF EXISTS _match_coverage_reconciliation;
+CREATE TEMP TABLE _match_coverage_reconciliation AS
+WITH edition_map AS (
+  SELECT competition_key, season_label, min(edition_key) AS edition_key
+  FROM mart_v2.dim_edition
+  GROUP BY competition_key, season_label
+),
+reference_scope AS (
+  SELECT
+    r.provider AS source_system,
+    coalesce(r.competition_key, '') AS competition_key,
+    coalesce(
+      e.edition_key,
+      concat_ws(':', coalesce(r.competition_key, ''), coalesce(r.season_label, r.season::text, ''))
+    ) AS edition_key,
+    count(*)::bigint AS reference_rows
+  FROM raw_reference.fact_matches r
+  LEFT JOIN edition_map e
+    ON e.competition_key = r.competition_key
+   AND e.season_label = coalesce(r.season_label, r.season::text)
+  GROUP BY r.provider, coalesce(r.competition_key, ''),
+    coalesce(
+      e.edition_key,
+      concat_ws(':', coalesce(r.competition_key, ''), coalesce(r.season_label, r.season::text, ''))
+    )
+),
+approved_scope AS (
+  SELECT
+    s.source_system,
+    coalesce(f.competition_key, '') AS competition_key,
+    coalesce(f.edition_key, '') AS edition_key,
+    count(*)::bigint AS approved_source_rows,
+    count(*) FILTER (
+      WHERE f.publication_state = 'published'
+        AND f.source_system <> s.source_system
+    )::bigint AS reattributed_rows,
+    count(*) FILTER (WHERE f.publication_state <> 'published')::bigint AS nonpublished_rows,
+    count(*) FILTER (
+      WHERE f.publication_state = 'published'
+        AND f.source_system = s.source_system
+    )::bigint AS owned_published_source_rows
+  FROM mart_v2.match_source s
+  JOIN mart_v2.fact_match f ON f.match_id = s.canonical_match_id
+  WHERE s.reconciliation_state = 'approved'
+  GROUP BY s.source_system, coalesce(f.competition_key, ''), coalesce(f.edition_key, '')
+),
+published_scope AS (
+  SELECT
+    source_system,
+    coalesce(competition_key, '') AS competition_key,
+    coalesce(edition_key, '') AS edition_key,
+    count(*)::bigint AS published_rows
+  FROM mart_v2.fact_match
+  WHERE publication_state = 'published'
+  GROUP BY source_system, coalesce(competition_key, ''), coalesce(edition_key, '')
+),
+quarantined_scope AS (
+  SELECT
+    source_system,
+    coalesce(competition_key, '') AS competition_key,
+    coalesce(edition_key, '') AS edition_key,
+    count(*)::bigint AS quarantined_rows
+  FROM mart_v2.fact_match
+  WHERE publication_state = 'quarantined'
+  GROUP BY source_system, coalesce(competition_key, ''), coalesce(edition_key, '')
+),
+pending_scope AS (
+  SELECT
+    s.source_system,
+    coalesce(f.competition_key, '') AS competition_key,
+    coalesce(f.edition_key, '') AS edition_key,
+    count(*)::bigint AS pending_rows
+  FROM mart_v2.match_source s
+  LEFT JOIN mart_v2.fact_match f ON f.match_id = s.canonical_match_id
+  WHERE s.reconciliation_state = 'pending'
+  GROUP BY s.source_system, coalesce(f.competition_key, ''), coalesce(f.edition_key, '')
+),
+scope_keys AS (
+  SELECT source_system, competition_key, edition_key FROM reference_scope
+  UNION
+  SELECT source_system, competition_key, edition_key FROM approved_scope
+  UNION
+  SELECT source_system, competition_key, edition_key FROM published_scope
+  UNION
+  SELECT source_system, competition_key, edition_key FROM quarantined_scope
+  UNION
+  SELECT source_system, competition_key, edition_key FROM pending_scope
+),
+scope_counts AS (
+  SELECT
+    k.source_system,
+    k.competition_key,
+    k.edition_key,
+    coalesce(r.reference_rows, 0)::bigint AS reference_rows,
+    coalesce(a.approved_source_rows, 0)::bigint AS approved_source_rows,
+    coalesce(p.published_rows, 0)::bigint AS published_rows,
+    coalesce(q.quarantined_rows, 0)::bigint AS quarantined_rows,
+    coalesce(n.pending_rows, 0)::bigint AS pending_rows,
+    coalesce(a.reattributed_rows, 0)::bigint AS reattributed_rows,
+    coalesce(a.nonpublished_rows, 0)::bigint AS nonpublished_rows,
+    coalesce(a.owned_published_source_rows, 0)::bigint AS owned_published_source_rows
+  FROM scope_keys k
+  LEFT JOIN reference_scope r USING (source_system, competition_key, edition_key)
+  LEFT JOIN approved_scope a USING (source_system, competition_key, edition_key)
+  LEFT JOIN published_scope p USING (source_system, competition_key, edition_key)
+  LEFT JOIN quarantined_scope q USING (source_system, competition_key, edition_key)
+  LEFT JOIN pending_scope n USING (source_system, competition_key, edition_key)
+)
+SELECT
+  s.*,
+  (s.owned_published_source_rows - s.published_rows)::bigint AS same_source_duplicate_rows,
+  (s.published_rows - s.reference_rows)::bigint AS published_delta,
+  (
+    (s.approved_source_rows - s.reference_rows)
+    - s.reattributed_rows
+    - s.nonpublished_rows
+    - (s.owned_published_source_rows - s.published_rows)
+  )::bigint AS classified_delta
+FROM scope_counts s;
+
+INSERT INTO control.coverage_delta_reason (
+  rebuild_run_id, scope_name, source_system, competition_key, edition_key,
+  publication_state, reason_code, direction, reference_rows, candidate_rows,
+  delta_rows, evidence
+)
+SELECT
+  :rebuild_rebuild_run_id,
+  'provider_competition_edition',
+  source_system,
+  competition_key,
+  edition_key,
+  'published',
+  'approved_source_scope_change',
+  CASE
+    WHEN approved_source_rows > reference_rows THEN 'increase'
+    WHEN approved_source_rows < reference_rows THEN 'decrease'
+    ELSE 'neutral'
+  END,
+  reference_rows,
+  approved_source_rows,
+  approved_source_rows - reference_rows,
+  jsonb_build_object(
+    'reference_table', 'shadow_dbt_20260716.fact_matches',
+    'candidate_table', 'mart_v2.match_source',
+    'candidate_filter', 'reconciliation_state=approved',
+    'meaning', 'approved source coverage after canonical competition and edition assignment'
+  )
+FROM _match_coverage_reconciliation;
+
+INSERT INTO control.coverage_delta_reason (
+  rebuild_run_id, scope_name, source_system, competition_key, edition_key,
+  publication_state, reason_code, direction, candidate_rows, delta_rows, evidence
+)
+SELECT
+  :rebuild_rebuild_run_id,
+  'provider_competition_edition',
+  source_system,
+  competition_key,
+  edition_key,
+  'published',
+  'cross_source_canonical_dedup',
+  'decrease',
+  reattributed_rows,
+  -reattributed_rows,
+  jsonb_build_object(
+    'rule', 'approved source row points to a published canonical match owned by another source',
+    'candidate_table', 'mart_v2.match_source'
+  )
+FROM _match_coverage_reconciliation
+WHERE reattributed_rows > 0;
+
+INSERT INTO control.coverage_delta_reason (
+  rebuild_run_id, scope_name, source_system, competition_key, edition_key,
+  publication_state, reason_code, direction, candidate_rows, delta_rows, evidence
+)
+SELECT
+  :rebuild_rebuild_run_id,
+  'provider_competition_edition',
+  source_system,
+  competition_key,
+  edition_key,
+  'published',
+  'same_source_canonical_dedup',
+  CASE WHEN same_source_duplicate_rows > 0 THEN 'decrease' ELSE 'increase' END,
+  abs(same_source_duplicate_rows),
+  -same_source_duplicate_rows,
+  jsonb_build_object(
+    'rule', 'multiple approved source rows resolve to one canonical match owned by the same source',
+    'candidate_table', 'mart_v2.match_source'
+  )
+FROM _match_coverage_reconciliation
+WHERE same_source_duplicate_rows <> 0;
+
+INSERT INTO control.coverage_delta_reason (
+  rebuild_run_id, scope_name, source_system, competition_key, edition_key,
+  publication_state, reason_code, direction, candidate_rows, delta_rows, evidence
+)
+SELECT
+  :rebuild_rebuild_run_id,
+  'provider_competition_edition',
+  source_system,
+  competition_key,
+  edition_key,
+  'published',
+  'approved_source_nonpublished',
+  'decrease',
+  nonpublished_rows,
+  -nonpublished_rows,
+  jsonb_build_object(
+    'rule', 'approved source row is attached to a canonical match that is not published',
+    'candidate_table', 'mart_v2.match_source'
+  )
+FROM _match_coverage_reconciliation
+WHERE nonpublished_rows > 0;
+
+INSERT INTO control.coverage_delta_reason (
+  rebuild_run_id, scope_name, source_system, competition_key, edition_key,
+  publication_state, reason_code, direction, candidate_rows, delta_rows, evidence
+)
+SELECT
+  :rebuild_rebuild_run_id,
+  'provider_competition_edition',
+  source_system,
+  coalesce(competition_key, ''),
+  coalesce(edition_key, ''),
+  'quarantined',
+  CASE
+    WHEN publication_reason LIKE 'duplicate_of:%' THEN 'duplicate_semantic_candidate'
+    ELSE coalesce(NULLIF(publication_reason, ''), 'quarantine_reason_missing')
+  END,
+  'increase',
+  count(*)::bigint,
+  count(*)::bigint,
+  jsonb_build_object(
+    'candidate_table', 'mart_v2.fact_match',
+    'candidate_filter', 'publication_state=quarantined',
+    'raw_reason', jsonb_agg(publication_reason)
+  )
+FROM mart_v2.fact_match
+WHERE publication_state = 'quarantined'
+GROUP BY source_system, coalesce(competition_key, ''), coalesce(edition_key, ''),
+  CASE
+    WHEN publication_reason LIKE 'duplicate_of:%' THEN 'duplicate_semantic_candidate'
+    ELSE coalesce(NULLIF(publication_reason, ''), 'quarantine_reason_missing')
+  END;
+
+INSERT INTO control.coverage_reconciliation (
+  rebuild_run_id, scope_name, source_system, competition_key, edition_key,
+  reference_rows, observed_rows, published_rows, quarantined_rows, pending_rows,
+  disposition, evidence
+)
+SELECT
+  :rebuild_rebuild_run_id,
+  'provider_competition_edition',
+  source_system,
+  competition_key,
+  edition_key,
+  reference_rows,
+  published_rows + quarantined_rows,
+  published_rows,
+  quarantined_rows,
+  pending_rows,
+  CASE
+    WHEN pending_rows > 0 OR classified_delta <> published_delta THEN 'pending'
+    WHEN published_delta <> 0 THEN 'explained'
+    WHEN quarantined_rows > 0 THEN 'quarantined'
+    ELSE 'complete'
+  END,
+  jsonb_build_object(
+    'approved_source_rows', approved_source_rows,
+    'reattributed_rows', reattributed_rows,
+    'same_source_duplicate_rows', same_source_duplicate_rows,
+    'approved_source_nonpublished_rows', nonpublished_rows,
+    'published_delta', published_delta,
+    'classified_delta', classified_delta
+  )
+FROM _match_coverage_reconciliation;
+
 INSERT INTO control.coverage_reconciliation (
   rebuild_run_id, scope_name, source_system, reference_rows, observed_rows,
   published_rows, quarantined_rows, pending_rows, disposition, evidence
@@ -18,18 +299,26 @@ INSERT INTO control.coverage_reconciliation (
 SELECT
   :rebuild_rebuild_run_id,
   'legacy_shadow_match_reference',
-  'legacy_reference',
-  (SELECT count(*) FROM raw_reference.fact_matches),
+  'all_sources',
+  sum(reference_rows),
   (SELECT count(*) FROM mart_v2.fact_match),
-  (SELECT count(*) FROM mart_v2.fact_match WHERE publication_state = 'published'),
-  (SELECT count(*) FROM mart_v2.fact_match WHERE publication_state = 'quarantined'),
-  (SELECT count(*) FROM mart_v2.fact_match WHERE publication_state = 'pending'),
-  CASE WHEN (SELECT count(*) FROM mart_v2.match_source WHERE reconciliation_state = 'pending') > 0 THEN 'pending' ELSE 'explained' END,
+  sum(published_rows),
+  sum(quarantined_rows),
+  sum(pending_rows),
+  CASE
+    WHEN sum(pending_rows) > 0 OR sum(classified_delta) <> sum(published_delta) THEN 'pending'
+    WHEN sum(published_delta) <> 0 THEN 'explained'
+    WHEN sum(quarantined_rows) > 0 THEN 'quarantined'
+    ELSE 'complete'
+  END,
   jsonb_build_object(
     'comparison_rule', 'reference is legacy shadow scope; v2 is multi-source canonical scope',
     'reference_table', 'shadow_dbt_20260716.fact_matches',
-    'v2_difference_requires_breakdown', true
-  );
+    'published_delta', sum(published_delta),
+    'classified_delta', sum(classified_delta),
+    'reason_matrix', 'control.coverage_delta_reason'
+  )
+FROM _match_coverage_reconciliation;
 
 INSERT INTO control.coverage_reconciliation (
   rebuild_run_id, scope_name, source_system, competition_key, edition_key,
@@ -189,12 +478,28 @@ DECLARE
   tie_reference_count bigint;
   tie_link_count bigint;
   wc_count bigint;
+  unexplained_count bigint;
+  invalid_reason_count bigint;
 BEGIN
   SELECT count(*) INTO pending_count
   FROM mart_v2.match_source
   WHERE reconciliation_state = 'pending';
   IF pending_count > 0 THEN
     RAISE EXCEPTION 'validation failed: % match_source rows remain pending', pending_count;
+  END IF;
+
+  SELECT count(*) INTO unexplained_count
+  FROM _match_coverage_reconciliation
+  WHERE published_delta <> classified_delta;
+  IF unexplained_count > 0 THEN
+    RAISE EXCEPTION 'validation failed: % unexplained published match delta scopes remain', unexplained_count;
+  END IF;
+
+  SELECT count(*) INTO invalid_reason_count
+  FROM _match_coverage_reconciliation
+  WHERE same_source_duplicate_rows < 0;
+  IF invalid_reason_count > 0 THEN
+    RAISE EXCEPTION 'validation failed: % published scopes lack approved source lineage', invalid_reason_count;
   END IF;
 
   SELECT count(*) INTO broken_count

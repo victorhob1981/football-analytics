@@ -15,6 +15,8 @@ def test_coverage_reconciliation_requires_an_exact_reasoned_delta() -> None:
     assert "cross_source_canonical_dedup" in validation
     assert "same_source_canonical_dedup" in validation
     assert "approved_source_nonpublished" in validation
+    assert "duplicate_semantic_candidate" in validation
+    assert "published_rows + quarantined_rows" in validation
     assert "unexplained published match delta" in validation
 
 

@@ -151,6 +151,25 @@ CREATE TABLE IF NOT EXISTS control.coverage_reconciliation (
   PRIMARY KEY (rebuild_run_id, scope_name, source_system, competition_key, edition_key)
 );
 
+CREATE TABLE IF NOT EXISTS control.coverage_delta_reason (
+  rebuild_run_id       bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
+  scope_name           text NOT NULL,
+  source_system        text NOT NULL,
+  competition_key      text NOT NULL DEFAULT '',
+  edition_key          text NOT NULL DEFAULT '',
+  publication_state    text NOT NULL CHECK (publication_state IN ('published', 'quarantined', 'pending', 'rejected')),
+  reason_code          text NOT NULL,
+  direction            text NOT NULL CHECK (direction IN ('increase', 'decrease', 'neutral')),
+  reference_rows       bigint NOT NULL DEFAULT 0,
+  candidate_rows       bigint NOT NULL DEFAULT 0,
+  delta_rows           bigint NOT NULL,
+  evidence             jsonb NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (
+    rebuild_run_id, scope_name, source_system, competition_key,
+    edition_key, publication_state, reason_code
+  )
+);
+
 CREATE TABLE IF NOT EXISTS control.rebuild_fingerprint (
   rebuild_fingerprint_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   rebuild_run_id         bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
