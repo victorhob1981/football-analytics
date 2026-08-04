@@ -59,7 +59,21 @@ O candidato local validado tem 311.271 fatos de partida, 261.631 publicados e
 49.640 quarentenados. A matriz fecha o delta publicado de 12.778 partidas:
 49.190 por identidade de clube não resolvida, 274 sem data e 176 por candidato
 semântico duplicado. A medição de busca está em
-`D:\football-analytics-rebuild\benchmarks\search-slo.json`.
+`D:\football-analytics-rebuild\benchmarks\search-slo-mart-v2-final-b3.json`.
+
+As execuções comparáveis finais foram `mart-v2-final-a3` (run id 5) e
+`mart-v2-final-b3` (run id 6). Ambas fecharam em
+`248.853 / 311.271 / 261.631 / 49.640 / 0` para referência, observadas,
+publicadas, quarentenadas e pendentes; a matriz de cobertura e a matriz de
+razões tiveram diferença `0` entre as execuções, e cada run contém 85
+fingerprints. Os arquivos estão em
+`D:\football-analytics-rebuild\fingerprints\mart-v2-5.txt` e
+`D:\football-analytics-rebuild\fingerprints\mart-v2-6.txt`.
+
+No smoke frio, `/health` pode responder `503 degraded` enquanto o pool abre a
+primeira conexão; depois do aquecimento, `/health` e todas as rotas públicas
+verificadas responderam `200`. Isso é o estado de prontidão do ambiente local,
+não uma troca de dados ou fallback para a camada legada.
 
 ## Rollback
 
