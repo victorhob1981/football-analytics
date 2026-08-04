@@ -16,14 +16,22 @@ import { useGlobalFilters } from "@/shared/hooks/useGlobalFilters";
 import { useGlobalFiltersStore } from "@/shared/stores/globalFilters.store";
 import { useTimeRange } from "@/shared/hooks/useTimeRange";
 import type { GlobalFiltersState, VenueFilter } from "@/shared/types/filters.types";
-import { getCompetitionById, SUPPORTED_COMPETITIONS } from "@/config/competitions.registry";
+import {
+  buildCompetitionDefinition,
+  getCompetitionById,
+  SUPPORTED_COMPETITIONS,
+} from "@/config/competitions.registry";
 import {
   getSeasonById,
+  getSeasonByLabel,
   getSeasonByQueryId,
   listSeasonsForCompetition,
   resolveSeasonForCompetition,
   SUPPORTED_SEASONS,
 } from "@/config/seasons.registry";
+import { useCompetitionEditions } from "@/features/competitions/hooks/useCompetitionEditions";
+import { useHomePage } from "@/features/home/hooks/useHomePage";
+import type { HomeCompetitionCard } from "@/features/home/types/home.types";
 import {
   buildCanonicalTeamPath,
   buildCompetitionHubPath,
@@ -160,6 +168,69 @@ function buildSeasonOptions(
     options.push({
       value: season.queryId,
       label: season.queryId,
+    });
+  }
+
+  return options;
+}
+
+function buildCatalogCompetitionDefinition(card: HomeCompetitionCard) {
+  return buildCompetitionDefinition({
+    id: card.competitionId,
+    key: card.competitionKey,
+    name: card.competitionName,
+    shortName: card.competitionName,
+    country: card.country ?? undefined,
+    region: card.region ?? undefined,
+    scope: card.scope ?? undefined,
+    type:
+      card.type === "domestic_cup" || card.type === "international_cup"
+        ? card.type
+        : "domestic_league",
+    visualAssetId: card.assetId ?? undefined,
+    seasonCalendar: card.latestContext?.seasonLabel?.includes("/") ? "split_year" : "annual",
+  });
+}
+
+function resolveCatalogCompetition(
+  competitionId: string | null,
+  catalog: HomeCompetitionCard[] | undefined,
+) {
+  const staticCompetition = getCompetitionById(competitionId);
+
+  if (staticCompetition) {
+    return staticCompetition;
+  }
+
+  const catalogCompetition = catalog?.find((item) => item.competitionId === competitionId);
+  return catalogCompetition ? buildCatalogCompetitionDefinition(catalogCompetition) : undefined;
+}
+
+function buildEditionSeasonOptions(
+  editions: Array<{ seasonLabel: string }>,
+  selectedSeasonId: string | null,
+): SeasonSelectOption[] {
+  const options: SeasonSelectOption[] = [];
+  const seen = new Set<string>();
+
+  for (const edition of editions) {
+    const season = getSeasonByLabel(edition.seasonLabel);
+    const option = {
+      value: season?.queryId ?? edition.seasonLabel,
+      label: season?.label ?? edition.seasonLabel,
+    };
+    const identity = `${option.value}:${option.label}`;
+
+    if (!seen.has(identity)) {
+      seen.add(identity);
+      options.push(option);
+    }
+  }
+
+  if (selectedSeasonId && !options.some((option) => option.value === selectedSeasonId)) {
+    options.unshift({
+      value: selectedSeasonId,
+      label: getSeasonById(selectedSeasonId)?.label ?? selectedSeasonId,
     });
   }
 
@@ -513,6 +584,7 @@ export function GlobalFilterBar() {
   const hydratedUrlRef = useRef<string | null>(null);
   const pendingUrlRef = useRef<string | null>(null);
   const [isUrlHydrated, setIsUrlHydrated] = useState(false);
+  const homeQuery = useHomePage();
 
   const {
     competitionId,
@@ -559,9 +631,38 @@ export function GlobalFilterBar() {
   );
   const effectiveCompetitionId = competitionId ?? pathnameContext?.competitionId ?? null;
   const effectiveSeasonId = seasonId ?? pathnameContext?.seasonId ?? null;
+  const catalogCompetition = useMemo(
+    () =>
+      homeQuery.data?.competitions.find(
+        (item) =>
+          item.competitionId === effectiveCompetitionId ||
+          item.competitionKey === effectiveCompetitionId,
+      ) ?? null,
+    [effectiveCompetitionId, homeQuery.data?.competitions],
+  );
+  const catalogCompetitionKey = catalogCompetition?.competitionKey ?? null;
+  const editionsQuery = useCompetitionEditions({ competitionKey: catalogCompetitionKey });
   const selectedCompetition = useMemo(
-    () => getCompetitionById(effectiveCompetitionId),
-    [effectiveCompetitionId],
+    () => {
+      const staticCompetition = getCompetitionById(effectiveCompetitionId);
+      if (staticCompetition) {
+        return staticCompetition;
+      }
+
+      if (!catalogCompetition) {
+        return undefined;
+      }
+
+      const dynamicCompetition = buildCatalogCompetitionDefinition(catalogCompetition);
+      const hasSplitYearEdition = editionsQuery.data?.editions.some((edition) =>
+        edition.seasonLabel.includes("/"),
+      );
+
+      return hasSplitYearEdition
+        ? { ...dynamicCompetition, seasonCalendar: "split_year" as const }
+        : dynamicCompetition;
+    },
+    [catalogCompetition, editionsQuery.data?.editions, effectiveCompetitionId],
   );
   const selectedSeason = useMemo(() => {
     if (selectedCompetition) {
@@ -574,18 +675,26 @@ export function GlobalFilterBar() {
     return getSeasonById(effectiveSeasonId);
   }, [effectiveSeasonId, selectedCompetition]);
   const seasonOptions = useMemo(
-    () => buildSeasonOptions(effectiveCompetitionId, effectiveSeasonId),
-    [effectiveCompetitionId, effectiveSeasonId],
+    () =>
+      editionsQuery.data?.editions.length
+        ? buildEditionSeasonOptions(editionsQuery.data.editions, effectiveSeasonId)
+        : buildSeasonOptions(effectiveCompetitionId, effectiveSeasonId),
+    [editionsQuery.data?.editions, effectiveCompetitionId, effectiveSeasonId],
   );
   const competitionOptions = useMemo(
     () => [
       { value: "", label: "Todas as competições" },
-      ...SUPPORTED_COMPETITIONS.map((competition) => ({
-        value: competition.id,
-        label: competition.name,
-      })),
+      ...(homeQuery.data?.competitions.length
+        ? homeQuery.data.competitions.map((competition) => ({
+            value: competition.competitionId,
+            label: competition.competitionName,
+          }))
+        : SUPPORTED_COMPETITIONS.map((competition) => ({
+            value: competition.id,
+            label: competition.name,
+          }))),
     ],
-    [],
+    [homeQuery.data?.competitions],
   );
   const seasonDropdownOptions = useMemo(
     () => [{ value: "", label: "Todas as temporadas" }, ...seasonOptions],
@@ -948,7 +1057,10 @@ export function GlobalFilterBar() {
               label="Competição"
               onChange={(nextValue) => {
                 const nextCompetitionId = parseNullableText(nextValue);
-                const nextCompetition = getCompetitionById(nextCompetitionId);
+                const nextCompetition = resolveCatalogCompetition(
+                  nextCompetitionId,
+                  homeQuery.data?.competitions,
+                );
                 const nextSeason = nextCompetition
                   ? resolveSeasonForCompetition(nextCompetition, {
                       seasonId: effectiveSeasonId,
@@ -1060,7 +1172,10 @@ export function GlobalFilterBar() {
               label="Competição"
               onChange={(nextValue) => {
                 const nextCompetitionId = parseNullableText(nextValue);
-                const nextCompetition = getCompetitionById(nextCompetitionId);
+                const nextCompetition = resolveCatalogCompetition(
+                  nextCompetitionId,
+                  homeQuery.data?.competitions,
+                );
                 const nextSeason = nextCompetition
                   ? resolveSeasonForCompetition(nextCompetition, {
                       seasonId,
