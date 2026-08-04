@@ -58,6 +58,6 @@ def test_pipeline_runs_sql_rebuild_dbt_contracts_and_read_only_validation() -> N
     script = (ROOT / "tools/run_mart_v2_pipeline.ps1").read_text(encoding="utf-8")
 
     assert "rebuild_mart_v2.ps1" in script
-    assert '"dbt", "test"' in script
+    assert '"test", "--project-dir"' in script
     assert "validate_mart_v2.ps1" in script
     assert "D:\\" in script
