@@ -38,7 +38,7 @@ $dbtArguments = @(
     "-e", "FOOTBALL_PG_DBNAME=football_dw_v2",
     "-v", "${dbtProject}:/workspace:ro",
     $DbtImage,
-    "dbt", "test", "--project-dir", "/workspace", "--profiles-dir", "/workspace", "--target", "local"
+    "test", "--project-dir", "/workspace", "--profiles-dir", "/workspace", "--target", "local"
 )
 $dbtOutput = @(& docker @dbtArguments 2>&1 | ForEach-Object { [string]$_ })
 $dbtExitCode = $LASTEXITCODE
