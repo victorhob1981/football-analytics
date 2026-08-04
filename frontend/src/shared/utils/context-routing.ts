@@ -1,10 +1,14 @@
-import { getCompetitionById, getCompetitionByKey } from "@/config/competitions.registry";
+import {
+  buildCompetitionDefinition,
+  getCompetitionById,
+  getCompetitionByKey,
+} from "@/config/competitions.registry";
 import {
   buildWorldCupEditionPath,
   buildWorldCupHubPath,
   buildWorldCupTeamPath,
 } from "@/features/world-cup/routes";
-import { resolveSeasonForCompetition } from "@/config/seasons.registry";
+import { getSeasonByLabel, resolveSeasonForCompetition } from "@/config/seasons.registry";
 import type {
   CompetitionSeasonContext,
   CompetitionSeasonContextInput,
@@ -102,6 +106,25 @@ function encodeSeasonPathSegment(value: string): string {
   return encodePathSegment(normalizedValue);
 }
 
+function buildCatalogCompetitionFallback(
+  competitionKey: string,
+  competitionId: string | null,
+  seasonLabel: string | null,
+) {
+  const name = competitionKey
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  return buildCompetitionDefinition({
+    id: competitionId ?? competitionKey,
+    key: competitionKey,
+    name: name || competitionKey,
+    seasonCalendar: seasonLabel?.includes("/") ? "split_year" : "annual",
+  });
+}
+
 function normalizePathname(pathname: string): string {
   const trimmedValue = pathname.trim();
 
@@ -140,16 +163,24 @@ export function resolveCompetitionSeasonContext(
     return null;
   }
 
-  const competition = competitionFromId ?? competitionFromKey;
+  const fallbackCompetitionKey =
+    competitionKey ??
+    (competitionId && !/^\d+$/.test(competitionId) ? competitionId : null);
+  const competition =
+    competitionFromId ??
+    competitionFromKey ??
+    (fallbackCompetitionKey
+      ? buildCatalogCompetitionFallback(fallbackCompetitionKey, competitionId, seasonLabel)
+      : undefined);
 
   if (!competition) {
     return null;
   }
 
-  const season = resolveSeasonForCompetition(competition, {
-    seasonId,
-    seasonLabel,
-  });
+  const season = competitionFromId || competitionFromKey
+    ? resolveSeasonForCompetition(competition, { seasonId, seasonLabel })
+    : getSeasonByLabel(seasonLabel) ??
+      resolveSeasonForCompetition(competition, { seasonId, seasonLabel });
 
   if (!season) {
     return null;

@@ -334,5 +334,8 @@ export function resolveSeasonForCompetition(
     return null;
   }
 
-  return isSeasonSupportedByCompetition(competition, resolvedSeason) ? resolvedSeason : null;
+  // The mart catalog is the availability authority. The registry only supplies
+  // presentation defaults, so a valid edition returned by the API must not be
+  // rejected by an older static season list.
+  return resolvedSeason;
 }

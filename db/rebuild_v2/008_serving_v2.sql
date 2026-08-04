@@ -119,6 +119,8 @@ CREATE TABLE serving_v2.match_catalog (
 
 CREATE INDEX match_catalog_date_idx
   ON serving_v2.match_catalog (competition_key, season_label, match_date DESC, match_id DESC);
+CREATE INDEX match_catalog_global_date_idx
+  ON serving_v2.match_catalog (match_date DESC, match_id DESC);
 CREATE INDEX match_catalog_team_date_idx
   ON serving_v2.match_catalog (home_team_id, match_date DESC, match_id DESC);
 CREATE INDEX match_catalog_away_date_idx
