@@ -47,6 +47,21 @@ CREATE TABLE mart_v2.dim_edition (
   UNIQUE (competition_key, season_label)
 );
 
+CREATE TABLE mart_v2.dim_edition_format (
+  edition_key        text PRIMARY KEY REFERENCES mart_v2.dim_edition(edition_key),
+  format_code        text NOT NULL,
+  format_name        text NOT NULL,
+  stage_count        integer NOT NULL DEFAULT 0,
+  group_count        integer NOT NULL DEFAULT 0,
+  tie_count          integer NOT NULL DEFAULT 0,
+  tie_rule_code      text,
+  progression        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  is_inferred        boolean NOT NULL DEFAULT true,
+  source_system      text NOT NULL,
+  source_record_key  text NOT NULL,
+  rebuild_run_id     bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id)
+);
+
 CREATE TABLE mart_v2.dim_team (
   team_id               bigint PRIMARY KEY,
   identity_team_id      bigint,
@@ -97,6 +112,30 @@ CREATE TABLE mart_v2.dim_group (
   UNIQUE (edition_key, stage_key, group_name)
 );
 
+CREATE TABLE mart_v2.dim_tie (
+  tie_key              text PRIMARY KEY,
+  edition_key          text NOT NULL REFERENCES mart_v2.dim_edition(edition_key),
+  stage_key            text REFERENCES mart_v2.dim_stage(stage_key),
+  tie_order            bigint,
+  home_team_id         bigint REFERENCES mart_v2.dim_team(team_id),
+  away_team_id         bigint REFERENCES mart_v2.dim_team(team_id),
+  winner_team_id       bigint REFERENCES mart_v2.dim_team(team_id),
+  match_count          bigint,
+  first_leg_at         timestamptz,
+  last_leg_at          timestamptz,
+  home_side_goals      bigint,
+  away_side_goals      bigint,
+  resolution_type      text,
+  has_extra_time_match boolean,
+  has_penalties_match  boolean,
+  next_stage_name      text,
+  is_inferred          boolean NOT NULL DEFAULT false,
+  source_system        text NOT NULL,
+  source_record_key    text NOT NULL,
+  metadata             jsonb NOT NULL DEFAULT '{}'::jsonb,
+  rebuild_run_id       bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id)
+);
+
 CREATE TABLE mart_v2.fact_match (
   match_id              bigint PRIMARY KEY,
   match_key             text NOT NULL UNIQUE,
@@ -131,6 +170,16 @@ CREATE TABLE mart_v2.fact_match (
   rebuild_run_id        bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id)
 );
 
+CREATE TABLE mart_v2.fact_match_tie (
+  tie_key             text NOT NULL REFERENCES mart_v2.dim_tie(tie_key),
+  match_id            bigint NOT NULL REFERENCES mart_v2.fact_match(match_id),
+  leg_number          integer,
+  source_system       text NOT NULL,
+  source_record_key   text NOT NULL,
+  rebuild_run_id      bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
+  PRIMARY KEY (tie_key, match_id)
+);
+
 CREATE TABLE mart_v2.match_source (
   source_system         text NOT NULL,
   source_match_id       text NOT NULL,
@@ -154,6 +203,29 @@ CREATE INDEX fact_match_v2_home_idx ON mart_v2.fact_match (home_team_id, match_d
 CREATE INDEX fact_match_v2_away_idx ON mart_v2.fact_match (away_team_id, match_date);
 CREATE INDEX fact_match_v2_publication_idx ON mart_v2.fact_match (publication_state, edition_key);
 CREATE INDEX match_source_v2_canonical_idx ON mart_v2.match_source (canonical_match_id);
+CREATE INDEX match_source_v2_system_state_idx
+  ON mart_v2.match_source (source_system, reconciliation_state, source_match_id);
+
+-- Bulk rebuilds must not compete with autovacuum while large relations are
+-- being extended on the disposable candidate volume. Validation re-enables
+-- it after the load and runs ANALYZE explicitly.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT n.nspname, c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'mart_v2'
+      AND c.relkind = 'r'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE %I.%I SET (autovacuum_enabled = false)',
+      r.nspname, r.relname
+    );
+  END LOOP;
+END $$;
 
 INSERT INTO mart_v2.dim_competition (
   competition_key, competition_name, competition_type, country_name,

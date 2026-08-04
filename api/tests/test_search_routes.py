@@ -82,6 +82,23 @@ class SearchApiTests(unittest.TestCase):
         self.assertEqual(fetch_all_mock.call_count, 1)
         self.assertIn("serving_v2.search_document", fetch_all_mock.call_args.args[0])
 
+    @patch("api.src.routers.search.get_settings")
+    @patch("api.src.routers.search.db_client.fetch_all")
+    def test_serving_v2_search_splits_indexable_context_paths(
+        self, fetch_all_mock, get_settings_mock
+    ) -> None:
+        get_settings_mock.return_value = replace(load_settings(), data_layer="serving_v2")
+        fetch_all_mock.return_value = []
+
+        response = self.client.get("/api/v1/search?q=flamengo")
+
+        self.assertEqual(response.status_code, 200)
+        query = fetch_all_mock.call_args.args[0].lower()
+        self.assertIn("union all", query)
+        self.assertIn("mc.home_team_id", query)
+        self.assertIn("mc.away_team_id", query)
+        self.assertIn("ps.player_key", query)
+
 
 if __name__ == "__main__":
     unittest.main()

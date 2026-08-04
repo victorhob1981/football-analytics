@@ -33,7 +33,8 @@ $sqlFiles = @(
     "005_historical_matches.sql",
     "006_match_dedup.sql",
     "007_entities_and_facts.sql",
-    "008_serving_v2.sql"
+    "008_serving_v2.sql",
+    "009_validation.sql"
 )
 
 "[$(Get-Date -Format o)] rebuild_start run_key=$RunKey candidate=$CandidateContainer" | Out-File -FilePath $logPath -Encoding utf8

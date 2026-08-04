@@ -457,27 +457,38 @@ def _search_serving_v2(
             context.season_label as context_season_label
         from limited l
         left join lateral (
-            select mc.competition_key, mc.competition_name, mc.season_label
-            from serving_v2.match_catalog mc
-            where (
-                l.entity_type = 'team'
-                and (
-                    mc.home_team_id = case when l.entity_id ~ '^[0-9]+$' then l.entity_id::bigint end
-                    or mc.away_team_id = case when l.entity_id ~ '^[0-9]+$' then l.entity_id::bigint end
-                )
-            )
-            or (
-                l.entity_type = 'player'
-                and exists (
-                    select 1
-                    from mart_v2.fact_match_player_stats ps
-                    where ps.player_key = l.entity_id
-                      and ps.match_id = mc.match_id
-                )
-            )
-            order by mc.match_date desc, mc.match_id desc
+            select candidate.competition_key, candidate.competition_name, candidate.season_label
+            from (
+                select mc.competition_key, mc.competition_name, mc.season_label,
+                       mc.match_date, mc.match_id
+                from serving_v2.match_catalog mc
+                where l.entity_type = 'team'
+                  and mc.home_team_id = case
+                      when l.entity_id ~ '^[0-9]+$' then l.entity_id::bigint
+                  end
+
+                union all
+
+                select mc.competition_key, mc.competition_name, mc.season_label,
+                       mc.match_date, mc.match_id
+                from serving_v2.match_catalog mc
+                where l.entity_type = 'team'
+                  and mc.away_team_id = case
+                      when l.entity_id ~ '^[0-9]+$' then l.entity_id::bigint
+                  end
+
+                union all
+
+                select mc.competition_key, mc.competition_name, mc.season_label,
+                       mc.match_date, mc.match_id
+                from mart_v2.fact_match_player_stats ps
+                join serving_v2.match_catalog mc on mc.match_id = ps.match_id
+                where l.entity_type = 'player'
+                  and ps.player_key = l.entity_id
+            ) candidate
+            order by candidate.match_date desc, candidate.match_id desc
             limit 1
-        ) context on true
+        ) context on l.entity_type in ('team', 'player')
         order by l.entity_type, l.result_rank;
         """,
         [normalized_query, normalized_query, list(search_types), normalized_query, limit_per_type],

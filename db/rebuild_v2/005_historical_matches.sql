@@ -134,12 +134,6 @@ WITH team_source_map AS (
     AND mapping_state = 'approved'
     AND canonical_entity_id ~ '^[0-9]+$'
   ORDER BY source_entity_id, confidence DESC NULLS LAST
-), team_name_map AS (
-  SELECT DISTINCT ON (lower(regexp_replace(unaccent(team_name), '[^a-zA-Z0-9]+', '', 'g')))
-    lower(regexp_replace(unaccent(team_name), '[^a-zA-Z0-9]+', '', 'g')) AS normalized_name,
-    team_id
-  FROM mart_v2.dim_team
-  ORDER BY lower(regexp_replace(unaccent(team_name), '[^a-zA-Z0-9]+', '', 'g')), team_id
 ), tm_games_prepared AS (
   SELECT DISTINCT ON (g.game_id)
     g.*,
@@ -152,8 +146,26 @@ WITH team_source_map AS (
       WHEN g.competition_id = 'BRA1' THEN extract(year FROM g.match_date_raw::date)::integer::text
       ELSE g.season
     END AS normalized_season_label,
-    coalesce(ts_h.canonical_id, tn_h.team_id) AS canonical_home_team_id,
-    coalesce(ts_a.canonical_id, tn_a.team_id) AS canonical_away_team_id,
+    coalesce(
+      ts_h.canonical_id,
+      CASE WHEN x.review_status IN ('approved', 'auto_approved')
+             AND lf.publication_state = 'published'
+           THEN lf.home_team_id END
+    ) AS canonical_home_team_id,
+    coalesce(
+      ts_a.canonical_id,
+      CASE WHEN x.review_status IN ('approved', 'auto_approved')
+             AND lf.publication_state = 'published'
+           THEN lf.away_team_id END
+    ) AS canonical_away_team_id,
+    CASE
+      WHEN ts_h.canonical_id IS NOT NULL THEN 'approved_source_crosswalk'
+      WHEN x.review_status IN ('approved', 'auto_approved') AND lf.home_team_id IS NOT NULL THEN 'approved_fixture_link'
+    END AS home_identity_method,
+    CASE
+      WHEN ts_a.canonical_id IS NOT NULL THEN 'approved_source_crosswalk'
+      WHEN x.review_status IN ('approved', 'auto_approved') AND lf.away_team_id IS NOT NULL THEN 'approved_fixture_link'
+    END AS away_identity_method,
     x.local_fixture_id
   FROM raw_src.tm_games g
   LEFT JOIN control.competition_provider_map p
@@ -161,11 +173,8 @@ WITH team_source_map AS (
    AND p.provider_league_code = g.competition_id
   LEFT JOIN team_source_map ts_h ON ts_h.source_entity_id = g.home_club_id
   LEFT JOIN team_source_map ts_a ON ts_a.source_entity_id = g.away_club_id
-  LEFT JOIN team_name_map tn_h
-    ON tn_h.normalized_name = lower(regexp_replace(unaccent(g.home_club_name), '[^a-zA-Z0-9]+', '', 'g'))
-  LEFT JOIN team_name_map tn_a
-    ON tn_a.normalized_name = lower(regexp_replace(unaccent(g.away_club_name), '[^a-zA-Z0-9]+', '', 'g'))
   LEFT JOIN control.tm_game_fixture_xref x ON x.tm_game_id = g.game_id
+  LEFT JOIN mart_v2.fact_match lf ON lf.match_id = x.local_fixture_id
   ORDER BY g.game_id, g.ingested_at DESC NULLS LAST
 )
 SELECT * FROM tm_games_prepared;
@@ -203,7 +212,9 @@ SELECT
   'transfermarkt',
   p.ingested_at,
   jsonb_build_object('competition_provider_id', p.competition_id, 'source_season_label', p.season,
-                     'round', p.round, 'game_url', p.url, 'linked_fixture_id', p.local_fixture_id),
+                     'round', p.round, 'game_url', p.url, 'linked_fixture_id', p.local_fixture_id,
+                     'home_identity_method', p.home_identity_method,
+                     'away_identity_method', p.away_identity_method),
   :rebuild_rebuild_run_id
 FROM tmp_tm_games_prepared p
 WHERE p.local_fixture_id IS NULL
@@ -240,20 +251,14 @@ WITH dataset_team_map AS (
     AND mapping_state = 'approved'
     AND canonical_entity_id ~ '^[0-9]+$'
   ORDER BY lower(regexp_replace(unaccent(source_entity_id), '[^a-zA-Z0-9]+', '', 'g')), confidence DESC NULLS LAST
-), dataset_name_map AS (
-  SELECT DISTINCT ON (lower(regexp_replace(unaccent(team_name), '[^a-zA-Z0-9]+', '', 'g')))
-    lower(regexp_replace(unaccent(team_name), '[^a-zA-Z0-9]+', '', 'g')) AS normalized_name,
-    team_id
-  FROM mart_v2.dim_team
-  ORDER BY lower(regexp_replace(unaccent(team_name), '[^a-zA-Z0-9]+', '', 'g')), team_id
 ), dataset_matches AS (
   SELECT
     x.canonical_external_match_id,
     x.competition_key,
     x.match_date,
     bm.*,
-    coalesce(dm_h.canonical_id, da_h.canonical_id, dn_h.team_id) AS canonical_home_team_id,
-    coalesce(dm_a.canonical_id, da_a.canonical_id, dn_a.team_id) AS canonical_away_team_id
+    coalesce(dm_h.canonical_id, da_h.canonical_id) AS canonical_home_team_id,
+    coalesce(dm_a.canonical_id, da_a.canonical_id) AS canonical_away_team_id
   FROM control.external_match_publication_xref x
   JOIN raw_src.brasileirao_matches bm ON bm.match_id = x.source_entity_id
   LEFT JOIN dataset_team_map dm_h
@@ -264,10 +269,6 @@ WITH dataset_team_map AS (
     ON da_h.normalized_name = lower(regexp_replace(unaccent(bm.home_team_name), '[^a-zA-Z0-9]+', '', 'g'))
   LEFT JOIN dataset_alias_map da_a
     ON da_a.normalized_name = lower(regexp_replace(unaccent(bm.away_team_name), '[^a-zA-Z0-9]+', '', 'g'))
-  LEFT JOIN dataset_name_map dn_h
-    ON dn_h.normalized_name = lower(regexp_replace(unaccent(bm.home_team_name), '[^a-zA-Z0-9]+', '', 'g'))
-  LEFT JOIN dataset_name_map dn_a
-    ON dn_a.normalized_name = lower(regexp_replace(unaccent(bm.away_team_name), '[^a-zA-Z0-9]+', '', 'g'))
   WHERE x.source = 'dataset_brasileirao'
     AND x.publication_status = 'publishable'
 )
