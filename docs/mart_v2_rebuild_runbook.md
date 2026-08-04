@@ -27,6 +27,13 @@ reconstruível; a API usa somente `mart_v2`/`serving_v2` quando
 `BFF_DATA_LAYER=serving_v2`. O modo `legacy` continua disponível para
 rollback local.
 
+O produto Copa do Mundo não é uma segunda base: seus jogos, fases, grupos,
+classificações, gols, elencos, seleções, rankings e finais são lidos de
+`mart_v2`. O adaptador da API preserva as particularidades editoriais do
+produto, mas não inventa campos ausentes: uma final empatada sem desempate
+publicado permanece com vencedor desconhecido. Assets disponíveis em
+`serving_v2.team_profile` continuam expostos no contrato visual.
+
 ## Execução
 
 ```powershell
@@ -50,6 +57,8 @@ materialização final, evitando duas transformações concorrentes.
 - 85 fingerprints físicos/lógicos presentes no run validado;
 - duas execuções comparáveis com fingerprints idênticos;
 - contratos dbt verdes e API/frontend verdes;
+- rotas públicas de Copa do Mundo verificadas: hub, edição, rankings, finais,
+  seleções e detalhe de seleção;
 - busca p95 abaixo de 300 ms e perfil p95 abaixo de 500 ms no smoke local
   aquecido.
 
@@ -74,6 +83,16 @@ No smoke frio, `/health` pode responder `503 degraded` enquanto o pool abre a
 primeira conexão; depois do aquecimento, `/health` e todas as rotas públicas
 verificadas responderam `200`. Isso é o estado de prontidão do ambiente local,
 não uma troca de dados ou fallback para a camada legada.
+
+O smoke visual final confirmou as rotas `/copa-do-mundo`,
+`/copa-do-mundo/2022`, `/copa-do-mundo/rankings`,
+`/copa-do-mundo/finais` e `/copa-do-mundo/selecoes/3000000001213`. A edição
+2022 expõe 64 partidas, oito grupos e cinco fases eliminatórias; a final
+permanece 3–3 porque a mart não contém o desempate correspondente.
+
+O proxy BFF local mantém GETs públicos em cache. Depois de alterar o contrato
+da API, recrie ou invalide o runtime do frontend antes do smoke para não
+confundir resposta antiga em cache com regressão de dados.
 
 ## Rollback
 
