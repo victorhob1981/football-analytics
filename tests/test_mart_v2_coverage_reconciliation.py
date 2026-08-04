@@ -44,3 +44,11 @@ def test_validation_runbook_excludes_restore() -> None:
 
     for forbidden in ("pg_dump", "pg_restore", "createdb", "restore_validation", "restore_database"):
         assert forbidden not in script
+
+
+def test_rebuild_runbook_does_not_reuse_a_hardcoded_run_key() -> None:
+    script = (ROOT / "tools/rebuild_mart_v2.ps1").read_text(encoding="utf-8")
+
+    assert '[string]$RunKey = ""' in script
+    assert "if (-not $RunKey)" in script
+    assert "Get-Date -Format" in script
