@@ -116,6 +116,9 @@ CREATE TABLE IF NOT EXISTS control.publication_decision (
   UNIQUE (entity_type, entity_key)
 );
 
+ALTER TABLE control.match_reconciliation SET (autovacuum_enabled = false);
+ALTER TABLE control.publication_decision SET (autovacuum_enabled = false);
+
 CREATE TABLE IF NOT EXISTS control.coverage_snapshot (
   coverage_snapshot_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   rebuild_run_id       bigint REFERENCES control.rebuild_run(rebuild_run_id),
@@ -132,6 +135,46 @@ CREATE TABLE IF NOT EXISTS control.coverage_snapshot (
   UNIQUE (rebuild_run_id, entity_type, source_system, competition_key, edition_key)
 );
 
+CREATE TABLE IF NOT EXISTS control.coverage_reconciliation (
+  rebuild_run_id       bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
+  scope_name           text NOT NULL,
+  source_system        text NOT NULL,
+  competition_key      text NOT NULL DEFAULT '',
+  edition_key          text NOT NULL DEFAULT '',
+  reference_rows       bigint NOT NULL DEFAULT 0,
+  observed_rows        bigint NOT NULL DEFAULT 0,
+  published_rows       bigint NOT NULL DEFAULT 0,
+  quarantined_rows     bigint NOT NULL DEFAULT 0,
+  pending_rows         bigint NOT NULL DEFAULT 0,
+  disposition          text NOT NULL CHECK (disposition IN ('complete', 'explained', 'quarantined', 'pending')),
+  evidence             jsonb NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (rebuild_run_id, scope_name, source_system, competition_key, edition_key)
+);
+
+CREATE TABLE IF NOT EXISTS control.rebuild_fingerprint (
+  rebuild_fingerprint_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  rebuild_run_id         bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
+  object_name            text NOT NULL,
+  row_count              bigint NOT NULL,
+  fingerprint            text NOT NULL,
+  metadata               jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (rebuild_run_id, object_name)
+);
+
+CREATE TABLE IF NOT EXISTS control.restore_validation (
+  restore_validation_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  rebuild_run_id        bigint REFERENCES control.rebuild_run(rebuild_run_id),
+  backup_path           text NOT NULL,
+  restore_database      text NOT NULL,
+  status                text NOT NULL CHECK (status IN ('running', 'succeeded', 'failed')),
+  started_at            timestamptz NOT NULL DEFAULT now(),
+  finished_at           timestamptz,
+  source_counts         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  restored_counts       jsonb NOT NULL DEFAULT '{}'::jsonb,
+  log_path              text,
+  metadata              jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
 INSERT INTO control.source_system (source_system, source_kind, priority, description)
 VALUES
   ('sportmonks', 'provider', 10, 'Primary structured fixture and detail provider'),
@@ -146,3 +189,41 @@ ON CONFLICT (source_system) DO UPDATE
 SET source_kind = EXCLUDED.source_kind,
     priority = EXCLUDED.priority,
     description = EXCLUDED.description;
+
+-- The candidate keeps these legacy control registries locally because later
+-- rebuild phases need stable joins. Their source remains the read-only FDW.
+CREATE TABLE IF NOT EXISTS control.team_identity AS
+SELECT * FROM raw_reference.team_identity WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.competitions AS
+SELECT * FROM raw_reference.competitions WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.competition_provider_map AS
+SELECT * FROM raw_reference.competition_provider_map WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.external_match_publication_xref AS
+SELECT * FROM raw_reference.external_match_publication_xref WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.tm_game_fixture_xref AS
+SELECT * FROM raw_reference.tm_game_fixture_xref WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.elo_match_xref AS
+SELECT * FROM raw_reference.elo_match_xref WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.brasileirao_fixture_xref AS
+SELECT * FROM raw_reference.brasileirao_fixture_xref WITH NO DATA;
+CREATE TABLE IF NOT EXISTS control.season_catalog AS
+SELECT * FROM raw_reference.season_catalog WITH NO DATA;
+
+TRUNCATE TABLE
+  control.team_identity,
+  control.competitions,
+  control.competition_provider_map,
+  control.external_match_publication_xref,
+  control.tm_game_fixture_xref,
+  control.elo_match_xref,
+  control.brasileirao_fixture_xref,
+  control.season_catalog;
+
+INSERT INTO control.team_identity SELECT * FROM raw_reference.team_identity;
+INSERT INTO control.competitions SELECT * FROM raw_reference.competitions;
+INSERT INTO control.competition_provider_map SELECT * FROM raw_reference.competition_provider_map;
+INSERT INTO control.external_match_publication_xref SELECT * FROM raw_reference.external_match_publication_xref;
+INSERT INTO control.tm_game_fixture_xref SELECT * FROM raw_reference.tm_game_fixture_xref;
+INSERT INTO control.elo_match_xref SELECT * FROM raw_reference.elo_match_xref;
+INSERT INTO control.brasileirao_fixture_xref SELECT * FROM raw_reference.brasileirao_fixture_xref;
+INSERT INTO control.season_catalog SELECT * FROM raw_reference.season_catalog;

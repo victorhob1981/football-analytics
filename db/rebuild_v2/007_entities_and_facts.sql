@@ -9,6 +9,11 @@ FROM control.rebuild_run
 WHERE run_key = :'rebuild_run_key'\gset rebuild_
 
 DROP TABLE IF EXISTS mart_v2.fact_world_cup_squad CASCADE;
+DROP TABLE IF EXISTS mart_v2.fact_statsbomb_freeze_frame CASCADE;
+DROP TABLE IF EXISTS mart_v2.fact_statsbomb_360_frame CASCADE;
+DROP TABLE IF EXISTS mart_v2.fact_statsbomb_event CASCADE;
+DROP TABLE IF EXISTS mart_v2.fact_match_odds CASCADE;
+DROP TABLE IF EXISTS mart_v2.fact_match_elo_team_stats CASCADE;
 DROP TABLE IF EXISTS mart_v2.team_asset CASCADE;
 DROP TABLE IF EXISTS mart_v2.fact_world_cup_goal CASCADE;
 DROP TABLE IF EXISTS mart_v2.fact_match_event CASCADE;
@@ -230,12 +235,173 @@ CREATE TABLE mart_v2.fact_world_cup_squad (
   PRIMARY KEY (edition_key, team_id, player_key, source_system, source_record_key)
 );
 
+CREATE TABLE mart_v2.fact_match_elo_team_stats (
+  elo_team_stat_key  text PRIMARY KEY,
+  match_id           bigint NOT NULL REFERENCES mart_v2.fact_match(match_id),
+  team_id            bigint REFERENCES mart_v2.dim_team(team_id),
+  side               text NOT NULL CHECK (side IN ('home', 'away')),
+  elo_rating         numeric,
+  form3              numeric,
+  form5              numeric,
+  shots              numeric,
+  shots_on_target    numeric,
+  fouls              numeric,
+  corners            numeric,
+  yellow_cards       numeric,
+  red_cards          numeric,
+  half_time_goals    numeric,
+  full_time_goals    numeric,
+  ft_result          text,
+  ht_result          text,
+  source_system      text NOT NULL,
+  source_record_key  text NOT NULL,
+  metadata           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  rebuild_run_id     bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
+  UNIQUE (match_id, side, source_system, source_record_key)
+);
+
+CREATE TABLE mart_v2.fact_match_odds (
+  odds_key           text PRIMARY KEY,
+  match_id           bigint NOT NULL REFERENCES mart_v2.fact_match(match_id),
+  odd_home           numeric,
+  odd_draw           numeric,
+  odd_away           numeric,
+  max_home           numeric,
+  max_draw           numeric,
+  max_away           numeric,
+  over25             numeric,
+  under25            numeric,
+  max_over25         numeric,
+  max_under25        numeric,
+  handicap_size      numeric,
+  handicap_home      numeric,
+  handicap_away      numeric,
+  source_system      text NOT NULL,
+  source_record_key  text NOT NULL,
+  metadata           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  rebuild_run_id     bigint NOT NULL REFERENCES control.rebuild_run(rebuild_run_id),
+  UNIQUE (match_id, source_system, source_record_key)
+);
+
+CREATE TABLE mart_v2.fact_statsbomb_event (
+  event_key             text NOT NULL,
+  match_id              bigint NOT NULL,
+  event_index           integer,
+  period                integer,
+  event_timestamp       text,
+  minute                integer,
+  second                numeric,
+  event_type            text,
+  possession            integer,
+  possession_team_id    bigint,
+  team_id               bigint,
+  player_key            text,
+  play_pattern          text,
+  source_event_id       text NOT NULL,
+  source_team_id        bigint,
+  source_player_id      bigint,
+  match_identity_status text,
+  player_identity_status text,
+  source_system         text NOT NULL,
+  metadata              jsonb NOT NULL DEFAULT '{}'::jsonb,
+  rebuild_run_id        bigint NOT NULL
+) PARTITION BY HASH (event_key);
+
+CREATE TABLE mart_v2.fact_statsbomb_360_frame (
+  frame_key         text NOT NULL,
+  match_id          bigint NOT NULL,
+  event_uuid        text NOT NULL,
+  visible_area      jsonb,
+  source_system     text NOT NULL,
+  source_record_key text NOT NULL,
+  rebuild_run_id    bigint NOT NULL
+) PARTITION BY HASH (frame_key);
+
+CREATE TABLE mart_v2.fact_statsbomb_freeze_frame (
+  freeze_frame_key   text NOT NULL,
+  match_id           bigint NOT NULL,
+  event_uuid         text NOT NULL,
+  freeze_frame_index integer NOT NULL,
+  teammate           boolean,
+  actor              boolean,
+  keeper             boolean,
+  location_x         numeric,
+  location_y         numeric,
+  source_system      text NOT NULL,
+  source_record_key  text NOT NULL,
+  rebuild_run_id     bigint NOT NULL
+) PARTITION BY HASH (freeze_frame_key);
+
+DO $$
+DECLARE
+  i integer;
+BEGIN
+  FOR i IN 0..15 LOOP
+    EXECUTE format(
+      'CREATE TABLE mart_v2.fact_statsbomb_event_p%s PARTITION OF mart_v2.fact_statsbomb_event FOR VALUES WITH (MODULUS 16, REMAINDER %s)',
+      lpad(i::text, 2, '0'), i
+    );
+    EXECUTE format(
+      'CREATE TABLE mart_v2.fact_statsbomb_360_frame_p%s PARTITION OF mart_v2.fact_statsbomb_360_frame FOR VALUES WITH (MODULUS 16, REMAINDER %s)',
+      lpad(i::text, 2, '0'), i
+    );
+    EXECUTE format(
+      'CREATE TABLE mart_v2.fact_statsbomb_freeze_frame_p%s PARTITION OF mart_v2.fact_statsbomb_freeze_frame FOR VALUES WITH (MODULUS 16, REMAINDER %s)',
+      lpad(i::text, 2, '0'), i
+    );
+  END LOOP;
+END $$;
+
 CREATE INDEX fact_match_player_stats_v2_match_idx ON mart_v2.fact_match_player_stats (match_id, team_id);
 CREATE INDEX fact_match_player_stats_v2_player_idx ON mart_v2.fact_match_player_stats (player_key, match_id);
 CREATE INDEX fact_lineup_v2_match_idx ON mart_v2.fact_lineup (match_id, team_id);
 CREATE INDEX fact_standing_v2_edition_idx ON mart_v2.fact_standing (edition_key, position);
 CREATE INDEX fact_event_v2_match_idx ON mart_v2.fact_match_event (match_id, minute);
 CREATE INDEX fact_wc_goal_v2_match_idx ON mart_v2.fact_world_cup_goal (match_id);
+CREATE INDEX fact_match_elo_v2_match_idx ON mart_v2.fact_match_elo_team_stats (match_id, team_id);
+CREATE INDEX fact_match_odds_v2_match_idx ON mart_v2.fact_match_odds (match_id);
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT n.nspname, c.relname
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'mart_v2'
+      AND c.relkind = 'r'
+  LOOP
+    EXECUTE format(
+      'ALTER TABLE %I.%I SET (autovacuum_enabled = false)',
+      r.nspname, r.relname
+    );
+  END LOOP;
+END $$;
+
+DROP TABLE IF EXISTS tmp_statsbomb_events;
+CREATE TEMP TABLE tmp_statsbomb_events ON COMMIT PRESERVE ROWS AS
+SELECT
+  source_name,
+  match_id,
+  event_id,
+  event_index,
+  period,
+  event_timestamp,
+  minute,
+  second,
+  event_type,
+  possession,
+  possession_team_id,
+  play_pattern,
+  source_team_id,
+  source_player_id,
+  source_player_name,
+  local_team_id,
+  match_identity_status,
+  player_identity_status
+FROM raw_src.statsbomb_events;
+CREATE INDEX tmp_statsbomb_events_match_idx ON tmp_statsbomb_events (match_id);
+ANALYZE tmp_statsbomb_events;
 
 WITH player_source AS (
   SELECT
@@ -284,6 +450,18 @@ WITH player_source AS (
     jsonb_build_object('player_identity_status', l.player_identity_status)
   FROM raw_src.statsbomb_lineups l
   WHERE l.source_player_id IS NOT NULL
+  UNION ALL
+  SELECT DISTINCT
+    'statsbomb_open_data',
+    e.source_player_id::text,
+    e.source_player_name,
+    NULL::text,
+    NULL::date,
+    NULL::text,
+    NULL::text,
+    jsonb_build_object('source_table', 'raw.statsbomb_events')
+  FROM tmp_statsbomb_events e
+  WHERE e.source_player_id IS NOT NULL
   UNION ALL
   SELECT DISTINCT
     'sportmonks',
@@ -456,6 +634,283 @@ SET asset_url = EXCLUDED.asset_url,
     metadata = EXCLUDED.metadata,
     rebuild_run_id = EXCLUDED.rebuild_run_id;
 
+DROP TABLE IF EXISTS tmp_elo_source;
+DROP TABLE IF EXISTS tmp_elo_raw;
+CREATE TEMP TABLE tmp_elo_raw ON COMMIT PRESERVE ROWS AS
+SELECT * FROM raw_src.elo_matches;
+CREATE INDEX tmp_elo_raw_record_hash_idx ON tmp_elo_raw (record_hash);
+ANALYZE tmp_elo_raw;
+
+CREATE TEMP TABLE tmp_elo_source ON COMMIT PRESERVE ROWS AS
+SELECT
+  s.source_match_id,
+  s.canonical_match_id,
+  s.source_home_team_id::bigint AS home_team_id,
+  s.source_away_team_id::bigint AS away_team_id,
+  e.*
+FROM mart_v2.match_source s
+JOIN mart_v2.fact_match f
+  ON f.match_id = s.canonical_match_id
+ AND f.publication_state = 'published'
+JOIN tmp_elo_raw e ON e.record_hash = s.source_match_id
+WHERE s.source_system = 'eloratings'
+  AND s.reconciliation_state = 'approved';
+
+CREATE INDEX tmp_elo_source_match_idx ON tmp_elo_source (source_match_id);
+ANALYZE tmp_elo_source;
+
+WITH elo_source AS (
+  SELECT * FROM tmp_elo_source
+)
+INSERT INTO mart_v2.fact_match_elo_team_stats (
+  elo_team_stat_key, match_id, team_id, side, elo_rating, form3, form5,
+  shots, shots_on_target, fouls, corners, yellow_cards, red_cards,
+  half_time_goals, full_time_goals, ft_result, ht_result, source_system,
+  source_record_key, metadata, rebuild_run_id
+)
+SELECT
+  md5('elo-team:' || source_match_id || ':home'),
+  canonical_match_id,
+  home_team_id,
+  'home',
+  NULLIF(trim(home_elo_raw), '')::numeric,
+  NULLIF(trim(form3_home_raw), '')::numeric,
+  NULLIF(trim(form5_home_raw), '')::numeric,
+  NULLIF(trim(home_shots_raw), '')::numeric,
+  NULLIF(trim(home_target_raw), '')::numeric,
+  NULLIF(trim(home_fouls_raw), '')::numeric,
+  NULLIF(trim(home_corners_raw), '')::numeric,
+  NULLIF(trim(home_yellow_raw), '')::numeric,
+  NULLIF(trim(home_red_raw), '')::numeric,
+  NULLIF(trim(ht_home_raw), '')::numeric,
+  NULLIF(trim(ft_home_raw), '')::numeric,
+  ft_result,
+  ht_result,
+  'eloratings',
+  source_match_id,
+  jsonb_build_object('division', division, 'source_file', source_file),
+  :rebuild_rebuild_run_id
+FROM elo_source
+UNION ALL
+SELECT
+  md5('elo-team:' || source_match_id || ':away'),
+  canonical_match_id,
+  away_team_id,
+  'away',
+  NULLIF(trim(away_elo_raw), '')::numeric,
+  NULLIF(trim(form3_away_raw), '')::numeric,
+  NULLIF(trim(form5_away_raw), '')::numeric,
+  NULLIF(trim(away_shots_raw), '')::numeric,
+  NULLIF(trim(away_target_raw), '')::numeric,
+  NULLIF(trim(away_fouls_raw), '')::numeric,
+  NULLIF(trim(away_corners_raw), '')::numeric,
+  NULLIF(trim(away_yellow_raw), '')::numeric,
+  NULLIF(trim(away_red_raw), '')::numeric,
+  NULLIF(trim(ht_away_raw), '')::numeric,
+  NULLIF(trim(ft_away_raw), '')::numeric,
+  ft_result,
+  ht_result,
+  'eloratings',
+  source_match_id,
+  jsonb_build_object('division', division, 'source_file', source_file),
+  :rebuild_rebuild_run_id
+FROM elo_source
+ON CONFLICT DO NOTHING;
+
+WITH elo_source AS (
+  SELECT * FROM tmp_elo_source
+)
+INSERT INTO mart_v2.fact_match_odds (
+  odds_key, match_id, odd_home, odd_draw, odd_away, max_home, max_draw,
+  max_away, over25, under25, max_over25, max_under25, handicap_size,
+  handicap_home, handicap_away, source_system, source_record_key,
+  metadata, rebuild_run_id
+)
+SELECT
+  md5('elo-odds:' || source_match_id),
+  canonical_match_id,
+  NULLIF(trim(odd_home_raw), '')::numeric,
+  NULLIF(trim(odd_draw_raw), '')::numeric,
+  NULLIF(trim(odd_away_raw), '')::numeric,
+  NULLIF(trim(max_home_raw), '')::numeric,
+  NULLIF(trim(max_draw_raw), '')::numeric,
+  NULLIF(trim(max_away_raw), '')::numeric,
+  NULLIF(trim(over25_raw), '')::numeric,
+  NULLIF(trim(under25_raw), '')::numeric,
+  NULLIF(trim(max_over25_raw), '')::numeric,
+  NULLIF(trim(max_under25_raw), '')::numeric,
+  NULLIF(trim(handi_size_raw), '')::numeric,
+  NULLIF(trim(handi_home_raw), '')::numeric,
+  NULLIF(trim(handi_away_raw), '')::numeric,
+  'eloratings',
+  source_match_id,
+  jsonb_build_object('division', division, 'source_file', source_file),
+  :rebuild_rebuild_run_id
+FROM elo_source
+ON CONFLICT DO NOTHING;
+
+ANALYZE mart_v2.match_source, mart_v2.fact_match, mart_v2.dim_team, mart_v2.dim_player;
+
+WITH team_map AS (
+  SELECT DISTINCT ON (source_entity_id)
+    source_entity_id,
+    canonical_entity_id::bigint AS canonical_id
+  FROM control.entity_source_identity
+  WHERE source_system = 'statsbomb_open_data'
+    AND entity_type = 'team'
+    AND mapping_state = 'approved'
+  ORDER BY source_entity_id, confidence DESC NULLS LAST
+), event_source AS (
+  SELECT
+    e.*,
+    ms.canonical_match_id,
+    coalesce(team_map.canonical_id, CASE WHEN dt.team_id IS NOT NULL THEN e.local_team_id END) AS canonical_team_id,
+    possession_map.canonical_id AS canonical_possession_team_id
+  FROM tmp_statsbomb_events e
+  JOIN mart_v2.match_source ms
+    ON ms.source_system = 'statsbomb_open_data'
+   AND ms.source_match_id = e.match_id::text
+   AND ms.reconciliation_state = 'approved'
+  JOIN mart_v2.fact_match fm
+    ON fm.match_id = ms.canonical_match_id
+   AND fm.publication_state = 'published'
+  LEFT JOIN team_map
+    ON team_map.source_entity_id = coalesce(e.source_team_id, e.local_team_id)::text
+  LEFT JOIN team_map possession_map
+    ON possession_map.source_entity_id = e.possession_team_id::text
+  LEFT JOIN mart_v2.dim_team dt ON dt.team_id = e.local_team_id
+)
+INSERT INTO mart_v2.fact_statsbomb_event (
+  event_key, match_id, event_index, period, event_timestamp, minute, second,
+  event_type, possession, possession_team_id, team_id, player_key,
+  play_pattern, source_event_id, source_team_id, source_player_id,
+  match_identity_status, player_identity_status, source_system, metadata,
+  rebuild_run_id
+)
+SELECT
+  md5('statsbomb:event:' || e.match_id::text || ':' || e.event_id),
+  e.canonical_match_id,
+  e.event_index,
+  e.period,
+  e.event_timestamp,
+  e.minute,
+  e.second,
+  e.event_type,
+  e.possession,
+  e.canonical_possession_team_id,
+  e.canonical_team_id,
+  p.player_key,
+  e.play_pattern,
+  e.event_id,
+  e.source_team_id,
+  e.source_player_id,
+  e.match_identity_status,
+  e.player_identity_status,
+  'statsbomb_open_data',
+  jsonb_build_object('source_name', e.source_name, 'source_table', 'raw.statsbomb_events'),
+  :rebuild_rebuild_run_id
+FROM event_source e
+LEFT JOIN mart_v2.dim_player p
+  ON p.player_key = md5('player:statsbomb_open_data:' || e.source_player_id::text);
+
+-- Batch the append-only StatsBomb 360 loads. Docker Desktop bind mounts on
+-- Windows can expose a relation EOF during a single very large append; sixteen
+-- independent statements keep each write bounded while preserving all rows.
+SELECT format($load$
+INSERT INTO mart_v2.fact_statsbomb_360_frame (
+  frame_key, match_id, event_uuid, visible_area, source_system,
+  source_record_key, rebuild_run_id
+)
+SELECT
+  md5('statsbomb:360:' || f.match_id::text || ':' || fr.event_uuid),
+  ms.canonical_match_id,
+  fr.event_uuid,
+  fr.visible_area,
+  'statsbomb_open_data',
+  fr.match_id::text || ':' || fr.event_uuid,
+  %s
+FROM raw_src.statsbomb_three_sixty_frames fr
+JOIN mart_v2.match_source ms
+  ON ms.source_system = 'statsbomb_open_data'
+ AND ms.source_match_id = fr.match_id::text
+ AND ms.reconciliation_state = 'approved'
+JOIN mart_v2.fact_match f
+  ON f.match_id = ms.canonical_match_id
+ AND f.publication_state = 'published'
+WHERE mod(fr.match_id, 16) = %s;
+$load$, :rebuild_rebuild_run_id, i)
+FROM generate_series(0, 15) AS g(i);
+\gexec
+
+SELECT format($load$
+INSERT INTO mart_v2.fact_statsbomb_freeze_frame (
+  freeze_frame_key, match_id, event_uuid, freeze_frame_index, teammate,
+  actor, keeper, location_x, location_y, source_system, source_record_key,
+  rebuild_run_id
+)
+SELECT
+  md5('statsbomb:freeze:' || ff.match_id::text || ':' || ff.event_uuid || ':' || ff.freeze_frame_index::text),
+  ms.canonical_match_id,
+  ff.event_uuid,
+  ff.freeze_frame_index,
+  ff.teammate,
+  ff.actor,
+  ff.keeper,
+  ff.location_x,
+  ff.location_y,
+  'statsbomb_open_data',
+  ff.match_id::text || ':' || ff.event_uuid || ':' || ff.freeze_frame_index::text,
+  %s
+FROM raw_src.statsbomb_three_sixty_freeze_frame ff
+JOIN mart_v2.match_source ms
+  ON ms.source_system = 'statsbomb_open_data'
+ AND ms.source_match_id = ff.match_id::text
+ AND ms.reconciliation_state = 'approved'
+JOIN mart_v2.fact_match f
+  ON f.match_id = ms.canonical_match_id
+ AND f.publication_state = 'published'
+WHERE mod(ff.match_id, 16) = %s;
+$load$, :rebuild_rebuild_run_id, i)
+FROM generate_series(0, 15) AS g(i);
+\gexec
+
+-- Build constraints and serving indexes after the large append-only loads. The
+-- source keys are structurally unique; deferring these checks avoids millions
+-- of random index/FK writes on the Docker bind-mounted candidate volume.
+ALTER TABLE mart_v2.fact_statsbomb_event
+  ADD CONSTRAINT fact_statsbomb_event_pkey PRIMARY KEY (event_key),
+  ADD CONSTRAINT fact_statsbomb_event_match_fkey FOREIGN KEY (match_id)
+    REFERENCES mart_v2.fact_match(match_id),
+  ADD CONSTRAINT fact_statsbomb_event_possession_team_fkey FOREIGN KEY (possession_team_id)
+    REFERENCES mart_v2.dim_team(team_id),
+  ADD CONSTRAINT fact_statsbomb_event_team_fkey FOREIGN KEY (team_id)
+    REFERENCES mart_v2.dim_team(team_id),
+  ADD CONSTRAINT fact_statsbomb_event_player_fkey FOREIGN KEY (player_key)
+    REFERENCES mart_v2.dim_player(player_key),
+  ADD CONSTRAINT fact_statsbomb_event_rebuild_run_fkey FOREIGN KEY (rebuild_run_id)
+    REFERENCES control.rebuild_run(rebuild_run_id);
+
+ALTER TABLE mart_v2.fact_statsbomb_360_frame
+  ADD CONSTRAINT fact_statsbomb_360_frame_pkey PRIMARY KEY (frame_key),
+  ADD CONSTRAINT fact_statsbomb_360_frame_match_fkey FOREIGN KEY (match_id)
+    REFERENCES mart_v2.fact_match(match_id),
+  ADD CONSTRAINT fact_statsbomb_360_frame_rebuild_run_fkey FOREIGN KEY (rebuild_run_id)
+    REFERENCES control.rebuild_run(rebuild_run_id);
+
+ALTER TABLE mart_v2.fact_statsbomb_freeze_frame
+  ADD CONSTRAINT fact_statsbomb_freeze_frame_pkey PRIMARY KEY (freeze_frame_key),
+  ADD CONSTRAINT fact_statsbomb_freeze_frame_match_fkey FOREIGN KEY (match_id)
+    REFERENCES mart_v2.fact_match(match_id),
+  ADD CONSTRAINT fact_statsbomb_freeze_frame_rebuild_run_fkey FOREIGN KEY (rebuild_run_id)
+    REFERENCES control.rebuild_run(rebuild_run_id);
+
+CREATE INDEX fact_statsbomb_event_v2_match_idx
+  ON mart_v2.fact_statsbomb_event (match_id, event_index);
+CREATE INDEX fact_statsbomb_360_v2_match_idx
+  ON mart_v2.fact_statsbomb_360_frame (match_id, event_uuid);
+CREATE INDEX fact_statsbomb_freeze_v2_match_idx
+  ON mart_v2.fact_statsbomb_freeze_frame (match_id, event_uuid);
+
 WITH team_map AS (
   SELECT DISTINCT ON (source_entity_id)
     source_entity_id, canonical_entity_id::bigint AS canonical_id
@@ -487,13 +942,7 @@ JOIN mart_v2.fact_match fm ON fm.match_id = ms.fixture_id
 LEFT JOIN team_map tm ON tm.source_entity_id = ms.team_id::text
 ON CONFLICT DO NOTHING;
 
-WITH player_map AS (
-  SELECT DISTINCT ON (source_entity_id)
-    source_entity_id,
-    md5('player:sportmonks:' || source_entity_id) AS player_key
-  FROM control.entity_source_identity
-  WHERE false
-), team_map AS (
+WITH team_map AS (
   SELECT DISTINCT ON (source_entity_id)
     source_entity_id, canonical_entity_id::bigint AS canonical_id
   FROM control.entity_source_identity
