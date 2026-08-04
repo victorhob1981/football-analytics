@@ -498,7 +498,7 @@ INSERT INTO mart_v2.fact_match_tie (
   tie_key, match_id, leg_number, source_system, source_record_key, rebuild_run_id
 )
 SELECT
-  t.competition_key || ':' || t.season_label || ':' || t.tie_id,
+  dt.tie_key,
   f.match_id,
   t.leg_number::integer,
   'legacy_mart_reference',

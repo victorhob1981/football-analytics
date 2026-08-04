@@ -30,3 +30,11 @@ def test_dbt_serving_contract_declares_the_public_projections() -> None:
         "search_document",
         "team_profile",
     }
+
+
+def test_match_tie_links_use_the_resolved_dimension_key() -> None:
+    source = (ROOT / "db" / "rebuild_v2" / "006_match_dedup.sql").read_text(encoding="utf-8")
+    tie_link_section = source.split("INSERT INTO mart_v2.fact_match_tie", 1)[1].split("WITH tie_progression", 1)[0]
+
+    assert "dt.tie_key" in tie_link_section
+    assert "t.competition_key || ':' || t.season_label || ':' || t.tie_id" not in tie_link_section
