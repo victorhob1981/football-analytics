@@ -45,7 +45,7 @@ $dbtArguments = @(
     "-v", "${dbtProject}:/workspace:ro",
     $DbtImage,
     "run", "--project-dir", "/workspace", "--profiles-dir", "/workspace", "--target", "local",
-    "--vars", "{\"rebuild_run_id\": $runId}",
+    "--vars", ('{"rebuild_run_id": ' + $runId + '}'),
     "--target-path", "/tmp/dbt-target", "--log-path", "/tmp/dbt-logs"
 )
 $dbtOutput = @(& docker @dbtArguments 2>&1 | ForEach-Object { [string]$_ })
