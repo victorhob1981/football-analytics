@@ -2147,9 +2147,11 @@ def _world_cup_match_rows(season: str | None = None) -> list[dict[str, Any]]:
         params.append(list(candidates))
     return db_client.fetch_all(
         f"""
-        select m.*, e.season_label, c.competition_name,
+        select m.*, f.stage_key, f.round_key, f.group_key, f.venue_name,
+               e.season_label, c.competition_name,
                ht.team_name as home_team_name, at.team_name as away_team_name
         from serving_v2.match_catalog m
+        join mart_v2.fact_match f on f.match_id = m.match_id and f.publication_state = 'published'
         join mart_v2.dim_edition e on e.edition_key = m.edition_key
         join mart_v2.dim_competition c on c.competition_key = m.competition_key
         join mart_v2.dim_team ht on ht.team_id = m.home_team_id
@@ -2164,16 +2166,377 @@ def _world_cup_match_rows(season: str | None = None) -> list[dict[str, Any]]:
 def _world_cup_team_ref(team_id: Any, name: Any) -> dict[str, str] | None:
     if team_id is None:
         return None
-    return {"teamId": str(team_id), "teamName": name or "Seleção indisponível"}
+    team_id_text = str(team_id)
+    team_name = name or "Seleção indisponível"
+    return {
+        "teamId": team_id_text,
+        "teamName": team_name,
+        "identity": {
+            "entityType": "team",
+            "competitionKey": "fifa_world_cup_mens",
+            "canonicalId": team_id_text,
+            "displayName": team_name,
+            "sourceId": team_id_text,
+            "sourceSystem": "mart_v2",
+            "confidence": "confirmed",
+            "editorialStatus": "canonical",
+        },
+    }
+
+
+def _world_cup_competition_ref() -> dict[str, Any]:
+    return {
+        "competitionKey": "fifa_world_cup_mens",
+        "competitionName": "Copa do Mundo FIFA",
+        "identity": {
+            "entityType": "competition",
+            "competitionKey": "fifa_world_cup_mens",
+            "canonicalId": "fifa_world_cup_mens",
+            "displayName": "Copa do Mundo FIFA",
+            "sourceId": "0",
+            "sourceSystem": "mart_v2",
+            "confidence": "confirmed",
+            "editorialStatus": "canonical",
+        },
+    }
+
+
+def _world_cup_stage_rows(edition_key: str) -> list[dict[str, Any]]:
+    return db_client.fetch_all(
+        """
+        select stage_key, stage_name, stage_id, sort_order
+        from mart_v2.dim_stage
+        where edition_key = %s
+        order by case lower(coalesce(stage_name, ''))
+                   when 'group stage' then 1
+                   when 'round of 16' then 2
+                   when 'quarter-finals' then 3
+                   when 'semi-finals' then 4
+                   when 'third place' then 5
+                   when 'final' then 6
+                   else 99 end,
+                 sort_order nulls last, stage_id;
+        """,
+        [edition_key],
+    )
+
+
+def _world_cup_group_stages(edition_key: str) -> list[dict[str, Any]]:
+    stage_rows = [
+        row for row in _world_cup_stage_rows(edition_key)
+        if str(row.get("stage_name") or "").lower() == "group stage"
+    ]
+    if not stage_rows:
+        return []
+
+    stage_keys = [row["stage_key"] for row in stage_rows]
+    group_rows = db_client.fetch_all(
+        """
+        select group_key, stage_key, group_name
+        from mart_v2.dim_group
+        where edition_key = %s and stage_key = any(%s)
+        order by group_name, group_key;
+        """,
+        [edition_key, stage_keys],
+    )
+    standing_rows = db_client.fetch_all(
+        """
+        select r.stage_key, r.round_name, g.group_key, g.group_name,
+               fs.position, fs.team_id, t.team_name, fs.games_played,
+               fs.wins, fs.draws, fs.losses, fs.goals_for, fs.goals_against,
+               fs.goal_difference, fs.points
+        from mart_v2.fact_standing fs
+        join mart_v2.dim_round r on r.round_key = fs.round_key
+        left join mart_v2.dim_group g
+          on g.edition_key = fs.edition_key
+         and g.stage_key = r.stage_key
+         and lower(g.group_name) = lower(r.round_name)
+        left join mart_v2.dim_team t on t.team_id = fs.team_id
+        where fs.edition_key = %s and r.stage_key = any(%s)
+        order by r.round_name, fs.position, t.team_name, fs.team_id;
+        """,
+        [edition_key, stage_keys],
+    )
+    groups_by_stage: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for row in group_rows:
+        group_key = str(row["group_key"])
+        groups_by_stage[str(row["stage_key"])][group_key] = {
+            "groupKey": group_key,
+            "groupLabel": row.get("group_name") or group_key,
+            "rows": [],
+        }
+
+    for row in standing_rows:
+        stage_key = str(row["stage_key"])
+        group_key = str(row.get("group_key") or row.get("group_name") or "group")
+        group = groups_by_stage.setdefault(stage_key, {}).setdefault(
+            group_key,
+            {"groupKey": group_key, "groupLabel": row.get("group_name") or row.get("round_name") or group_key, "rows": []},
+        )
+        team_ref = _world_cup_team_ref(row.get("team_id"), row.get("team_name"))
+        group["rows"].append(
+            {
+                "position": int(row.get("position") or len(group["rows"]) + 1),
+                "teamId": team_ref["teamId"] if team_ref else None,
+                "teamName": team_ref["teamName"] if team_ref else None,
+                "identity": team_ref.get("identity") if team_ref else None,
+                "matchesPlayed": int(row.get("games_played") or 0),
+                "wins": int(row.get("wins") or 0),
+                "draws": int(row.get("draws") or 0),
+                "losses": int(row.get("losses") or 0),
+                "goalsFor": int(row.get("goals_for") or 0),
+                "goalsAgainst": int(row.get("goals_against") or 0),
+                "goalDiff": int(row.get("goal_difference") or 0),
+                "points": int(row.get("points") or 0),
+                "advanced": int(row.get("position") or 99) <= 2,
+            }
+        )
+
+    return [
+        {
+            "stageKey": str(stage["stage_key"]),
+            "stageLabel": stage.get("stage_name") or "Group Stage",
+            "groups": list(groups_by_stage.get(str(stage["stage_key"]), {}).values()),
+        }
+        for stage in stage_rows
+    ]
+
+
+def _world_cup_scorers(edition_key: str | None = None) -> list[dict[str, Any]]:
+    params: list[Any] = []
+    clause = ""
+    if edition_key:
+        clause = "where g.edition_key = %s"
+        params.append(edition_key)
+    rows = db_client.fetch_all(
+        f"""
+        select g.player_key, max(p.display_name) as player_name,
+               g.team_id, max(t.team_name) as team_name, count(*)::int as goals
+        from mart_v2.fact_world_cup_goal g
+        left join mart_v2.dim_player p on p.player_key = g.player_key
+        left join mart_v2.dim_team t on t.team_id = g.team_id
+        {clause}
+        group by g.player_key, g.team_id
+        order by goals desc, player_name nulls last, g.player_key
+        limit 50;
+        """,
+        params,
+    )
+    items = []
+    for index, row in enumerate(rows, 1):
+        team_ref = _world_cup_team_ref(row.get("team_id"), row.get("team_name"))
+        player_id = str(row["player_key"]) if row.get("player_key") is not None else None
+        items.append(
+            {
+                "rank": index,
+                "playerId": player_id,
+                "identity": {"entityType": "player", "competitionKey": "fifa_world_cup_mens", "canonicalId": player_id, "displayName": row.get("player_name"), "sourceSystem": "mart_v2", "confidence": "confirmed", "editorialStatus": "canonical"} if player_id else None,
+                "imageAssetId": None,
+                "playerName": row.get("player_name"),
+                "profileUrl": f"/players/{player_id}" if player_id else None,
+                "teamId": team_ref["teamId"] if team_ref else None,
+                "teamName": team_ref["teamName"] if team_ref else None,
+                "teamIdentity": team_ref.get("identity") if team_ref else None,
+                "goals": int(row.get("goals") or 0),
+            }
+        )
+    return items
+
+
+def _world_cup_knockout_rounds(edition_key: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    stage_rows = [
+        row for row in _world_cup_stage_rows(edition_key)
+        if str(row.get("stage_name") or "").lower() != "group stage"
+    ]
+    rows_by_stage: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        if str(row.get("stage_name") or "").lower() != "group stage":
+            rows_by_stage[str(row.get("stage_key") or row.get("stage_name"))].append(row)
+
+    result = []
+    for stage in stage_rows:
+        stage_key = str(stage["stage_key"])
+        ties = []
+        for row in rows_by_stage.get(stage_key, []):
+            home_ref = _world_cup_team_ref(row.get("home_team_id"), row.get("home_team_name"))
+            away_ref = _world_cup_team_ref(row.get("away_team_id"), row.get("away_team_name"))
+            home_score = int(row["home_goals"]) if row.get("home_goals") is not None else None
+            away_score = int(row["away_goals"]) if row.get("away_goals") is not None else None
+            winner = home_ref if home_score is not None and away_score is not None and home_score > away_score else away_ref if home_score is not None and away_score is not None and away_score > home_score else None
+            runner_up = away_ref if winner is home_ref else home_ref if winner is away_ref else None
+            match_id = str(row["match_id"])
+            ties.append(
+                {
+                    "tieKey": f"match:{match_id}",
+                    "roundKey": str(row.get("round_key") or stage_key),
+                    "roundLabel": row.get("round_name") or stage.get("stage_name") or "Fase eliminatória",
+                    "winner": winner,
+                    "runnerUp": runner_up,
+                    "resolutionType": None if winner else "unresolved",
+                    "resolutionNote": "O placar regulamentar não identifica o vencedor do desempate." if winner is None else None,
+                    "matches": [
+                        {
+                            "fixtureId": match_id,
+                            "kickoffAt": str(row.get("match_date")) if row.get("match_date") is not None else None,
+                            "venueName": row.get("venue_name"),
+                            "homeTeam": home_ref,
+                            "awayTeam": away_ref,
+                            "homeScore": home_score,
+                            "awayScore": away_score,
+                            "shootout": None,
+                            "isReplay": False,
+                        }
+                    ],
+                }
+            )
+        result.append({"roundKey": stage_key, "roundLabel": stage.get("stage_name") or "Fase eliminatória", "ties": ties})
+    return result
+
+
+def _world_cup_format_flags(stage_names: set[str]) -> dict[str, bool]:
+    normalized = {name.strip().lower() for name in stage_names}
+    return {
+        "final": "final" in normalized,
+        "final_round": False,
+        "group_stage": "group stage" in normalized,
+        "round_of_16": "round of 16" in normalized,
+        "semi_finals": "semi-finals" in normalized,
+        "quarter_finals": "quarter-finals" in normalized,
+        "third_place_match": "third place" in normalized,
+        "second_group_stage": False,
+    }
+
+
+def _world_cup_navigation(season_label: str, editions: list[dict[str, Any]]) -> dict[str, Any]:
+    labels = [_public_season_label(row.get("season_label")) for row in editions]
+    current = _public_season_label(season_label)
+    try:
+        index = labels.index(current)
+    except ValueError:
+        index = -1
+
+    def item(row: dict[str, Any] | None) -> dict[str, Any] | None:
+        if row is None:
+            return None
+        label = _public_season_label(row.get("season_label")) or ""
+        year = int(label[:4]) if label[:4].isdigit() else 0
+        return {"seasonLabel": label, "year": year, "editionName": f"Copa do Mundo FIFA {label}"}
+
+    previous = editions[index + 1] if index >= 0 and index + 1 < len(editions) else None
+    next_edition = editions[index - 1] if index > 0 else None
+    return {"previousEdition": item(previous), "nextEdition": item(next_edition)}
+
+
+def _world_cup_edition_payload(
+    season_label: str,
+    rows: list[dict[str, Any]],
+    editions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    edition_key = str(rows[0]["edition_key"])
+    label = _public_season_label(rows[0].get("season_label")) or season_label
+    stage_names = {str(row.get("stage_name") or "") for row in rows}
+    final_resolution = _world_cup_final_resolution(rows)
+    final_row = final_resolution["row"]
+
+    scorers = _world_cup_scorers(edition_key)
+    group_stages = _world_cup_group_stages(edition_key)
+    matches_count = len(rows)
+    team_ids = {int(row[key]) for row in rows for key in ("home_team_id", "away_team_id") if row.get(key) is not None}
+    edition = {
+        "seasonLabel": label,
+        "year": int(label[:4]) if label[:4].isdigit() else None,
+        "editionName": f"Copa do Mundo FIFA {label}",
+        "hostCountry": None,
+        "hostCountryTeam": None,
+        "teamsCount": len(team_ids),
+        "matchesCount": matches_count,
+        "champion": final_resolution["champion"],
+        "runnerUp": final_resolution["runnerUp"],
+        "finalVenue": final_row.get("venue_name") if final_row else None,
+        "resolutionType": final_resolution["resolutionType"],
+        "coverage": {"status": "complete", "percentage": 100, "label": "Cobertura completa"},
+        "coverageNote": final_resolution["resolutionNote"] if final_resolution["resolutionNote"] else None,
+        "formatFlags": _world_cup_format_flags(stage_names),
+        "topScorer": scorers[0] if scorers else None,
+        "coverageNotes": [],
+    }
+    return {
+        "competition": _world_cup_competition_ref(),
+        "edition": edition,
+        "navigation": _world_cup_navigation(label, editions),
+        "groupStages": group_stages,
+        "knockoutRounds": _world_cup_knockout_rounds(edition_key, rows),
+        "scorers": scorers,
+        # Keep the compact legacy fields available while the frontend consumes
+        # the richer stage-aware contract above.
+        "matches": [_match_item(row) for row in rows],
+        "teams": list(
+            {
+                team_ref["teamId"]: team_ref
+                for row in rows
+                for team_ref in (
+                    _world_cup_team_ref(row.get("home_team_id"), row.get("home_team_name")),
+                    _world_cup_team_ref(row.get("away_team_id"), row.get("away_team_name")),
+                )
+                if team_ref is not None
+            }.values()
+        ),
+        "groups": [
+            group
+            for stage in group_stages
+            for group in stage["groups"]
+        ],
+        "updatedAt": None,
+    }
 
 
 @router.get("/api/v1/world-cup/hub")
 def get_world_cup_hub_v2(request: Request) -> dict[str, Any]:
     editions = _world_cup_editions()
-    payload_editions = [{"seasonLabel": _public_season_label(row["season_label"]), "year": int(str(row["season_label"])[:4]) if str(row["season_label"])[:4].isdigit() else None, "editionName": f"Copa do Mundo FIFA {_public_season_label(row['season_label'])}", "matchCount": int(row.get("published_match_count") or 0), "champion": None, "runnerUp": None} for row in editions]
     matches = _world_cup_match_rows()
-    summary = {"editionCount": len(payload_editions), "matchCount": len(matches), "teamCount": len({int(row["home_team_id"]) for row in matches} | {int(row["away_team_id"]) for row in matches}), "goalCount": sum(int(row.get("home_goals") or 0) + int(row.get("away_goals") or 0) for row in matches)}
-    return _response({"summary": summary, "editions": payload_editions, "competition": {"competitionKey": "fifa_world_cup_mens", "competitionName": "Copa do Mundo FIFA", "identity": {"entityType": "competition", "canonicalId": "fifa_world_cup_mens", "sourceId": "0", "sourceSystem": "football_analytics", "confidence": "confirmed", "editorialStatus": "canonical"}}}, request, coverage={"status": "complete" if matches else "empty", "percentage": 100 if matches else 0, "label": "World Cup coverage"})
+    matches_by_edition: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for match in matches:
+        matches_by_edition[str(match["edition_key"])].append(match)
+    payload_editions = []
+    champions: set[str] = set()
+    for row in editions:
+        edition_rows = matches_by_edition.get(str(row["edition_key"]), [])
+        final_resolution = _world_cup_final_resolution(edition_rows)
+        final_row = final_resolution["row"]
+        champion = final_resolution["champion"]
+        if champion:
+            champions.add(champion["teamId"])
+        stage_names = {str(match.get("stage_name") or "") for match in edition_rows}
+        label = _public_season_label(row["season_label"])
+        coverage_note = final_resolution["resolutionNote"]
+        if final_row is None:
+            coverage_note = "Nenhuma partida foi classificada como final na mart v2 para esta edição."
+        payload_editions.append(
+            {
+                "seasonLabel": label,
+                "year": int(str(row["season_label"])[:4]) if str(row["season_label"])[:4].isdigit() else None,
+                "editionName": f"Copa do Mundo FIFA {label}",
+                "hostCountry": None,
+                "hostCountryTeam": None,
+                "teamsCount": len({int(match[key]) for match in edition_rows for key in ("home_team_id", "away_team_id") if match.get(key) is not None}),
+                "matchesCount": len(edition_rows),
+                "champion": champion,
+                "runnerUp": final_resolution["runnerUp"],
+                "finalVenue": final_row.get("venue_name") if final_row else None,
+                "resolutionType": final_resolution["resolutionType"],
+                "coverage": {"status": "complete", "percentage": 100, "label": "Cobertura completa"},
+                "coverageNote": coverage_note,
+                "formatFlags": _world_cup_format_flags(stage_names),
+            }
+        )
+    scorers = _world_cup_scorers()
+    summary = {
+        "editionsCount": len(payload_editions),
+        "matchesCount": len(matches),
+        "distinctChampionsCount": len(champions),
+        "topScorer": scorers[0] if scorers else None,
+    }
+    return _response({"summary": summary, "editions": payload_editions, "competition": _world_cup_competition_ref(), "updatedAt": None}, request, coverage={"status": "complete" if matches else "empty", "percentage": 100 if matches else 0, "label": "World Cup coverage"})
 
 
 @router.get("/api/v1/world-cup/editions/{season_label}")
@@ -2181,30 +2544,343 @@ def get_world_cup_edition_v2(season_label: str, request: Request) -> dict[str, A
     rows = _world_cup_match_rows(season_label)
     if not rows:
         raise AppError("World Cup edition not found.", "EDITION_NOT_FOUND", 404, {"seasonLabel": season_label})
-    matches = [_match_item(row) for row in rows]
-    teams: dict[int, dict[str, Any]] = {}
+    payload = _world_cup_edition_payload(season_label, rows, _world_cup_editions())
+    return _response(payload, request, coverage={"status": "complete", "percentage": 100, "label": "World Cup edition coverage"})
+
+
+_WORLD_CUP_RESULT_ORDER = {
+    "final": (1, "Final"),
+    "third place": (3, "3º lugar"),
+    "semi-finals": (4, "Semifinais"),
+    "quarter-finals": (5, "Quartas de final"),
+    "round of 16": (6, "Oitavas de final"),
+    "round of 32": (7, "32 avos de final"),
+    "group stage": (8, "Fase de grupos"),
+}
+
+
+def _world_cup_normalize_stage(value: Any) -> str:
+    return re.sub(r"[-_]", " ", str(value or "").strip().lower())
+
+
+def _world_cup_final_resolution(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    final = next(
+        (row for row in rows if _world_cup_normalize_stage(row.get("stage_name")) == "final"),
+        None,
+    )
+    if final is None:
+        return {"row": None, "champion": None, "runnerUp": None, "resolutionType": None, "resolutionNote": None}
+
+    home_ref = _world_cup_team_ref(final.get("home_team_id"), final.get("home_team_name"))
+    away_ref = _world_cup_team_ref(final.get("away_team_id"), final.get("away_team_name"))
+    home_goals = int(final.get("home_goals") or 0)
+    away_goals = int(final.get("away_goals") or 0)
+    if home_goals > away_goals:
+        return {"row": final, "champion": home_ref, "runnerUp": away_ref, "resolutionType": "single_match", "resolutionNote": None}
+    if away_goals > home_goals:
+        return {"row": final, "champion": away_ref, "runnerUp": home_ref, "resolutionType": "single_match", "resolutionNote": None}
+    return {
+        "row": final,
+        "champion": None,
+        "runnerUp": None,
+        "resolutionType": "unresolved",
+        "resolutionNote": "O placar regulamentar não identifica o vencedor do desempate.",
+    }
+
+
+def _world_cup_team_result(team_id: int, rows: list[dict[str, Any]]) -> tuple[str, int]:
+    final = _world_cup_final_resolution(rows)["row"]
+    if final and team_id in {int(final["home_team_id"]), int(final["away_team_id"])}:
+        home_goals = int(final.get("home_goals") or 0)
+        away_goals = int(final.get("away_goals") or 0)
+        team_goals = home_goals if int(final["home_team_id"]) == team_id else away_goals
+        opponent_goals = away_goals if int(final["home_team_id"]) == team_id else home_goals
+        if team_goals > opponent_goals:
+            return "Campeão", 1
+        if team_goals < opponent_goals:
+            return "Vice-campeão", 2
+        return "Final (desempate não publicado)", 2
+
+    stages = [
+        _WORLD_CUP_RESULT_ORDER[_world_cup_normalize_stage(row.get("stage_name") or row.get("round_name"))]
+        for row in rows
+        if _world_cup_normalize_stage(row.get("stage_name") or row.get("round_name")) in _WORLD_CUP_RESULT_ORDER
+    ]
+    best_stage = min(stages, default=(99, "Participação"))
+    return best_stage[1], best_stage[0]
+
+
+def _world_cup_team_scorer_rows(team_ids: list[int] | None = None) -> list[dict[str, Any]]:
+    clauses = ["g.team_id is not null"]
+    params: list[Any] = []
+    if team_ids:
+        clauses.append("g.team_id = any(%s)")
+        params.append(team_ids)
+    return db_client.fetch_all(
+        f"""
+        with totals as (
+            select g.edition_key, e.season_label, g.team_id, g.player_key,
+                   max(p.display_name) as player_name,
+                   count(*) filter (where coalesce(g.is_own_goal, false) = false)::int as goals
+            from mart_v2.fact_world_cup_goal g
+            join mart_v2.dim_edition e on e.edition_key = g.edition_key
+            left join mart_v2.dim_player p on p.player_key = g.player_key
+            where {' and '.join(clauses)}
+            group by g.edition_key, e.season_label, g.team_id, g.player_key
+        ), ranked as (
+            select totals.*,
+                   row_number() over (
+                       partition by edition_key, team_id
+                       order by goals desc, player_name nulls last, player_key
+                   ) as scorer_rank
+            from totals
+            where goals > 0
+        )
+        select edition_key, season_label, team_id, player_key, player_name, goals
+        from ranked
+        where scorer_rank = 1
+        order by season_label, team_id, player_key;
+        """,
+        params,
+    )
+
+
+def _world_cup_scorer_item(
+    row: dict[str, Any],
+    rank: int,
+    team_id: int | None = None,
+    team_name: str | None = None,
+) -> dict[str, Any]:
+    player_id = str(row["player_key"]) if row.get("player_key") is not None else None
+    team_ref = _world_cup_team_ref(team_id, team_name) if team_id is not None else None
+    return {
+        "rank": rank,
+        "playerId": player_id,
+        "identity": {"entityType": "player", "competitionKey": "fifa_world_cup_mens", "canonicalId": player_id, "displayName": row.get("player_name"), "sourceSystem": "mart_v2", "confidence": "confirmed", "editorialStatus": "canonical"} if player_id else None,
+        "imageAssetId": None,
+        "playerName": row.get("player_name"),
+        "profileUrl": f"/players/{player_id}" if player_id else None,
+        "teamId": team_ref["teamId"] if team_ref else None,
+        "teamName": team_ref["teamName"] if team_ref else None,
+        "teamIdentity": team_ref.get("identity") if team_ref else None,
+        "goals": int(row.get("goals") or 0),
+    }
+
+
+def _world_cup_team_catalog_v2(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    by_team: dict[int, dict[str, Any]] = defaultdict(lambda: {"teamName": None, "editions": defaultdict(list)})
     for row in rows:
-        teams[int(row["home_team_id"])] = _world_cup_team_ref(row["home_team_id"], row.get("home_team_name")) or {}
-        teams[int(row["away_team_id"])] = _world_cup_team_ref(row["away_team_id"], row.get("away_team_name")) or {}
-    return _response({"competition": {"competitionKey": "fifa_world_cup_mens", "competitionName": "Copa do Mundo FIFA"}, "edition": {"seasonLabel": _public_season_label(rows[0].get("season_label")), "year": int(str(rows[0].get("season_label"))[:4]), "editionName": f"Copa do Mundo FIFA {_public_season_label(rows[0].get('season_label'))}", "matchCount": len(matches), "champion": None, "runnerUp": None}, "matches": matches, "teams": list(teams.values()), "groups": [], "knockoutRounds": []}, request, coverage={"status": "complete", "percentage": 100, "label": "World Cup edition coverage"})
+        for side in ("home", "away"):
+            team_id = row.get(f"{side}_team_id")
+            if team_id is None:
+                continue
+            team_id_int = int(team_id)
+            edition_key = str(row["edition_key"])
+            by_team[team_id_int]["teamName"] = row.get(f"{side}_team_name") or by_team[team_id_int]["teamName"]
+            by_team[team_id_int]["editions"][edition_key].append(row)
+
+    top_scorers = {
+        (str(row["edition_key"]), int(row["team_id"])): row
+        for row in _world_cup_team_scorer_rows(list(by_team))
+    }
+    teams: list[dict[str, Any]] = []
+    for team_id, item in by_team.items():
+        team_ref = _world_cup_team_ref(team_id, item["teamName"])
+        participations = []
+        for edition_rows in item["editions"].values():
+            first = edition_rows[0]
+            label = _public_season_label(first.get("season_label")) or ""
+            result_label, result_rank = _world_cup_team_result(team_id, edition_rows)
+            scorer = top_scorers.get((str(first["edition_key"]), team_id))
+            scorer_payload = None
+            if scorer:
+                scorer_payload = _world_cup_scorer_item(scorer, 1, team_id, item["teamName"])
+            participations.append(
+                {
+                    "seasonLabel": label,
+                    "year": int(label[:4]) if label[:4].isdigit() else 0,
+                    "editionName": f"Copa do Mundo FIFA {label}",
+                    "matchesCount": len(edition_rows),
+                    "resultLabel": result_label,
+                    "resultRank": result_rank,
+                    "topScorer": scorer_payload,
+                }
+            )
+        participations.sort(key=lambda item: item["year"])
+        best = min(participations, key=lambda item: (item["resultRank"], item["year"]))
+        teams.append(
+            {
+                "teamId": team_ref["teamId"],
+                "teamName": team_ref["teamName"],
+                "identity": team_ref.get("identity"),
+                "participationsCount": len(participations),
+                "titlesCount": sum(item["resultLabel"] == "Campeão" for item in participations),
+                "bestResultLabel": best["resultLabel"],
+                "firstEdition": participations[0]["year"],
+                "lastEdition": participations[-1]["year"],
+                "participations": participations,
+            }
+        )
+    teams.sort(key=lambda item: (-item["titlesCount"], -item["participationsCount"], item["teamName"] or ""))
+    return teams, {item["teamId"]: item for item in teams}
+
+
+def _world_cup_team_historical_scorers(team_id: int) -> list[dict[str, Any]]:
+    rows = db_client.fetch_all(
+        """
+        select g.player_key, max(p.display_name) as player_name,
+               count(*) filter (where coalesce(g.is_own_goal, false) = false)::int as goals
+        from mart_v2.fact_world_cup_goal g
+        left join mart_v2.dim_player p on p.player_key = g.player_key
+        where g.team_id = %s
+        group by g.player_key
+        having count(*) filter (where coalesce(g.is_own_goal, false) = false) >= 3
+        order by goals desc, player_name nulls last, g.player_key
+        limit 50;
+        """,
+        [team_id],
+    )
+    return [_world_cup_scorer_item(row, index) for index, row in enumerate(rows, 1)]
+
+
+def _world_cup_team_assets(team_ids: list[int]) -> dict[str, dict[str, Any]]:
+    if not team_ids:
+        return {}
+    return {
+        str(row["team_id"]): row
+        for row in db_client.fetch_all(
+            """
+            select team_id, country_or_territory, asset_url, asset_type
+            from serving_v2.team_profile
+            where team_id = any(%s);
+            """,
+            [team_ids],
+        )
+    }
+
+
+def _world_cup_scorer_editions() -> dict[str, list[dict[str, Any]]]:
+    rows = db_client.fetch_all(
+        """
+        select g.player_key, e.season_label, e.season_start_date, g.team_id,
+               max(t.team_name) as team_name,
+               count(*) filter (where coalesce(g.is_own_goal, false) = false)::int as goals
+        from mart_v2.fact_world_cup_goal g
+        join mart_v2.dim_edition e on e.edition_key = g.edition_key
+        left join mart_v2.dim_team t on t.team_id = g.team_id
+        where g.player_key is not null
+        group by g.player_key, e.season_label, e.season_start_date, g.team_id
+        having count(*) filter (where coalesce(g.is_own_goal, false) = false) > 0
+        order by e.season_start_date, e.season_label, g.player_key;
+        """
+    )
+    editions_by_player: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        player_id = str(row["player_key"])
+        team_ref = _world_cup_team_ref(row.get("team_id"), row.get("team_name"))
+        label = _public_season_label(row.get("season_label")) or ""
+        editions_by_player[player_id].append(
+            {
+                "seasonLabel": label,
+                "year": int(label[:4]) if label[:4].isdigit() else 0,
+                "teamId": team_ref["teamId"] if team_ref else None,
+                "teamName": team_ref["teamName"] if team_ref else None,
+                "teamIdentity": team_ref.get("identity") if team_ref else None,
+                "goals": int(row.get("goals") or 0),
+            }
+        )
+    return editions_by_player
+
+
+def _world_cup_squad_appearances() -> list[dict[str, Any]]:
+    rows = db_client.fetch_all(
+        """
+        select s.player_key, e.season_label, e.season_start_date, s.team_id,
+               max(p.display_name) as player_name, max(t.team_name) as team_name
+        from mart_v2.fact_world_cup_squad s
+        join mart_v2.dim_edition e on e.edition_key = s.edition_key
+        left join mart_v2.dim_player p on p.player_key = s.player_key
+        left join mart_v2.dim_team t on t.team_id = s.team_id
+        where s.player_key is not null
+        group by s.player_key, e.season_label, e.season_start_date, s.team_id
+        order by e.season_start_date desc, e.season_label desc, s.player_key;
+        """
+    )
+    players: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        player_id = str(row["player_key"])
+        item = players.setdefault(
+            player_id,
+            {
+                "playerId": player_id,
+                "playerName": row.get("player_name"),
+                "teamId": None,
+                "teamName": None,
+                "teamIdentity": None,
+                "editions": [],
+            },
+        )
+        team_ref = _world_cup_team_ref(row.get("team_id"), row.get("team_name"))
+        if item["teamId"] is None and team_ref:
+            item["teamId"] = team_ref["teamId"]
+            item["teamName"] = team_ref["teamName"]
+            item["teamIdentity"] = team_ref.get("identity")
+        label = _public_season_label(row.get("season_label")) or ""
+        item["editions"].append({"seasonLabel": label, "year": int(label[:4]) if label[:4].isdigit() else 0})
+    result = []
+    for item in players.values():
+        if len(item["editions"]) < 3:
+            continue
+        item["editions"].sort(key=lambda edition: edition["year"])
+        item.update(
+            {
+                "rank": 0,
+                "identity": {"entityType": "player", "competitionKey": "fifa_world_cup_mens", "canonicalId": item["playerId"], "displayName": item["playerName"], "sourceSystem": "mart_v2", "confidence": "confirmed", "editorialStatus": "canonical"},
+                "imageAssetId": None,
+                "profileUrl": f"/players/{item['playerId']}",
+                "appearancesCount": len(item["editions"]),
+            }
+        )
+        result.append(item)
+    result.sort(key=lambda item: (-item["appearancesCount"], item["playerName"] or "", item["playerId"]))
+    for index, item in enumerate(result, 1):
+        item["rank"] = index
+    return result
 
 
 @router.get("/api/v1/world-cup/teams")
 def get_world_cup_teams_v2(request: Request) -> dict[str, Any]:
-    rows = db_client.fetch_all(
-        """
-        select distinct t.team_id, t.team_name, t.country_or_territory,
-               t.asset_url, t.asset_type,
-               count(distinct m.match_id)::int as matches_count,
-               count(distinct m.edition_key)::int as participations_count
-        from serving_v2.team_profile t
-        join serving_v2.match_catalog m on m.competition_key = 'fifa_world_cup_mens' and (m.home_team_id = t.team_id or m.away_team_id = t.team_id)
-        group by t.team_id, t.team_name, t.country_or_territory, t.asset_url, t.asset_type
-        order by t.team_name;
-        """
+    teams, _ = _world_cup_team_catalog_v2(_world_cup_match_rows())
+    assets = _world_cup_team_assets([int(team["teamId"]) for team in teams])
+    items = [
+        {
+            **{
+                key: team[key]
+                for key in (
+                    "teamId",
+                    "teamName",
+                    "identity",
+                    "participationsCount",
+                    "titlesCount",
+                    "bestResultLabel",
+                    "firstEdition",
+                    "lastEdition",
+                )
+            },
+            "countryOrTerritory": assets.get(team["teamId"], {}).get("country_or_territory"),
+            "matchesCount": sum(participation["matchesCount"] for participation in team["participations"]),
+            "imageAssetId": team["teamId"] if assets.get(team["teamId"], {}).get("asset_url") else None,
+            "imageAssetUrl": assets.get(team["teamId"], {}).get("asset_url"),
+            "assetType": assets.get(team["teamId"], {}).get("asset_type"),
+            "participations": team["participations"],
+        }
+        for team in teams
+    ]
+    return _response(
+        {"competition": _world_cup_competition_ref(), "teams": items, "updatedAt": None},
+        request,
+        coverage={"status": "complete" if items else "empty", "percentage": 100 if items else 0, "label": "World Cup teams coverage"},
     )
-    items = [{"teamId": str(row["team_id"]), "teamName": row["team_name"], "countryOrTerritory": row.get("country_or_territory"), "titlesCount": 0, "participationsCount": int(row.get("participations_count") or 0), "matchesCount": int(row.get("matches_count") or 0), "imageAssetId": str(row["team_id"]) if row.get("asset_url") else None, "imageAssetUrl": row.get("asset_url"), "participations": []} for row in rows]
-    return _response({"teams": items}, request, coverage={"status": "complete" if items else "empty", "percentage": 100 if items else 0, "label": "World Cup teams coverage"})
 
 
 @router.get("/api/v1/world-cup/teams/{team_id}")
@@ -2214,18 +2890,71 @@ def get_world_cup_team_v2(team_id: str, request: Request) -> dict[str, Any]:
     except ValueError as exc:
         raise AppError("Invalid team id.", "INVALID_QUERY_PARAM", 400, {"teamId": team_id}) from exc
     rows = _world_cup_match_rows()
-    team_rows = [row for row in rows if int(row["home_team_id"]) == team_id_int or int(row["away_team_id"]) == team_id_int]
-    if not team_rows:
+    _, team_index = _world_cup_team_catalog_v2(rows)
+    team = team_index.get(str(team_id_int))
+    if team is None:
         raise AppError("World Cup team not found.", "TEAM_NOT_FOUND", 404, {"teamId": team_id})
-    name = next(row.get("home_team_name") if int(row["home_team_id"]) == team_id_int else row.get("away_team_name") for row in team_rows)
-    return _response({"team": {"teamId": team_id, "teamName": name, "identity": {"entityType": "team", "competitionKey": "fifa_world_cup_mens", "canonicalId": team_id, "displayName": name, "sourceId": team_id, "sourceSystem": "mart_v2", "confidence": "confirmed", "editorialStatus": "canonical"}}, "summary": {"matches": len(team_rows), "wins": sum(1 for row in team_rows if (int(row["home_team_id"]) == team_id_int and int(row.get("home_goals") or 0) > int(row.get("away_goals") or 0)) or (int(row["away_team_id"]) == team_id_int and int(row.get("away_goals") or 0) > int(row.get("home_goals") or 0))), "goals": sum(int(row.get("home_goals") or 0) if int(row["home_team_id"]) == team_id_int else int(row.get("away_goals") or 0) for row in team_rows)}, "matches": [_match_item(row) for row in team_rows]}, request)
+    team_rows = [row for row in rows if int(row["home_team_id"]) == team_id_int or int(row["away_team_id"]) == team_id_int]
+    asset = _world_cup_team_assets([team_id_int]).get(str(team_id_int), {})
+    team_summary = {
+        key: team[key]
+        for key in (
+            "teamId",
+            "teamName",
+            "identity",
+            "participationsCount",
+            "titlesCount",
+            "bestResultLabel",
+            "firstEdition",
+            "lastEdition",
+        )
+    }
+    team_summary.update(
+        {
+            "countryOrTerritory": asset.get("country_or_territory"),
+            "imageAssetId": team["teamId"] if asset.get("asset_url") else None,
+            "imageAssetUrl": asset.get("asset_url"),
+            "assetType": asset.get("asset_type"),
+        }
+    )
+    return _response(
+        {
+            "competition": _world_cup_competition_ref(),
+            "team": team_summary,
+            "participations": team["participations"],
+            "historicalScorers": _world_cup_team_historical_scorers(team_id_int),
+            "summary": {
+                "matches": len(team_rows),
+                "wins": sum(
+                    1
+                    for row in team_rows
+                    if (int(row["home_team_id"]) == team_id_int and int(row.get("home_goals") or 0) > int(row.get("away_goals") or 0))
+                    or (int(row["away_team_id"]) == team_id_int and int(row.get("away_goals") or 0) > int(row.get("home_goals") or 0))
+                ),
+                "goals": sum(
+                    int(row.get("home_goals") or 0) if int(row["home_team_id"]) == team_id_int else int(row.get("away_goals") or 0)
+                    for row in team_rows
+                ),
+            },
+            "matches": [_match_item(row) for row in team_rows],
+            "updatedAt": None,
+        },
+        request,
+        coverage={"status": "complete", "percentage": 100, "label": "World Cup team coverage"},
+    )
 
 
 @router.get("/api/v1/world-cup/rankings")
 def get_world_cup_rankings_v2(request: Request) -> dict[str, Any]:
     rows = _world_cup_match_rows()
-    aggregate: dict[int, dict[str, Any]] = defaultdict(lambda: {"teamName": None, "matches": 0, "wins": 0, "goals": 0})
+    team_catalog, _ = _world_cup_team_catalog_v2(rows)
+    aggregate: dict[int, dict[str, Any]] = defaultdict(lambda: {"teamName": None, "matches": 0, "wins": 0, "goals": 0, "editions": set(), "finals": 0})
+    editions: dict[str, dict[str, Any]] = defaultdict(lambda: {"matches": 0, "goals": 0})
     for row in rows:
+        season = _public_season_label(row.get("season_label")) or ""
+        editions[season]["matches"] += 1
+        editions[season]["goals"] += int(row.get("home_goals") or 0) + int(row.get("away_goals") or 0)
+        is_final = str(row.get("stage_name") or "").lower() == "final"
         for side in ("home", "away"):
             team_id = int(row[f"{side}_team_id"])
             goals = int(row.get(f"{side}_goals") or 0)
@@ -2234,6 +2963,140 @@ def get_world_cup_rankings_v2(request: Request) -> dict[str, Any]:
             aggregate[team_id]["matches"] += 1
             aggregate[team_id]["goals"] += goals
             aggregate[team_id]["wins"] += int(goals > opponent_goals)
-    def ranked(field: str) -> list[dict[str, Any]]:
-        return [{"rank": index, "teamId": str(team_id), "teamName": item["teamName"], field: item[field]} for index, (team_id, item) in enumerate(sorted(aggregate.items(), key=lambda pair: (-pair[1][field], pair[1]["teamName"] or "")), 1)]
-    return _response({"teams": {"wins": {"items": ranked("wins")}, "matches": {"items": ranked("matches")}, "goalsScored": {"items": ranked("goals")}}, "editions": {"items": []}, "players": {"squadAppearances": {"items": []}}}, request, coverage={"status": "complete" if rows else "empty", "percentage": 100 if rows else 0, "label": "World Cup rankings coverage"})
+            aggregate[team_id]["editions"].add(season)
+            aggregate[team_id]["finals"] += int(is_final)
+
+    def team_ref(team_id: int, item: dict[str, Any]) -> dict[str, Any]:
+        return _world_cup_team_ref(team_id, item.get("teamName")) or {"teamId": str(team_id), "teamName": item.get("teamName")}
+
+    def ranked(field: str, output_field: str | None = None) -> list[dict[str, Any]]:
+        key = output_field or field
+        return [
+            {
+                "rank": index,
+                "teamId": str(team_id),
+                "teamName": item["teamName"],
+                "identity": team_ref(team_id, item).get("identity"),
+                key: item[field],
+                "matches": item["matches"],
+                "wins": item["wins"],
+            }
+            for index, (team_id, item) in enumerate(
+                sorted(aggregate.items(), key=lambda pair: (-pair[1][field], pair[1]["teamName"] or "")),
+                1,
+            )
+        ]
+
+    team_items = [
+        {
+            "rank": index,
+            "teamId": item["teamId"],
+            "teamName": item["teamName"],
+            "identity": item.get("identity"),
+            "titlesCount": item["titlesCount"],
+            "participationsCount": item["participationsCount"],
+            "finalsCount": sum(participation["resultRank"] <= 2 for participation in item["participations"]),
+        }
+        for index, item in enumerate(
+            sorted(team_catalog, key=lambda team: (-team["participationsCount"], team["teamName"] or "")),
+            1,
+        )
+    ]
+    edition_records = [
+        {
+            "seasonLabel": season,
+            "year": int(season[:4]) if season[:4].isdigit() else 0,
+            "editionName": f"Copa do Mundo FIFA {season}",
+            "matchesCount": int(item["matches"]),
+            "goalsCount": int(item["goals"]),
+            "goalsPerMatch": round(item["goals"] / item["matches"], 4) if item["matches"] else 0,
+        }
+        for season, item in editions.items()
+    ]
+    edition_goals = [dict(item, rank=index) for index, item in enumerate(sorted(edition_records, key=lambda item: (-item["goalsCount"], -item["matchesCount"], -item["year"])), 1)]
+    edition_goal_average = [dict(item, rank=index) for index, item in enumerate(sorted(edition_records, key=lambda item: (-item["goalsPerMatch"], -item["goalsCount"], -item["year"])), 1)]
+    scorer_editions = _world_cup_scorer_editions()
+    scorer_items = [
+        {**item, "editions": scorer_editions.get(str(item["playerId"]), [])}
+        for item in _world_cup_scorers()
+    ]
+    squad_items = _world_cup_squad_appearances()
+    finals = []
+    biggest_wins = []
+    for row in rows:
+        home_ref = _world_cup_team_ref(row.get("home_team_id"), row.get("home_team_name"))
+        away_ref = _world_cup_team_ref(row.get("away_team_id"), row.get("away_team_name"))
+        home_score = int(row.get("home_goals") or 0)
+        away_score = int(row.get("away_goals") or 0)
+        if str(row.get("stage_name") or "").lower() == "final":
+            finals.append({"seasonLabel": _public_season_label(row.get("season_label")), "year": int(str(row.get("season_label"))[:4]), "homeTeam": home_ref, "awayTeam": away_ref, "homeScore": home_score, "awayScore": away_score, "shootout": None, "venueName": row.get("venue_name"), "champion": home_ref if home_score > away_score else away_ref if away_score > home_score else None, "runnerUp": away_ref if home_score > away_score else home_ref if away_score > home_score else None, "resolutionType": None if home_score != away_score else "unresolved", "resolutionNote": None if home_score != away_score else "O placar regulamentar não identifica o vencedor do desempate."})
+        if home_score != away_score:
+            biggest_wins.append({"fixtureId": str(row["match_id"]), "seasonLabel": _public_season_label(row.get("season_label")), "year": int(str(row.get("season_label"))[:4]), "homeTeam": home_ref, "awayTeam": away_ref, "homeScore": home_score, "awayScore": away_score, "goalDiff": abs(home_score - away_score), "totalGoals": home_score + away_score, "venueName": row.get("venue_name")})
+    finals.sort(key=lambda item: item["year"], reverse=True)
+    biggest_wins = sorted(biggest_wins, key=lambda item: (-item["goalDiff"], -item["totalGoals"], item["year"]))[:50]
+    for index, item in enumerate(finals, 1):
+        item["rank"] = index
+    for index, item in enumerate(biggest_wins, 1):
+        item["rank"] = index
+
+    title_items = [
+        dict(item, rank=index)
+        for index, item in enumerate(
+            sorted(team_items, key=lambda item: (-item["titlesCount"], -item["participationsCount"], item["teamName"] or "")),
+            1,
+        )
+        if item["titlesCount"] > 0
+    ]
+    top_four_items = []
+    for index, item in enumerate(
+        sorted(
+            (
+                {
+                    "teamId": team["teamId"],
+                    "teamName": team["teamName"],
+                    "identity": team.get("identity"),
+                    "topFourCount": sum(participation["resultRank"] <= 4 for participation in team["participations"]),
+                    "titlesCount": team["titlesCount"],
+                }
+                for team in team_catalog
+            ),
+            key=lambda item: (-item["topFourCount"], -item["titlesCount"], item["teamName"] or ""),
+        ),
+        1,
+    ):
+        if item["topFourCount"] > 0:
+            top_four_items.append(dict(item, rank=index))
+    edition_labels = {_public_season_label(row.get("season_label")) for row in _world_cup_editions()}
+    final_labels = {item["seasonLabel"] for item in finals}
+    omitted_editions = [
+        {"seasonLabel": label, "year": int(label[:4]) if label and label[:4].isdigit() else 0, "reason": "Nenhuma partida classificada como final na mart_v2."}
+        for label in sorted(edition_labels - final_labels, reverse=True)
+        if label
+    ]
+    payload = {
+        "competition": _world_cup_competition_ref(),
+        "scorers": scorer_items,
+        "teams": team_items,
+        "teamRankings": {
+            "titles": {"label": "Títulos", "metricLabel": "títulos", "items": title_items},
+            "wins": {"label": "Vitórias", "metricLabel": "vitórias", "items": ranked("wins")},
+            "matches": {"label": "Partidas", "metricLabel": "partidas", "items": ranked("matches")},
+            "goalsScored": {"label": "Gols", "metricLabel": "gols", "items": ranked("goals", "goalsScored")},
+            "topFourAppearances": {"label": "Top 4", "metricLabel": "aparições no top 4", "items": top_four_items},
+        },
+        "editionRankings": {
+            "goalsPerMatch": {"label": "Média de gols", "metricLabel": "gols por partida", "items": edition_goal_average},
+            "goals": {"label": "Gols por edição", "metricLabel": "gols", "items": edition_goals},
+        },
+        "playerRankings": {
+            "scorers": {"label": "Artilheiros", "metricLabel": "gols", "items": scorer_items},
+            "squadAppearances": {"label": "Presenças", "metricLabel": "convocações", "items": squad_items, "minimumAppearancesCount": 3},
+        },
+        "matchRankings": {
+            "highestScoringFinals": {"label": "Finais com mais gols", "metricLabel": "gols", "items": sorted(finals, key=lambda item: (-(item["homeScore"] + item["awayScore"]), -item["year"]))[:50]},
+            "biggestWins": {"label": "Maiores goleadas", "metricLabel": "saldo", "items": biggest_wins},
+        },
+        "finals": {"items": finals, "omittedEditions": omitted_editions},
+        "updatedAt": None,
+    }
+    return _response(payload, request, coverage={"status": "complete" if rows else "empty", "percentage": 100 if rows else 0, "label": "World Cup rankings coverage"})
