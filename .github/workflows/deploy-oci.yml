@@ -1,0 +1,97 @@
+name: Deploy OCI production
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-oci
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OCI_HOST: ${{ secrets.OCI_HOST }}
+      OCI_USER: ${{ secrets.OCI_USER }}
+      REMOTE_DIR: /home/ubuntu/football-analytics
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          OCI_SSH_PRIVATE_KEY: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          OCI_KNOWN_HOSTS: ${{ secrets.OCI_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$OCI_HOST"
+          test -n "$OCI_USER"
+          test -n "$OCI_SSH_PRIVATE_KEY"
+          test -n "$OCI_KNOWN_HOSTS"
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$OCI_SSH_PRIVATE_KEY" > "$HOME/.ssh/oci_deploy"
+          printf '%s\n' "$OCI_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/oci_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Check SSH access
+        run: |
+          ssh -T \
+            -i "$HOME/.ssh/oci_deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ServerAliveInterval=30 \
+            "$OCI_USER@$OCI_HOST" 'echo ssh-ok'
+
+      - name: Sync application sources
+        run: |
+          export RSYNC_RSH="ssh -i $HOME/.ssh/oci_deploy -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o ServerAliveInterval=30"
+
+          rsync -az --delete \
+            --exclude='.env*' \
+            --exclude='node_modules/' \
+            --exclude='.next/' \
+            api/ "$OCI_USER@$OCI_HOST:$REMOTE_DIR/api/"
+
+          rsync -az --delete \
+            --exclude='.env*' \
+            --exclude='node_modules/' \
+            --exclude='.next/' \
+            frontend/ "$OCI_USER@$OCI_HOST:$REMOTE_DIR/frontend/"
+
+          rsync -az --delete \
+            --exclude='.env' \
+            --exclude='secrets/' \
+            deploy/oci/ "$OCI_USER@$OCI_HOST:$REMOTE_DIR/deploy/oci/"
+
+      - name: Build and restart production
+        run: |
+          ssh -T \
+            -i "$HOME/.ssh/oci_deploy" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ServerAliveInterval=30 \
+            "$OCI_USER@$OCI_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd /home/ubuntu/football-analytics/deploy/oci
+          docker compose --env-file .env -f compose.yml up -d --build
+          docker compose --env-file .env -f compose.yml ps
+          REMOTE
+
+      - name: Verify production
+        run: |
+          curl --fail --silent --show-error \
+            --retry 10 --retry-delay 5 --retry-connrefused \
+            https://football.victorhob.me/api/health
