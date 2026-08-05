@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "cdn.sportmonks.com",
       },
+      {
+        protocol: "https",
+        hostname: "tmssl.akamaized.net",
+      },
     ],
   },
   reactStrictMode: true,

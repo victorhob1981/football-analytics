@@ -28,6 +28,7 @@ from .routers.standings import router as standings_router
 from .routers.teams import router as teams_router
 from .routers.analytics import router as analytics_router
 from .routers.world_cup import router as world_cup_router
+from .routers.v2 import router as serving_v2_router
 
 
 def _configure_logging() -> logging.Logger:
@@ -281,8 +282,11 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     )
 
 
-def _include_routers(application: FastAPI) -> None:
+def _include_routers(application: FastAPI, settings: Settings) -> None:
     application.include_router(health_router)
+    if settings.data_layer == "serving_v2":
+        application.include_router(serving_v2_router)
+        return
     application.include_router(competition_hub_router)
     application.include_router(home_router)
     application.include_router(coaches_router)
@@ -322,7 +326,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(HTTPException, http_error_handler)
     application.add_exception_handler(Exception, unhandled_error_handler)
-    _include_routers(application)
+    _include_routers(application, app_settings)
     return application
 
 

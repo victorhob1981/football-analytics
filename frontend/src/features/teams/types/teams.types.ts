@@ -7,6 +7,8 @@ export type TeamType = "club" | "national_team" | "representative" | "other" | "
 export interface Team {
   teamId: string;
   teamName: string;
+  visualAssetId?: number | string | null;
+  visualAssetUrl?: string | null;
   competitionId?: string | null;
   competitionName?: string | null;
   seasonId?: string | null;
@@ -201,6 +203,8 @@ export interface TeamIdentity {
   foundedYear?: number | null;
   stadiumName?: string | null;
   stadiumCapacity?: number | null;
+  assetUrl?: string | null;
+  assetType?: string | null;
 }
 
 export interface TeamArchiveSummary {

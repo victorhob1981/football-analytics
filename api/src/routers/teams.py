@@ -8,7 +8,13 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Query, Request
 
-from ..core.context_registry import build_canonical_context, select_default_context
+from ..core.config import get_settings
+from ..core.context_registry import (
+    build_canonical_context,
+    get_canonical_competition,
+    get_canonical_competition_by_key,
+    select_default_context,
+)
 from ..core.contracts import (
     build_api_response,
     build_catalog_scope,
@@ -94,6 +100,21 @@ def _section_coverage_from_match_count(match_count: int, label: str) -> dict[str
         return {"status": "empty", "percentage": 0, "label": label}
 
     return {"status": "complete", "percentage": 100, "label": label}
+
+
+def _visual_asset_id_sql(team_id_expression: str) -> str:
+    return f"""
+        (
+            select p.source_id
+            from raw.provider_entity_map p
+            where p.provider = 'legacy_dim_team'
+              and p.entity_type = 'team'
+              and p.canonical_id = ({team_id_expression})::text
+              and p.mapping_state = 'approved'
+            order by length(p.source_id), p.source_id
+            limit 1
+        ) as visual_asset_id
+    """
 
 
 def _coverage_score(coverage: dict[str, Any]) -> float | None:
@@ -207,20 +228,21 @@ def _load_team_honors(team_id: int | None, team_name: str | None) -> dict[str, A
 
 def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dict[str, Any]:
     row = db_client.fetch_one(
-        """
+        f"""
         select
-            team_id,
-            team_name,
-            team_type,
-            country_or_territory,
-            stadium_name,
-            competition_count,
-            season_count,
-            matches_played,
-            first_match_at,
-            last_match_at
-        from mart.team_serving_summary
-        where team_id = %s;
+            tss.team_id,
+            tss.team_name,
+            tss.team_type,
+            tss.country_or_territory,
+            tss.stadium_name,
+            tss.competition_count,
+            tss.season_count,
+            tss.matches_played,
+            tss.first_match_at,
+            tss.last_match_at,
+            {_visual_asset_id_sql("tss.team_id")}
+        from mart.team_serving_summary tss
+        where tss.team_id = %s;
         """,
         [team_id],
     ) or {}
@@ -231,6 +253,7 @@ def _fetch_team_profile_foundation(team_id: int, fallback_team_name: str) -> dic
     archive_complete = bool(row) and matches_played > 0
 
     return {
+        "visualAssetId": row.get("visual_asset_id"),
         "identity": {
             "teamType": team_type,
             "officialName": official_name,
@@ -377,6 +400,7 @@ def get_teams(
             with classified as (
                 select
                     tss.*,
+                    {_visual_asset_id_sql("tss.team_id")},
                     coalesce(tss.team_type, 'unknown') as resolved_team_type
                 from mart.team_serving_summary tss
                 where (%s::text is null or tss.team_type = %s)
@@ -496,6 +520,7 @@ def get_teams(
         documented as (
             select
                 a.*,
+                {_visual_asset_id_sql("a.team_id")},
                 coalesce(tss.team_type, 'unknown') as team_type,
                 tss.country_or_territory,
                 tss.stadium_name
@@ -553,6 +578,7 @@ def get_teams(
         {
             "teamId": str(row["team_id"]),
             "teamName": row["team_name"],
+            "visualAssetId": row.get("visual_asset_id"),
             "competitionId": str(global_filters.competition_id) if global_filters.competition_id is not None else None,
             "seasonId": str(global_filters.season_id) if global_filters.season_id is not None else None,
             "teamType": row.get("resolved_team_type") or row.get("team_type") or "unknown",
@@ -620,6 +646,56 @@ def get_team_contexts(
         date_range_start=None,
         date_range_end=None,
     )
+
+    if get_settings().data_layer == "serving_v2":
+        context_rows = db_client.fetch_all(
+            """
+            select competition_key, competition_name, season_label,
+                   max(match_date) as last_match_date, count(*)::int as matches_played
+            from serving_v2.match_catalog
+            where home_team_id = %s or away_team_id = %s
+            group by competition_key, competition_name, season_label
+            order by last_match_date desc nulls last, matches_played desc, competition_key, season_label desc;
+            """,
+            [team_id, team_id],
+        )
+        available_contexts: list[dict[str, str]] = []
+        seen_contexts: set[tuple[str, str]] = set()
+        for row in context_rows:
+            canonical_competition = get_canonical_competition_by_key(row.get("competition_key"))
+            if canonical_competition is None:
+                continue
+            context = build_canonical_context(
+                competition_id=canonical_competition.competition_id,
+                competition_name=canonical_competition.default_name,
+                season_id=row.get("season_label"),
+            )
+            if context is None:
+                continue
+            identity = (context["competitionId"], context["seasonId"])
+            if identity in seen_contexts:
+                continue
+            seen_contexts.add(identity)
+            available_contexts.append(context)
+
+        if not available_contexts:
+            raise AppError(
+                message="Team not found.",
+                code="TEAM_NOT_FOUND",
+                status=404,
+                details={"teamId": teamId},
+            )
+        return build_api_response(
+            {
+                "defaultContext": select_default_context(
+                    available_contexts,
+                    preferred_competition_id=preference_filters.competition_id,
+                    preferred_season_id=preference_filters.season_id,
+                ),
+                "availableContexts": available_contexts,
+            },
+            request_id=_request_id(request),
+        )
 
     team_ref = db_client.fetch_one(
         "select team_id, team_name from mart.dim_team where team_id = %s;",
@@ -698,6 +774,344 @@ def get_team_contexts(
     )
 
 
+def _get_team_profile_serving_v2(
+    *,
+    team_id: int,
+    team_id_text: str,
+    request: Request,
+    filters: GlobalFilters,
+    include_recent_matches: bool,
+    include_squad: bool,
+    include_stats: bool,
+    recent_matches_limit: int,
+) -> dict[str, Any]:
+    canonical_competition = get_canonical_competition(filters.competition_id)
+    if canonical_competition is None or filters.season_id is None:
+        raise AppError(
+            message="Unsupported team profile context.",
+            code="TEAM_CONTEXT_NOT_FOUND",
+            status=404,
+            details={"teamId": team_id_text},
+        )
+
+    season_label = str(filters.season_id)
+    if canonical_competition.season_calendar == "split_year" and len(season_label) == 4 and season_label.isdigit():
+        season_label = f"{season_label}/{int(season_label) + 1}"
+    edition_key = f"{canonical_competition.competition_key}:{season_label}"
+
+    team = db_client.fetch_one(
+        """
+        select team_id, team_name, country_or_territory, team_type, gender,
+               category, identity_state, match_count, competition_count,
+               edition_count, first_match_date, last_match_date, asset_url,
+               asset_type, metadata
+        from serving_v2.team_profile
+        where team_id = %s and match_count > 0;
+        """,
+        [team_id],
+    )
+    edition = db_client.fetch_one(
+        """
+        select edition_key, competition_name, season_label, published_match_count,
+               first_match_date, last_match_date
+        from serving_v2.edition_catalog
+        where edition_key = %s and is_selectable;
+        """,
+        [edition_key],
+    )
+    if team is None or edition is None:
+        raise AppError(
+            message="Team profile is unavailable for this context.",
+            code="TEAM_CONTEXT_NOT_FOUND",
+            status=404,
+            details={"teamId": team_id_text, "editionKey": edition_key},
+        )
+
+    scope_clauses = [
+        "(m.home_team_id = %s or m.away_team_id = %s)",
+        "m.competition_key = %s",
+        "m.edition_key = %s",
+    ]
+    scope_params: list[Any] = [team_id, team_id, canonical_competition.competition_key, edition_key]
+    if filters.venue == VenueFilter.home:
+        scope_clauses.append("m.home_team_id = %s")
+        scope_params.append(team_id)
+    elif filters.venue == VenueFilter.away:
+        scope_clauses.append("m.away_team_id = %s")
+        scope_params.append(team_id)
+    if filters.date_start is not None:
+        scope_clauses.append("m.match_date >= %s")
+        scope_params.append(filters.date_start)
+    if filters.date_end is not None:
+        scope_clauses.append("m.match_date <= %s")
+        scope_params.append(filters.date_end)
+    scope_sql = " and ".join(scope_clauses)
+    match_scope_cte = f"""
+        with scoped_matches as (
+            select
+                m.*,
+                row_number() over (order by m.match_date desc, m.match_id desc) as rn_recent
+            from serving_v2.match_catalog m
+            where {scope_sql}
+        ), filtered_matches as (
+            select *
+            from scoped_matches
+            where (%s::int is null or rn_recent <= %s)
+        )
+    """
+    match_scope_params = [*scope_params, filters.last_n, filters.last_n]
+
+    summary = db_client.fetch_one(
+        f"""
+        {match_scope_cte}
+        select
+            count(*)::int as matches_played,
+            coalesce(sum(case when home_team_id = %s and home_goals > away_goals then 1
+                              when away_team_id = %s and away_goals > home_goals then 1 else 0 end), 0)::int as wins,
+            coalesce(sum(case when home_goals = away_goals then 1 else 0 end), 0)::int as draws,
+            coalesce(sum(case when home_team_id = %s and home_goals < away_goals then 1
+                              when away_team_id = %s and away_goals < home_goals then 1 else 0 end), 0)::int as losses,
+            coalesce(sum(case when home_team_id = %s then home_goals else away_goals end), 0)::int as goals_for,
+            coalesce(sum(case when home_team_id = %s then away_goals else home_goals end), 0)::int as goals_against
+        from filtered_matches;
+        """,
+        [*match_scope_params, team_id, team_id, team_id, team_id, team_id, team_id],
+    ) or {}
+    matches_played = int(summary.get("matches_played") or 0)
+    wins = int(summary.get("wins") or 0)
+    draws = int(summary.get("draws") or 0)
+    losses = int(summary.get("losses") or 0)
+    goals_for = int(summary.get("goals_for") or 0)
+    goals_against = int(summary.get("goals_against") or 0)
+
+    standing = db_client.fetch_one(
+        """
+        with team_rows as (
+            select home_team_id as team_id,
+                   case when home_goals > away_goals then 3 when home_goals = away_goals then 1 else 0 end as points,
+                   home_goals - away_goals as goal_diff,
+                   home_goals as goals_for
+            from serving_v2.match_catalog
+            where competition_key = %s and edition_key = %s
+            union all
+            select away_team_id,
+                   case when away_goals > home_goals then 3 when away_goals = home_goals then 1 else 0 end,
+                   away_goals - home_goals,
+                   away_goals
+            from serving_v2.match_catalog
+            where competition_key = %s and edition_key = %s
+        ), totals as (
+            select team_id, sum(points)::int as points, sum(goal_diff)::int as goal_diff,
+                   sum(goals_for)::int as goals_for
+            from team_rows
+            group by team_id
+        ), ranked as (
+            select *, row_number() over (order by points desc, goal_diff desc, goals_for desc, team_id)::int as position,
+                   count(*) over()::int as total_teams
+            from totals
+        )
+        select position, total_teams from ranked where team_id = %s;
+        """,
+        [canonical_competition.competition_key, edition_key, canonical_competition.competition_key, edition_key, team_id],
+    ) or {}
+
+    recent_matches: list[dict[str, Any]] | None = None
+    if include_recent_matches:
+        recent_rows = db_client.fetch_all(
+            f"""
+            {match_scope_cte}
+            select match_id::text as match_id, match_date as played_at,
+                   case when home_team_id = %s then away_team_id else home_team_id end::text as opponent_team_id,
+                   case when home_team_id = %s then away_team_name else home_team_name end as opponent_name,
+                   case when home_team_id = %s then 'home' else 'away' end as venue_role,
+                   case when home_team_id = %s then home_goals else away_goals end as goals_for,
+                   case when home_team_id = %s then away_goals else home_goals end as goals_against
+            from filtered_matches
+            order by match_date desc, match_id desc
+            limit %s;
+            """,
+            [*match_scope_params, team_id, team_id, team_id, team_id, team_id, recent_matches_limit],
+        )
+        recent_matches = [
+            {
+                "matchId": row["match_id"],
+                "playedAt": row.get("played_at"),
+                "opponentTeamId": row.get("opponent_team_id"),
+                "opponentName": row.get("opponent_name"),
+                "venue": row.get("venue_role"),
+                "goalsFor": int(row.get("goals_for") or 0),
+                "goalsAgainst": int(row.get("goals_against") or 0),
+                "result": _resolve_result(int(row.get("goals_for") or 0), int(row.get("goals_against") or 0)),
+            }
+            for row in recent_rows
+        ]
+
+    squad: list[dict[str, Any]] | None = None
+    if include_squad:
+        squad_rows = db_client.fetch_all(
+            f"""
+            {match_scope_cte}
+            select fl.player_key, max(dp.display_name) as player_name,
+                   max(fl.position_name) as position_name, max(fl.jersey_number) as jersey_number,
+                   count(distinct fl.match_id)::int as appearances,
+                   count(distinct fl.match_id) filter (where fl.lineup_type in ('11', 'starter', 'starting'))::int as starts,
+                   max(fm.match_date) as last_appearance_at
+            from mart_v2.fact_lineup fl
+            join filtered_matches fm on fm.match_id = fl.match_id
+            join mart_v2.dim_player dp on dp.player_key = fl.player_key
+            where fl.team_id = %s
+            group by fl.player_key
+            order by appearances desc, player_name asc;
+            """,
+            [*match_scope_params, team_id],
+        )
+        squad = [
+            {
+                "playerId": row.get("player_key"),
+                "playerName": row.get("player_name"),
+                "positionName": row.get("position_name"),
+                "shirtNumber": row.get("jersey_number"),
+                "appearances": int(row.get("appearances") or 0),
+                "starts": int(row.get("starts") or 0),
+                "minutesPlayed": None,
+                "averageMinutes": None,
+                "lastAppearanceAt": row.get("last_appearance_at"),
+            }
+            for row in squad_rows
+        ]
+
+    stats_payload: dict[str, Any] | None = None
+    if include_stats:
+        trend_rows = db_client.fetch_all(
+            f"""
+            {match_scope_cte}
+            select to_char(date_trunc('month', match_date), 'YYYY-MM') as period_key,
+                   extract(year from match_date)::int as period_year,
+                   extract(month from match_date)::int as period_month,
+                   count(*)::int as matches,
+                   sum(case when (home_team_id = %s and home_goals > away_goals) or (away_team_id = %s and away_goals > home_goals) then 1 else 0 end)::int as wins,
+                   sum(case when home_goals = away_goals then 1 else 0 end)::int as draws,
+                   sum(case when (home_team_id = %s and home_goals < away_goals) or (away_team_id = %s and away_goals < home_goals) then 1 else 0 end)::int as losses,
+                   sum(case when home_team_id = %s then home_goals else away_goals end)::int as goals_for,
+                   sum(case when home_team_id = %s then away_goals else home_goals end)::int as goals_against
+            from filtered_matches
+            group by date_trunc('month', match_date), extract(year from match_date), extract(month from match_date)
+            order by date_trunc('month', match_date) desc;
+            """,
+            [*match_scope_params, team_id, team_id, team_id, team_id, team_id, team_id],
+        )
+        stats_payload = {
+            "pointsPerMatch": round((wins * 3 + draws) / matches_played, 2) if matches_played else None,
+            "winRatePct": round(wins / matches_played * 100, 2) if matches_played else None,
+            "goalsForPerMatch": round(goals_for / matches_played, 2) if matches_played else None,
+            "goalsAgainstPerMatch": round(goals_against / matches_played, 2) if matches_played else None,
+            "cleanSheets": None,
+            "failedToScore": None,
+            "trend": [
+                {
+                    "periodKey": row.get("period_key"),
+                    "label": f"{int(row.get('period_month') or 0):02d}/{int(row.get('period_year') or 0)}",
+                    "matches": int(row.get("matches") or 0),
+                    "wins": int(row.get("wins") or 0),
+                    "draws": int(row.get("draws") or 0),
+                    "losses": int(row.get("losses") or 0),
+                    "goalsFor": int(row.get("goals_for") or 0),
+                    "goalsAgainst": int(row.get("goals_against") or 0),
+                    "goalDiff": int(row.get("goals_for") or 0) - int(row.get("goals_against") or 0),
+                    "points": int(row.get("wins") or 0) * 3 + int(row.get("draws") or 0),
+                }
+                for row in trend_rows
+            ],
+        }
+
+    honors = _load_team_honors(team_id, str(team["team_name"]))
+    canonical_context = build_canonical_context(
+        competition_id=filters.competition_id,
+        competition_name=canonical_competition.default_name,
+        season_id=filters.season_id,
+    )
+    identity_coverage = {"status": "complete", "percentage": 100, "label": "Team identity coverage"}
+    archive_coverage = _section_coverage_from_match_count(int(team["match_count"]), "Team archive coverage")
+    overview_coverage = _section_coverage_from_match_count(matches_played, "Team overview coverage")
+    section_coverage: dict[str, Any] = {
+        "overview": overview_coverage,
+        "identity": identity_coverage,
+        "archive": archive_coverage,
+        "honors": honors["coverage"] if honors else {"status": "empty", "percentage": 0, "label": "Honors coverage"},
+    }
+    if include_squad:
+        section_coverage["squad"] = _section_coverage_from_match_count(len(squad or []), "Squad coverage")
+    if include_stats:
+        section_coverage["stats"] = _section_coverage_from_match_count(matches_played, "Team stats coverage")
+
+    data: dict[str, Any] = {
+        "identity": {
+            "teamType": team.get("team_type") if team.get("team_type") in _TEAM_TYPES else "unknown",
+            "officialName": team["team_name"],
+            "countryOrTerritory": team.get("country_or_territory"),
+            "city": None,
+            "foundedYear": None,
+            "stadiumName": None,
+            "stadiumCapacity": None,
+            "assetUrl": team.get("asset_url"),
+            "assetType": team.get("asset_type"),
+        },
+        "archive": {
+            "competitionCount": int(team.get("competition_count") or 0),
+            "seasonCount": int(team.get("edition_count") or 0),
+            "matchesPlayed": int(team.get("match_count") or 0),
+            "firstMatchAt": team.get("first_match_date"),
+            "lastMatchAt": team.get("last_match_date"),
+        },
+        "honors": honors,
+        "team": {
+            "teamId": team_id_text,
+            "teamName": team["team_name"],
+            "visualAssetId": team_id_text if team.get("asset_url") else None,
+            "visualAssetUrl": team.get("asset_url"),
+            "competitionId": str(canonical_competition.competition_id),
+            "competitionName": canonical_competition.default_name,
+            "seasonId": str(filters.season_id),
+            "seasonLabel": canonical_context["seasonLabel"] if canonical_context else season_label,
+        },
+        "summary": {
+            "matchesPlayed": matches_played,
+            "wins": wins,
+            "draws": draws,
+            "losses": losses,
+            "goalsFor": goals_for,
+            "goalsAgainst": goals_against,
+            "goalDiff": goals_for - goals_against,
+            "points": wins * 3 + draws,
+        },
+        "standing": {
+            "position": int(standing["position"]) if standing.get("position") is not None else None,
+            "totalTeams": int(standing["total_teams"]) if standing.get("total_teams") is not None else None,
+        },
+        "form": [item["result"] for item in (recent_matches or [])[:5]],
+        "sectionCoverage": section_coverage,
+    }
+    if include_recent_matches:
+        data["recentMatches"] = recent_matches or []
+    if include_squad:
+        data["squad"] = squad or []
+    if include_stats:
+        data["stats"] = stats_payload or {"pointsPerMatch": None, "winRatePct": None, "goalsForPerMatch": None, "goalsAgainstPerMatch": None, "cleanSheets": None, "failedToScore": None, "trend": []}
+
+    return build_api_response(
+        data,
+        request_id=_request_id(request),
+        coverage=_merge_coverages(
+            "Team profile coverage",
+            [
+                coverage
+                for coverage in [overview_coverage, archive_coverage, section_coverage.get("squad"), section_coverage.get("stats")]
+                if coverage is not None
+            ],
+        ),
+    )
+
+
 @router.get("/{teamId}")
 def get_team_profile(
     teamId: str,
@@ -733,6 +1147,18 @@ def get_team_profile(
         date_range_end=dateRangeEnd,
     )
     _require_canonical_team_context(global_filters)
+
+    if get_settings().data_layer == "serving_v2":
+        return _get_team_profile_serving_v2(
+            team_id=team_id,
+            team_id_text=teamId,
+            request=request,
+            filters=global_filters,
+            include_recent_matches=includeRecentMatches,
+            include_squad=includeSquad,
+            include_stats=includeStats,
+            recent_matches_limit=recentMatchesLimit,
+        )
 
     team_ref = db_client.fetch_one(
         "select team_id, team_name from mart.dim_team where team_id = %s;",
@@ -1093,6 +1519,7 @@ def get_team_profile(
         "team": {
             "teamId": str(team_ref["team_id"]),
             "teamName": team_ref["team_name"],
+            "visualAssetId": foundation.get("visualAssetId"),
             "competitionId": str(global_filters.competition_id),
             "competitionName": canonical_context["competitionName"]
             if canonical_context

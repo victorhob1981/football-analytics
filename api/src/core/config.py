@@ -22,6 +22,7 @@ DEFAULT_CORS_ALLOW_HEADERS = (
     "X-Request-Id",
 )
 LOCAL_ENVIRONMENTS = {"local", "dev", "development", "test"}
+DATA_LAYERS = {"legacy", "serving_v2"}
 
 
 def _build_default_pg_dsn() -> str:
@@ -50,6 +51,7 @@ class Settings:
     rate_limit_window_seconds: int
     rate_limit_trust_proxy_headers: bool
     pg_dsn: str
+    data_layer: str
     pg_pool_min_size: int
     pg_pool_max_size: int
     pg_pool_timeout_s: float
@@ -115,6 +117,9 @@ def _validate_cors_settings(
 def get_settings() -> Settings:
     environment = os.getenv("ENVIRONMENT", "local").strip().lower()
     pg_dsn = os.getenv("FOOTBALL_PG_DSN") or os.getenv("DATABASE_URL") or _build_default_pg_dsn()
+    data_layer = os.getenv("BFF_DATA_LAYER", "legacy").strip().lower()
+    if data_layer not in DATA_LAYERS:
+        raise ValueError(f"BFF_DATA_LAYER must be one of: {', '.join(sorted(DATA_LAYERS))}.")
     cors_allow_origins = _parse_csv_env(
         os.getenv("BFF_CORS_ALLOW_ORIGINS"),
         DEFAULT_CORS_ALLOW_ORIGINS,
@@ -152,6 +157,7 @@ def get_settings() -> Settings:
         rate_limit_window_seconds=_parse_int_env("BFF_RATE_LIMIT_WINDOW_SECONDS", 60, minimum=1),
         rate_limit_trust_proxy_headers=_parse_bool_env("BFF_RATE_LIMIT_TRUST_PROXY_HEADERS", False),
         pg_dsn=pg_dsn,
+        data_layer=data_layer,
         pg_pool_min_size=int(os.getenv("FOOTBALL_PG_POOL_MIN_SIZE", "1")),
         pg_pool_max_size=int(os.getenv("FOOTBALL_PG_POOL_MAX_SIZE", "10")),
         pg_pool_timeout_s=float(os.getenv("FOOTBALL_PG_POOL_TIMEOUT_S", "10")),

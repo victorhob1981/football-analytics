@@ -16,6 +16,29 @@ export interface CompetitionDef {
   providerId?: number; // Keep track of the original sportmonks id if needed
 }
 
+export type CompetitionCatalogDefinitionInput = Pick<
+  CompetitionDef,
+  "id" | "key" | "name"
+> &
+  Partial<Pick<CompetitionDef, "shortName" | "country" | "region" | "type" | "scope" | "seasonCalendar" | "visualAssetId">>;
+
+export function buildCompetitionDefinition(
+  input: CompetitionCatalogDefinitionInput,
+): CompetitionDef {
+  return {
+    id: input.id,
+    key: input.key,
+    name: input.name,
+    shortName: input.shortName ?? input.name,
+    country: input.country ?? "Não informado",
+    region: input.region ?? "Não informado",
+    type: input.type ?? "domestic_league",
+    scope: input.scope ?? "domestic",
+    seasonCalendar: input.seasonCalendar ?? "annual",
+    visualAssetId: input.visualAssetId,
+  };
+}
+
 const CLOSED_ANNUAL_SEASON_QUERY_IDS = ["2025", "2024", "2023", "2022", "2021"];
 const WORLD_CUP_SEASON_QUERY_IDS = [
   "2022",

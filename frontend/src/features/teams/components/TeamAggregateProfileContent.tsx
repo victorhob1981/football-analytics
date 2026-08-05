@@ -75,15 +75,6 @@ function groupContexts(contexts: CompetitionSeasonContext[]) {
   ).map(([, group]) => group);
 }
 
-function ArchiveMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
-      <p className="text-[0.64rem] font-bold uppercase tracking-[0.16em] text-white/54">{label}</p>
-      <p className="mt-1 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.04em] text-white sm:text-3xl">{value}</p>
-    </div>
-  );
-}
-
 export function TeamAggregateProfileContent({ teamId }: TeamAggregateProfileContentProps) {
   const { competitionId, seasonId, roundId, venue, lastN, dateRangeStart, dateRangeEnd } =
     useGlobalFiltersState();
@@ -178,23 +169,41 @@ export function TeamAggregateProfileContent({ teamId }: TeamAggregateProfileCont
         <span aria-current="page">{identity.officialName || team.teamName}</span>
       </nav>
 
-      <ProfilePanel className="overflow-hidden bg-[#06271d] p-0" tone="accent">
-        <div className="grid gap-8 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,0.42fr)] lg:p-9">
+      <ProfilePanel className="relative overflow-hidden bg-[#06271d] p-0" tone="accent">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-24 -top-28 h-80 w-80 rounded-full border border-[#a6f2d1]/15" />
+          <div className="absolute right-10 top-12 h-48 w-48 rounded-full border border-dashed border-white/12" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#001c14]/45 to-transparent" />
+          <div className="absolute bottom-0 left-0 h-1.5 w-32 bg-[#a6f2d1]" />
+        </div>
+
+        <div data-testid="club-identity-hero" className="relative z-10 grid gap-8 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.48fr)] lg:p-9">
           <div className="flex min-w-0 flex-col justify-between gap-8">
             <div className="flex min-w-0 items-start gap-4 sm:items-center sm:gap-6">
-              <ProfileMedia
-                alt={`Escudo de ${team.teamName}`}
-                assetId={team.teamId}
-                category="clubs"
-                className="h-20 w-20 shrink-0 border border-white/18 bg-white/10 sm:h-28 sm:w-28"
-                fallback={getMonogram(team.teamName)}
-                href={buildClubResolverPath(team.teamId, sharedFilters)}
-                imageClassName="p-3"
-                tone="contrast"
-              />
+              <div className="relative shrink-0">
+                <ProfileMedia
+                  alt={`Escudo de ${team.teamName}`}
+                  assetId={team.visualAssetId ?? team.teamId}
+                  assetUrl={team.visualAssetUrl ?? identity.assetUrl}
+                  category="clubs"
+                  className="h-28 w-28 border border-white/18 bg-white/10 shadow-[0_20px_45px_-28px_rgba(0,0,0,0.9)] sm:h-36 sm:w-36"
+                  fallback={getMonogram(team.teamName)}
+                  href={buildClubResolverPath(team.teamId, sharedFilters)}
+                  imageClassName="p-4 sm:p-5"
+                  tone="contrast"
+                />
+                <span className="absolute -bottom-2 -right-2 rounded-full border border-[#06271d] bg-[#a6f2d1] px-2.5 py-1 text-[0.56rem] font-black uppercase tracking-[0.14em] text-[#003526]">
+                  {team.visualAssetId ? "Escudo" : "Texto"}
+                </span>
+              </div>
               <div className="min-w-0">
-                <p className="text-[0.68rem] font-bold uppercase tracking-[0.22em] text-white/56">Identidade do clube</p>
-                <h1 className="mt-2 break-words font-[family:var(--font-profile-headline)] text-3xl font-extrabold leading-[0.94] tracking-[-0.055em] text-white sm:text-6xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[0.68rem] font-bold uppercase tracking-[0.22em] text-[#a6f2d1]/75">Clube · arquivo histórico</p>
+                  <span className="rounded-full border border-white/12 bg-white/8 px-2 py-1 text-[0.56rem] font-bold uppercase tracking-[0.14em] text-white/62">
+                    Identidade documentada
+                  </span>
+                </div>
+                <h1 className="mt-3 break-words font-[family:var(--font-profile-headline)] text-4xl font-extrabold leading-[0.92] tracking-[-0.06em] text-white sm:text-6xl">
                   {identity.officialName || team.teamName}
                 </h1>
                 <p className="mt-4 max-w-3xl text-sm leading-6 text-white/68">
@@ -214,15 +223,49 @@ export function TeamAggregateProfileContent({ teamId }: TeamAggregateProfileCont
             </div>
           </div>
 
-          <aside className="border-t border-white/14 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-            <p className="text-[0.66rem] font-bold uppercase tracking-[0.2em] text-white/55">Arquivo publicado</p>
-            <div className="mt-5 divide-y divide-white/14">
-              <ArchiveMetric label="Partidas" value={formatInteger(archive.matchesPlayed)} />
-              <ArchiveMetric label="Temporadas" value={formatInteger(archive.seasonCount)} />
-              <ArchiveMetric label="Competições" value={formatInteger(archive.competitionCount)} />
+          <aside data-testid="club-archive-timeline" className="rounded-[1.6rem] border border-white/12 bg-black/10 p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[0.66rem] font-bold uppercase tracking-[0.2em] text-white/55">Arquivo publicado</p>
+                <p className="mt-2 text-sm text-white/55">Amostra disponível na plataforma</p>
+              </div>
+              <span className="rounded-full bg-[#a6f2d1]/12 px-2.5 py-1 text-[0.58rem] font-bold uppercase tracking-[0.14em] text-[#a6f2d1]">
+                {formatInteger(availableContexts.length)} recortes
+              </span>
             </div>
-            <p className="mt-6 text-sm leading-6 text-white/62">{getArchiveSpan(archive.firstMatchAt, archive.lastMatchAt)}</p>
-            <p className="mt-2 text-xs leading-5 text-white/52">O arquivo descreve apenas o material publicado pela plataforma; não é um histórico totalizante do clube.</p>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-white/8 p-3">
+                <p className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-white/48">Partidas</p>
+                <p className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.04em] text-white">{formatInteger(archive.matchesPlayed)}</p>
+              </div>
+              <div className="rounded-xl bg-white/8 p-3">
+                <p className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-white/48">Temporadas</p>
+                <p className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.04em] text-white">{formatInteger(archive.seasonCount)}</p>
+              </div>
+              <div className="rounded-xl bg-white/8 p-3">
+                <p className="text-[0.58rem] font-bold uppercase tracking-[0.12em] text-white/48">Competições</p>
+                <p className="mt-2 font-[family:var(--font-profile-headline)] text-2xl font-extrabold tracking-[-0.04em] text-white">{formatInteger(archive.competitionCount)}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between gap-3 text-[0.58rem] font-bold uppercase tracking-[0.13em] text-white/48">
+                <span>Primeiro registro</span>
+                <span>Último registro</span>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#a6f2d1] shadow-[0_0_0_4px_rgba(166,242,209,0.12)]" />
+                <span className="h-px flex-1 border-t border-dashed border-[#a6f2d1]/35" />
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#a6f2d1] bg-[#06271d]" />
+              </div>
+              <div className="mt-2 flex justify-between gap-3 text-xs font-semibold text-white/72">
+                <span>{archive.firstMatchAt ? formatDate(archive.firstMatchAt) : "—"}</span>
+                <span>{archive.lastMatchAt ? formatDate(archive.lastMatchAt) : "—"}</span>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-5 text-white/52">{getArchiveSpan(archive.firstMatchAt, archive.lastMatchAt)} · o recorte não representa o histórico totalizante do clube.</p>
           </aside>
         </div>
       </ProfilePanel>

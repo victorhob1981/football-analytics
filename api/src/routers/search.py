@@ -11,6 +11,7 @@ from ..core.context_registry import (
     get_canonical_competition_by_key,
     list_supported_competition_source_ids,
 )
+from ..core.config import get_settings
 from ..core.contracts import build_api_response, build_coverage_from_counts
 from ..core.errors import AppError
 from ..core.filters import VenueFilter, validate_and_build_global_filters
@@ -413,6 +414,179 @@ def _search_teams(
                 "defaultContext": default_context,
             }
         )
+
+    return results, skipped_count
+
+
+def _search_serving_v2(
+    query: str,
+    *,
+    search_types: tuple[SearchType, ...],
+    limit_per_type: int,
+) -> tuple[list[dict[str, Any]], int]:
+    normalized_query = _normalize_search_query(query)
+    rows = db_client.fetch_all(
+        """
+        with ranked as (
+            select
+                d.*,
+                row_number() over (
+                    partition by d.entity_type
+                    order by
+                        case
+                            when d.search_text = lower(unaccent(%s)) then 0
+                            when d.search_text like lower(unaccent(%s)) || '%%' then 1
+                            else 2
+                        end,
+                        d.label asc,
+                        d.entity_id asc
+                )::int as result_rank
+            from serving_v2.search_document d
+            where d.publication_state = 'published'
+              and d.entity_type = any(%s)
+              and d.search_text ilike '%%' || lower(unaccent(%s)) || '%%'
+        ), limited as (
+            select *
+            from ranked
+            where result_rank <= %s
+        )
+        select
+            l.*,
+            context.competition_key as context_competition_key,
+            context.competition_name as context_competition_name,
+            context.season_label as context_season_label
+        from limited l
+        left join lateral (
+            select candidate.competition_key, candidate.competition_name, candidate.season_label
+            from (
+                select mc.competition_key, mc.competition_name, mc.season_label,
+                       mc.match_date, mc.match_id
+                from serving_v2.match_catalog mc
+                where l.entity_type = 'team'
+                  and mc.home_team_id = case
+                      when l.entity_id ~ '^[0-9]+$' then l.entity_id::bigint
+                  end
+
+                union all
+
+                select mc.competition_key, mc.competition_name, mc.season_label,
+                       mc.match_date, mc.match_id
+                from serving_v2.match_catalog mc
+                where l.entity_type = 'team'
+                  and mc.away_team_id = case
+                      when l.entity_id ~ '^[0-9]+$' then l.entity_id::bigint
+                  end
+
+                union all
+
+                select mc.competition_key, mc.competition_name, mc.season_label,
+                       mc.match_date, mc.match_id
+                from mart_v2.fact_match_player_stats ps
+                join serving_v2.match_catalog mc on mc.match_id = ps.match_id
+                where l.entity_type = 'player'
+                  and ps.player_key = l.entity_id
+            ) candidate
+            order by candidate.match_date desc, candidate.match_id desc
+            limit 1
+        ) context on l.entity_type in ('team', 'player')
+        order by l.entity_type, l.result_rank;
+        """,
+        [normalized_query, normalized_query, list(search_types), normalized_query, limit_per_type],
+    )
+
+    grouped: dict[str, list[dict[str, Any]]] = {search_type: [] for search_type in search_types}
+    skipped_count = 0
+    for row in rows:
+        entity_type = row.get("entity_type")
+        if entity_type not in grouped:
+            continue
+
+        metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+        competition_key = row.get("competition_key") or row.get("context_competition_key")
+        season_label = None
+        edition_key = row.get("edition_key")
+        if isinstance(edition_key, str) and ":" in edition_key:
+            season_label = edition_key.split(":", 1)[1]
+        season_label = season_label or row.get("context_season_label")
+        canonical_competition = get_canonical_competition_by_key(competition_key)
+
+        if entity_type == "competition":
+            payload = _control_competition_result_payload(
+                {
+                    "competition_key": row.get("entity_id"),
+                    "competition_name": row.get("label"),
+                }
+            )
+            if payload is None:
+                skipped_count += 1
+                continue
+        elif canonical_competition is None:
+            skipped_count += 1
+            continue
+        elif entity_type == "team":
+            default_context = _context_payload(
+                canonical_competition.competition_id,
+                canonical_competition.default_name,
+                season_label,
+            )
+            if default_context is None:
+                skipped_count += 1
+                continue
+            payload = {
+                "teamId": row.get("entity_id"),
+                "teamName": row.get("label"),
+                "teamType": _normalize_team_type(metadata.get("team_type")),
+                "defaultContext": default_context,
+            }
+        elif entity_type == "player":
+            default_context = _context_payload(
+                canonical_competition.competition_id,
+                canonical_competition.default_name,
+                season_label,
+            )
+            if default_context is None:
+                skipped_count += 1
+                continue
+            payload = {
+                "playerId": row.get("entity_id"),
+                "playerName": row.get("label"),
+                "teamId": None,
+                "teamName": None,
+                "position": metadata.get("position_name"),
+                "defaultContext": default_context,
+            }
+        else:
+            default_context = _context_payload(
+                canonical_competition.competition_id,
+                canonical_competition.default_name,
+                season_label,
+            )
+            if default_context is None:
+                skipped_count += 1
+                continue
+            payload = {
+                "matchId": row.get("entity_id"),
+                "competitionId": default_context["competitionId"],
+                "competitionName": canonical_competition.default_name,
+                "seasonId": default_context["seasonId"],
+                "roundId": None,
+                "kickoffAt": metadata.get("match_date"),
+                "status": None,
+                "homeTeamId": str(metadata["home_team_id"]) if metadata.get("home_team_id") is not None else None,
+                "homeTeamName": metadata.get("home_team_name"),
+                "awayTeamId": str(metadata["away_team_id"]) if metadata.get("away_team_id") is not None else None,
+                "awayTeamName": metadata.get("away_team_name"),
+                "homeScore": metadata.get("home_goals"),
+                "awayScore": metadata.get("away_goals"),
+                "defaultContext": default_context,
+            }
+
+        grouped[entity_type].append(payload)
+
+    results: list[dict[str, Any]] = []
+    for search_type in search_types:
+        items = grouped[search_type]
+        results.append({"type": search_type, "items": items, "total": len(items)})
 
     return results, skipped_count
 
@@ -823,6 +997,26 @@ def get_global_search(
         date_range_start=None,
         date_range_end=None,
     )
+
+    if get_settings().data_layer == "serving_v2":
+        groups, skipped_results = _search_serving_v2(
+            normalized_query,
+            search_types=search_types,
+            limit_per_type=limitPerType,
+        )
+        total_results = sum(group["total"] for group in groups)
+        return build_api_response(
+            {
+                "query": " ".join(q.strip().split()),
+                "groups": groups,
+                "totalResults": total_results,
+            },
+            request_id=_request_id(request),
+            coverage=_build_search_coverage(
+                returned_count=total_results,
+                skipped_count=skipped_results,
+            ),
+        )
 
     groups: list[dict[str, Any]] = []
     total_results = 0
